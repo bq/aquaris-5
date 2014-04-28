@@ -242,7 +242,7 @@ static void init_dpi(BOOL isDpiPoweredOn)
 void init_dsi(BOOL isDsiPoweredOn)
 {
     DSI_CHECK_RET(DSI_Init(isDsiPoweredOn));
-	if(1 == lcm_params->dsi.compatibility_for_nvk)
+	if(0 < lcm_params->dsi.compatibility_for_nvk)
 		DSI_CHECK_RET(DSI_TXRX_Control(TRUE,                    //cksm_en
                                    TRUE,                    //ecc_en
                                    lcm_params->dsi.LANE_NUM, //ecc_en

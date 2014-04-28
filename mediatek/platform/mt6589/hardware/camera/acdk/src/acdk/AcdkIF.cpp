@@ -274,6 +274,18 @@ MBOOL MDK_IOControl(MUINT32 a_u4Ioctl, ACDK_FEATURE_INFO_STRUCT *a_prAcdkFeature
                                             a_prAcdkFeatureInfo->pu4RealParaOutLen); 
     }    
 
+
+    if(a_u4Ioctl > ACDK_COMMAND_START && a_u4Ioctl < ACDK_COMMAND_END)
+    {
+        ACDK_LOGD("ACDK_COMMAND");
+        bRet = g_pAcdkBaseObj->sendcommand (a_u4Ioctl, 
+                                            a_prAcdkFeatureInfo->puParaIn, 
+                                            a_prAcdkFeatureInfo->u4ParaInLen, 
+                                            a_prAcdkFeatureInfo->puParaOut, 
+                                            a_prAcdkFeatureInfo->u4ParaOutLen, 
+                                            a_prAcdkFeatureInfo->pu4RealParaOutLen);        
+    }
+
     ACDK_LOGD("-");
     return MTRUE; 
 }

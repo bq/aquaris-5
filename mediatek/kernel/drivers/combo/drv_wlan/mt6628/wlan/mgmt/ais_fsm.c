@@ -1159,6 +1159,11 @@ aisFsmInit (
             (PFN_MGMT_TIMEOUT_FUNC)aisFsmRunEventJoinTimeout,
             (UINT_32)NULL);
 
+    cnmTimerInitTimer(prAdapter,
+                &prAisFsmInfo->rScanDoneTimer,
+                (PFN_MGMT_TIMEOUT_FUNC)aisFsmRunEventScanDoneTimeOut,
+                (UINT_32)NULL);
+
     //4 <1.2> Initiate PWR STATE
     SET_NET_PWR_STATE_IDLE(prAdapter, NETWORK_TYPE_AIS_INDEX);
 
@@ -1241,6 +1246,7 @@ aisFsmUninit (
     cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rIbssAloneTimer);
     cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rIndicationOfDisconnectTimer);
     cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rJoinTimeoutTimer);
+    cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rScanDoneTimer); //Add by Enlai
 
     //4 <2> flush pending request
     aisFsmFlushRequest(prAdapter);
@@ -1652,6 +1658,7 @@ aisFsmStateAbort_JOIN (
 
     /* 3.2 reset local variable */
     prAisFsmInfo->fgIsInfraChannelFinished = TRUE;
+    prAdapter->rWifiVar.rConnSettings.fgIsConnReqIssued = FALSE;
 
     return;
 } /* end of aisFsmAbortJOIN() */
@@ -3802,6 +3809,64 @@ aisFsmDisconnect (
 
     return;
 } /* end of aisFsmDisconnect() */
+
+
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief This function will indicate an Event of Scan done Time-Out to AIS FSM.
+*
+* @param[in] u4Param  Unused timer parameter
+*
+* @return (none)
+*/
+/*----------------------------------------------------------------------------*/
+VOID
+aisFsmRunEventScanDoneTimeOut (
+    IN P_ADAPTER_T prAdapter,
+    UINT_32 u4Param
+    )
+{
+    DEBUGFUNC("aisFsmRunEventScanDoneTimeOut()");
+
+    P_AIS_FSM_INFO_T prAisFsmInfo;
+    ENUM_AIS_STATE_T eNextState;
+    P_CONNECTION_SETTINGS_T prConnSettings;
+
+    ASSERT(prAdapter);
+
+    prAisFsmInfo = &(prAdapter->rWifiVar.rAisFsmInfo);
+    prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
+
+    DBGLOG(AIS, STATE, ("aisFsmRunEventScanDoneTimeOut Current[%d]\n",prAisFsmInfo->eCurrentState));
+
+    prConnSettings->fgIsScanReqIssued = FALSE;
+    kalScanDone(prAdapter->prGlueInfo, KAL_NETWORK_TYPE_AIS_INDEX, WLAN_STATUS_SUCCESS);
+    eNextState = prAisFsmInfo->eCurrentState;
+
+    switch (prAisFsmInfo->eCurrentState) {
+            case AIS_STATE_SCAN:
+                prAisFsmInfo->u4ScanIELength = 0;
+                eNextState = AIS_STATE_IDLE;
+                break;
+            case AIS_STATE_ONLINE_SCAN:
+                /* reset scan IE buffer */
+                prAisFsmInfo->u4ScanIELength = 0;
+#if CFG_SUPPORT_ROAMING
+                eNextState = aisFsmRoamingScanResultsUpdate(prAdapter);
+#else
+                eNextState = AIS_STATE_NORMAL_TR;
+#endif /* CFG_SUPPORT_ROAMING */
+                break;
+            default:
+                break;
+        }
+
+        if (eNextState != prAisFsmInfo->eCurrentState) {
+            aisFsmSteps(prAdapter, eNextState);
+        }
+
+    return;
+} /* end of aisFsmBGSleepTimeout() */
 
 
 /*----------------------------------------------------------------------------*/

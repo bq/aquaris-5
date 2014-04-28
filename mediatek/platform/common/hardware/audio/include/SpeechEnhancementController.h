@@ -32,12 +32,21 @@ class SpeechEnhancementController
         sph_enh_mask_struct_t GetSpeechEnhancementMask() const { return mSpeechEnhancementMask; }
         status_t SetSpeechEnhancementMaskToAllModem(const sph_enh_mask_struct_t &mask);
 
+        bool GetDynamicMask(const sph_enh_dynamic_mask_t dynamic_mask_type) const { return ((mSpeechEnhancementMask.dynamic_func & dynamic_mask_type) > 0); }
+        status_t SetDynamicMaskOnToAllModem(const sph_enh_dynamic_mask_t dynamic_mask_type, const bool new_flag_on);
+
+
+        bool GetMagicConferenceCallOn() const { return mMagicConferenceCallOn; }
+        void SetMagicConferenceCallOn(const bool magic_conference_call_on);
+
 
     private:
         SpeechEnhancementController();
         static SpeechEnhancementController *mSpeechEnhancementController; // singleton
 
         sph_enh_mask_struct_t mSpeechEnhancementMask;
+
+        bool mMagicConferenceCallOn;
 };
 
 

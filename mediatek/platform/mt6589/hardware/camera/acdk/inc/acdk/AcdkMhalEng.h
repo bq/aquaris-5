@@ -204,7 +204,23 @@ namespace NSAcdkMhal
                        *-0 indicates success, otherwise indicates fail
                      */
             virtual MINT32 acdkMhalCaptureProc();
-            
+
+            /**                       
+                       *@brief  Get shutter time in us
+                       *@return
+                       *-0 indicates success, otherwise indicates fail
+                     */
+            virtual MUINT32 acdkMhalGetShutTime();
+
+            /**                       
+                       *@brief  Set shutter time
+                       *
+                       *@param[in] a_time : specific shutter time in us
+                       *
+                       *@return
+                       *-0 indicates success, otherwise indicates fail
+                     */
+            virtual MVOID acdkMhalSetShutTime(MUINT32 a_time);
             /**                       
                        *@brief  Get AF information sucuess or fail
                        *@return
@@ -280,8 +296,9 @@ namespace NSAcdkMhal
             
             acdkMhalState_e mAcdkMhalState;
 
-            //3A object  
+            //3A
             Hal3ABase *m_p3AHal;
+            CaptureParam_T mCap3AParam;
     };
 };
 

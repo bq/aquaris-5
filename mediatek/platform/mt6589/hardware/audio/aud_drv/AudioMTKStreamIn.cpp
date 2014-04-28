@@ -1357,7 +1357,9 @@ status_t AudioMTKStreamIn::addAudioEffect(effect_handle_t effect)
     int status;
     effect_descriptor_t desc;
     const uint8_t num_channel = (channels() == AUDIO_CHANNEL_IN_STEREO) ? 2 : 1;
+    mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK, 3000);
     MutexLock();
+    mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK);        
     if (mAPPS->num_preprocessors >= MAX_PREPROCESSORS)
     {
         status = -ENOSYS;
@@ -1389,10 +1391,12 @@ status_t AudioMTKStreamIn::addAudioEffect(effect_handle_t effect)
             {
                 MutexUnlock();
                 standby();
+                mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK, 3000);
                 MutexLock();
                 /* stop reading from echo reference */
                 mAPPS->stop_echo_reference(mEcho_Reference);
                 mEcho_Reference = NULL;
+                mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK);
             }
             else
             {
@@ -1422,7 +1426,9 @@ status_t AudioMTKStreamIn::removeAudioEffect(effect_handle_t effect)
     int i;
     int status = -EINVAL;
     effect_descriptor_t desc;
+    mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK, 3000);
     MutexLock();
+    mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK);
     if (mAPPS->num_preprocessors <= 0)
     {
         status = -ENOSYS;
@@ -1476,10 +1482,12 @@ status_t AudioMTKStreamIn::removeAudioEffect(effect_handle_t effect)
             {
                 MutexUnlock();
                 standby();
+                mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK, 3000);
                 MutexLock ();
                 /* stop reading from echo reference */
                 mAPPS->stop_echo_reference(mEcho_Reference);
                 mEcho_Reference = NULL;
+                mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGERCLIENT_LOCK);
             }
         }
     }
@@ -2195,6 +2203,16 @@ bool AudioMTKStreamIn::IsHDRecordRunning(void)
 }
 
 #endif
+
+void AudioMTKStreamIn::ClearFSync()
+{
+    mStreamInManager->ClearFSync();
+}
+
+bool AudioMTKStreamIn::GetFSyncFlag()
+{
+    return mStreamInManager->GetFSyncFlag();
+}
 
 }
 

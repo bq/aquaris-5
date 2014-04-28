@@ -62,10 +62,6 @@ int dramc_ta1(unsigned int start, unsigned int len, void *ext_arg){
     int err =  TEST_PASS;
     int check_result = (int)ext_arg;
     unsigned int data;
-    if (RANK_CURR == 1){
-       /*setup dramc test agent base address for rank1 test*/
-       DRAMC_WRITE_SET((0xF<<20),DRAMC_TEST2_1);
-    }
     /* set test patern length*/
     data = DRAMC_READ_REG(0x40);
     DRAMC_WRITE_REG((data & 0xFF000000) | len, 0x40);

@@ -497,6 +497,29 @@ int AudioMachineDevice::GetAnalogGain(AudioAnalogType::VOLUME_TYPE VoleumType)
 status_t AudioMachineDevice::SetAnalogMute(AudioAnalogType::VOLUME_TYPE VoleumType, bool mute)
 {
     ALOGD("SetAnalogMute VOLUME_TYPE = %d mute = %d ", VoleumType, mute);
+    switch (VoleumType)
+    {
+        case AudioAnalogType::VOLUME_HSOUTL:
+        case AudioAnalogType::VOLUME_HSOUTR:
+        case AudioAnalogType::VOLUME_HPOUTL:
+        case AudioAnalogType::VOLUME_HPOUTR:
+        case AudioAnalogType::VOLUME_SPKL:
+        case AudioAnalogType::VOLUME_SPKR:
+        case AudioAnalogType::VOLUME_SPEAKER_HEADSET_R:
+        case AudioAnalogType::VOLUME_SPEAKER_HEADSET_L:
+        case AudioAnalogType::VOLUME_IV_BUFFER:
+        {
+            #ifdef USING_EXTAMP_HP
+            mAudioAnalogReg->SetAnalogReg(AFUNC_AUD_CON2, mute<<7, 0x0080);
+            #else
+            // do nothing
+            #endif
+        }
+        break;
+        default:
+            ALOGD("SetAnalogMute no use");
+            break;
+    }
     return NO_ERROR;
 }
 
@@ -913,7 +936,7 @@ status_t AudioMachineDevice::AnalogClose(AudioAnalogType::DEVICE_TYPE DeviceType
         case AudioAnalogType::DEVICE_OUT_SPEAKERL:
             // tell kernel to open device
             ioctl(mFd,SET_SPEAKER_OFF,NULL);
-
+            usleep(50 * 1000);    //mtk tell to add
             #ifdef USING_EXTAMP_HP
             mLock.unlock ();
             AnalogClose(AudioAnalogType::DEVICE_OUT_HEADSETR);
@@ -1076,9 +1099,11 @@ status_t AudioMachineDevice::AnalogClose(AudioAnalogType::DEVICE_TYPE DeviceType
                     mAudioAnalogReg->SetAnalogReg(0x0714,0x0192,0xffff);
                 }
             }
+            mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0000,0x0002);
             break;
         case AudioAnalogType::DEVICE_IN_DIGITAL_MIC:
             mAudioAnalogReg->SetAnalogReg(0x072C ,0x0080,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0000,0x0002);
             break;
         case AudioAnalogType::DEVICE_OUT_LINEOUTR:
         case AudioAnalogType::DEVICE_OUT_LINEOUTL:
@@ -1310,6 +1335,23 @@ status_t AudioMachineDevice::AnalogSetMux(AudioAnalogType::DEVICE_TYPE DeviceTyp
 */
 status_t AudioMachineDevice::setParameters(int command1 , int command2 , unsigned int data)
 {
+    ALOGD("AudioMachineDevice setParameters command1 = %d command2 = %d", command1, command2);
+    switch(command1)
+    {
+        #ifdef MTK_3MIC_SUPPORT=yes
+        case INFO_U2K_MICANA_SWITCH:
+        {
+            _Info_Data Info_data;
+            Info_data.info =INFO_U2K_MICANA_SWITCH;
+            Info_data.param1 = command2;
+            ALOGD("YUSU_INFO_FROM_USER INFO_U2K_MICANA_SWITCH");
+            ioctl(mFd,YUSU_INFO_FROM_USER,&Info_data);
+            break;
+        }
+        #endif
+        default :
+        ALOGW("setParameters woth no such command = %d",command1);
+    }
     return NO_ERROR;
 }
 

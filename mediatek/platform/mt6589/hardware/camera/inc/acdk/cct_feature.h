@@ -112,7 +112,6 @@ typedef enum
     ACDK_CCT_OP_DEV_GET_DSC_INFO,
     ACDK_CCT_OP_RESUME_AE_AWB_PREVIEW_FROM_UNFINISHED_CAPTURE,
     ACDK_CCT_OP_DEV_MODE_SIZE,
-    ACDK_CMD_GET_AF_INFO,
 
     //NVRAM
     ACDK_CCT_OP_LOAD_FROM_NVRAM = CCT_NVRAM_FEATURE_START,               //load from nvram
@@ -475,6 +474,7 @@ typedef struct STILL_CAPTURE_STRUCT_S
     UINT16 u2JPEGEncHeight;
     Func_CB fpCapCB;
     MINT32 i4IsSave; //0-don't save, 1-save
+    MBOOL bUnPack;
 public :
     STILL_CAPTURE_STRUCT_S(eCAMERA_MODE a_camMode = CAPTURE_MODE,
                                          eACDK_OPERA_MODE a_operaMode = ACDK_OPT_META_MODE,
@@ -482,14 +482,16 @@ public :
                                          UINT16 a_jpegEncWdth = 0,
                                          UINT16 a_jpegEncHeight = 0,
                                          Func_CB a_funCB = NULL,
-                                         MINT32 a_isSave = 0)
+                                         MINT32 a_isSave = 0,
+                                         MBOOL a_unPack = MFALSE)
                                                     : eCameraMode(a_camMode),
                                                       eOperaMode(a_operaMode),
                                                       eOutputFormat(a_outFormat),
                                                       u2JPEGEncWidth(a_jpegEncWdth),
                                                       u2JPEGEncHeight(a_jpegEncHeight),
                                                       fpCapCB(a_funCB),
-                                                      i4IsSave(a_isSave)
+                                                      i4IsSave(a_isSave),
+                                                      bUnPack(a_unPack)
 
     {
     }
@@ -499,6 +501,7 @@ typedef struct
 {
     UINT16 u2PreviewWidth;
     UINT16 u2PreviewHeight;
+    UINT16 u16PreviewTestPatEn;
     Func_CB fpPrvCB;
     eACDK_OPERA_MODE eOperaMode;
 }ACDK_CCT_CAMERA_PREVIEW_STRUCT, *PACDK_CCT_CAMERA_PREVIEW_STRUCT;

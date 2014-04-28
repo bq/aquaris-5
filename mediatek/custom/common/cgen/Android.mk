@@ -36,6 +36,19 @@
 LOCAL_PATH:=$(call my-dir)
 include $(CLEAR_VARS)
 #LOCAL_ARM_MODE:=arm
+
+# DMNR 3.0
+ifeq ($(strip $(MTK_HANDSFREE_DMNR_SUPPORT)),yes)
+  LOCAL_CFLAGS += -DMTK_HANDSFREE_DMNR_SUPPORT
+endif
+# DMNR 3.0
+
+# VOIP enhance Support
+ifeq ($(MTK_VOIP_ENHANCEMENT_SUPPORT),yes)
+LOCAL_CFLAGS += -DMTK_VOIP_ENHANCEMENT_SUPPORT
+endif
+# VOIP enhance Support
+
 LOCAL_SHARED_LIBRARIES:= libc libcutils
 LOCAL_SRC_FILES:= \
 	CFG_file_info.c

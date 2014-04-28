@@ -53,6 +53,11 @@ AudioMTKStreamInClient::AudioMTKStreamInClient(uint32 BuffeSize, uint32 clientid
     ASSERT(mBliOutputLinearBuffer != NULL);
     mMemDataType = 0;//by Changqing
 
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+    mEnableBesRecord = true;
+    mStreamIn = NULL;
+#endif
+
     ALOGD("AudioMTKStreamInClient constructor pBufBase = 0x%x  mClientId = %d",
           mRingBuf.pBufBase, mClientId);
 }

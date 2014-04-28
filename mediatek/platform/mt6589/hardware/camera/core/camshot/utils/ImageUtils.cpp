@@ -230,7 +230,7 @@ queryImgBufSize(EImageFormat const eFmt, MUINT32 const u4Width, MUINT32 const u4
         }  
             break; 
         case eImgFmt_JPEG:
-            u4BufSize = u4Width * u4Height;    //? assume the JPEG ratio is 1/2 
+            u4BufSize = u4Width * u4Height * 6 / 5; // * 2 / 4; //? assume the JPEG ratio is 1/4 			
             break; 
         case eImgFmt_Y800:
             u4BufSize = u4Width * u4Height; 

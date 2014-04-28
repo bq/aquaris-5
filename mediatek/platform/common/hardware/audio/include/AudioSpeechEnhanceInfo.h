@@ -12,10 +12,13 @@
 
 #include <audio_utils/echo_reference.h>
 #include "AudioMTKStreamOut.h"
+#include "AudioSpeechEnhLayer.h"
+#include "SpeechType.h"
 
 namespace android
 {
 class AudioMTKStreamOut;
+class AudioMTKStreamIn;
 enum ENUM_SPH_FIR_COEFF
 {
     SPH_FIR_COEFF_NORMAL            = 0,
@@ -61,7 +64,38 @@ class AudioSpeechEnhanceInfo
 
 		status_t SetHDRecVMFileName(const char *fileName);
 		void GetHDRecVMFileName(char * VMFileName);
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+		void SetSPEPointer(AudioMTKStreamIn * pMTKStreamIn, SPELayer *pSPE);
+		void ClearSPEPointer(AudioMTKStreamIn * pMTKStreamIn);	
+		bool IsVoIPActive(AudioMTKStreamIn * pMTKStreamIn = 0);
+		bool IsInputStreamAlive(void);
+
+		void WriteReferenceBuffer(struct InBufferInfo *Binfo);
 		
+		void GetDownlinkIntrStartTime(void);
+
+		void NeedUpdateVoIPParams(void);
+
+		void SetEnableNormalModeVoIP(bool bEnable);
+		bool GetEnableNormalModeVoIP(void);
+
+		void SetOutputStreamRunning(bool bRun);
+#endif 
+
+
+#ifndef DMNR_TUNNING_AT_MODEMSIDE		
+		//for DMNR tuning in AP side
+		void SetAPDMNRTuningEnable(bool bEnable);
+		bool IsAPDMNRTuningEnable(void);
+#endif
+ 
+#if defined(MTK_HANDSFREE_DMNR_SUPPORT) && defined(MTK_VOIP_ENHANCEMENT_SUPPORT)
+
+		//get the MMI switch info
+		bool GetDynamicSpeechEnhancementMaskOnOff(const sph_enh_dynamic_mask_t dynamic_mask_type);
+		void UpdateDynamicSpeechEnhancementMask(void);
+#endif
+
     private:
         AudioSpeechEnhanceInfo();
         ~AudioSpeechEnhanceInfo();
@@ -71,12 +105,22 @@ class AudioSpeechEnhanceInfo
     	int32 mHdRecScene; // for HD Record
     	bool mIsLRSwitch;
 		int32 mUseSpecificMic;
+
         Mutex mHDRInfoLock;
 		AudioMTKStreamOut *mStreamOut;
 
 		//for HDRec tunning
 		bool mHDRecTunningEnable;
 		char mVMFileName[128];
+#ifndef DMNR_TUNNING_AT_MODEMSIDE		
+		bool mAPDMNRTuningEnable;
+#endif
+
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT		
+		bool mEnableNormalModeVoIP;
+		KeyedVector<AudioMTKStreamIn *, SPELayer *> mSPELayerVector; // vector to save current recording client
+#endif
+		
 };
 
 }

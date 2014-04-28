@@ -302,37 +302,52 @@ status_t AudioResourceManager::TurnonAudioDeviceIncall(unsigned int mDlOutputDev
     ALOGD("TurnonAudioDeviceIncall mDlOutputDevice = 0x%x", mDlOutputDevice);
 
     SetMicInvserse(mMicInverseSetting);
+    uint32 DeviceCount = PopCount(mDlOutputDevice);
+    ALOGD("TurnonAudioDevice = 0x%x DeviceCount = %d", mDlOutputDevice, DeviceCount);
+    if (DeviceCount == 1) {
+        if (mDlOutputDevice & AUDIO_DEVICE_OUT_EARPIECE)
+        {
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_EARPIECER , AudioAnalogType::MUX_VOICE);
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_EARPIECER , AudioAnalogType::MUX_VOICE);
+            mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_EARPIECER, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
+        }
+        if (mDlOutputDevice & AUDIO_DEVICE_OUT_SPEAKER)
+        {
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERR , AudioAnalogType::MUX_AUDIO);
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERL , AudioAnalogType::MUX_AUDIO);
+            mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_SPEAKERR, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
+        }
+        if ((mDlOutputDevice & AUDIO_DEVICE_OUT_WIRED_HEADSET) || (mDlOutputDevice & AUDIO_DEVICE_OUT_WIRED_HEADPHONE))
+        {
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETR , AudioAnalogType::MUX_AUDIO);
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETL , AudioAnalogType::MUX_AUDIO);
+            mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_HEADSETR, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
+        }
+        if (mDlOutputDevice & AUDIO_DEVICE_OUT_FM_TX)
+        {
+            // do nothing
+        }
+        if (mDlOutputDevice & AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET)
+        {
+            // fix me , may not use HeadSetDetect
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETR , AudioAnalogType::MUX_AUDIO);
+            mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETL , AudioAnalogType::MUX_AUDIO);
+            mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_HEADSETR, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
+        }
+        if (mDlOutputDevice & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET)
+        {
+            // do nothing
+        }
+        if (mDlOutputDevice & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+            //todo :: if htere is analog block need to turn onAsBinde
+        }
+    }
+    else
+    {
+        if (mDlOutputDevice & AUDIO_DEVICE_OUT_SPEAKER)
+            mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_SPEAKER_HEADSET_R, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
+   }
 
-    if (mDlOutputDevice & AUDIO_DEVICE_OUT_EARPIECE) {
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_EARPIECER , AudioAnalogType::MUX_VOICE);
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_EARPIECER , AudioAnalogType::MUX_VOICE);
-        mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_EARPIECER, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
-    }
-    if (mDlOutputDevice & AUDIO_DEVICE_OUT_SPEAKER) {
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERR , AudioAnalogType::MUX_AUDIO);
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERL , AudioAnalogType::MUX_AUDIO);
-        mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_SPEAKERR, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
-    }
-    if ((mDlOutputDevice & AUDIO_DEVICE_OUT_WIRED_HEADSET) || (mDlOutputDevice & AUDIO_DEVICE_OUT_WIRED_HEADPHONE)) {
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETR , AudioAnalogType::MUX_AUDIO);
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETL , AudioAnalogType::MUX_AUDIO);
-        mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_HEADSETR, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
-    }
-    if (mDlOutputDevice & AUDIO_DEVICE_OUT_FM_TX) {
-        // do nothing
-    }
-    if (mDlOutputDevice & AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET) {
-        // fix me , may not use HeadSetDetect
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETR , AudioAnalogType::MUX_AUDIO);
-        mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETL , AudioAnalogType::MUX_AUDIO);
-        mAudioAnalogInstance->AnalogOpen(AudioAnalogType::DEVICE_OUT_HEADSETR, AudioAnalogType::DEVICE_PLATFORM_MACHINE);
-    }
-    if (mDlOutputDevice & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET)   {
-        // do nothing
-    }
-    if (mDlOutputDevice & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-        //todo :: if htere is analog block need to turn onAsBinde
-    }
     // do set analog gain control
     if (IsModeIncall() == false) {
         mAudioVolumeInstance->setMasterVolume(mAudioVolumeInstance->getMasterVolume(), mAudioMode, mDlOutputDevice);
@@ -769,6 +784,18 @@ bool AudioResourceManager::IsModeIncall(void)
 status_t AudioResourceManager::setParameters(int command1 , int command2 , unsigned int data)
 {
     ALOGD("command1 = %d command2 = %d", command1, command2);
+    switch(command1)
+    {
+        #ifdef MTK_3MIC_SUPPORT
+        case INFO_U2K_MICANA_SWITCH:
+        {
+            mAudioAnalogInstance->setParameters (command1,command2 ,0);
+            break;
+        }
+        #endif
+        default :
+            ALOGW("setParameters woth no such command = %d",command1);
+    }
     return NO_ERROR;
 }
 
@@ -812,5 +839,23 @@ status_t AudioResourceManager::SetMicInvserse(bool bEnable)
     #endif
     return NO_ERROR;
 }
+
+status_t AudioResourceManager::SetHardwareMute(bool bEnable)
+{
+    EnableAudioLock(AudioResourceManagerInterface::AUDIO_HARDWARE_LOCK, 3000);
+    EnableAudioLock(AudioResourceManagerInterface::AUDIO_MODE_LOCK, 3000);
+    EnableAudioLock(AudioResourceManagerInterface::AUDIO_VOLUME_LOCK, 3000);
+    if( (mHardwareMute != bEnable) && (mAudioMode != AUDIO_MODE_IN_CALL) &&  (mAudioMode!= AUDIO_MODE_IN_CALL_2 ) && mDlOutputDevice == AUDIO_DEVICE_OUT_SPEAKER)
+    {
+         ALOGD("SetHardwareMute bEnable = %d mHardwareMute = %d mAudioMode = %d",bEnable,mHardwareMute,mAudioMode);
+         mAudioAnalogInstance->SetAnalogMute (AudioAnalogType::VOLUME_HPOUTL, bEnable);
+         mHardwareMute =  bEnable;
+    }
+    DisableAudioLock(AudioResourceManagerInterface::AUDIO_HARDWARE_LOCK);
+    DisableAudioLock(AudioResourceManagerInterface::AUDIO_MODE_LOCK);
+    DisableAudioLock(AudioResourceManagerInterface::AUDIO_VOLUME_LOCK);
+    return NO_ERROR;
+}
+
 
 }

@@ -318,8 +318,113 @@ status_t AudioMTKStreamManager::ForceAllStandby()
     return NO_ERROR;
 }
 
+// FSync flag
+bool AudioMTKStreamManager::GetFSyncFlag(int streamType)
+{
+    ALOGV("GetFSyncFlag - stream type:%d", streamType);
+    bool FSyncFlag = false;
+    size_t i = 0;
+    if (streamType==0) {
+        // for input stream
+        if (mStreamInVector.size()) {
+            for (i=0;i<mStreamInVector.size();i++) {
+                AudioMTKStreamIn  *pTempIn = (AudioMTKStreamIn *)mStreamInVector.valueAt(i);
+                FSyncFlag |= pTempIn->GetFSyncFlag();
+            }
+        }
+    }else if (streamType==1) {
+        // for output stream
+        if (mStreamOutVector.size()) {
+            for (i=0;i<mStreamOutVector.size();i++) {
+                AudioMTKStreamOut  *pTempOut = (AudioMTKStreamOut *)mStreamOutVector.valueAt(i);
+                FSyncFlag |= pTempOut->GetFSyncFlag();
+            }
+        }
+    }
+
+    return FSyncFlag;
+}
+void AudioMTKStreamManager::ClearFSync(int streamType)
+{
+    ALOGV("ClearFSync - stream type:%d", streamType);
+    size_t i = 0;
+    if (streamType==0) {
+        // for input stream
+        if (mStreamInVector.size()) {
+            for (i=0;i<mStreamInVector.size();i++) {
+                AudioMTKStreamIn  *pTempIn = (AudioMTKStreamIn *)mStreamInVector.valueAt(i);
+                pTempIn->ClearFSync();
+            }
+        }
+    }else if (streamType==1) {
+        // for output stream
+        if (mStreamOutVector.size()) {
+            for (i=0;i<mStreamOutVector.size();i++) {
+                AudioMTKStreamOut  *pTempOut = (AudioMTKStreamOut *)mStreamOutVector.valueAt(i);
+                pTempOut->ClearFSync();
+            }
+        }
+    }
 }
 
+status_t AudioMTKStreamManager::setParameters(const String8 &keyValuePairs,int IOport)
+{
+    size_t i = 0;
+    if(IOport ==AudStreamOutput||IOport ==AudStreamInputOutput)
+    {
+        if (mStreamOutVector.size())
+        {
+            for (i=0;i<mStreamOutVector.size();i++)
+            {
+                AudioMTKStreamOut  *pTempOut = (AudioMTKStreamOut *)mStreamOutVector.valueAt(i);
+                pTempOut->setParameters(keyValuePairs);
+            }
+        }
+    }
+    else if(IOport == AudStreamInput ||IOport == AudStreamInputOutput)
+    {
+        if (mStreamInVector.size())
+        {
+            for (i=0;i<mStreamInVector.size();i++)
+            {
+                AudioMTKStreamIn  *pTempIn = (AudioMTKStreamIn *)mStreamInVector.valueAt(i);
+                pTempIn->setParameters(keyValuePairs);
+            }
+        }
+    }
+    return NO_ERROR;
+}
+
+String8 AudioMTKStreamManager::getParameters(const String8 &keys,int IOport)
+{
+    size_t i = 0;
+    String8 rvalue;
+    if(IOport ==AudStreamOutput )
+    {
+        if (mStreamOutVector.size())
+        {
+            for (i=0;i<mStreamOutVector.size();i++)
+            {
+                AudioMTKStreamOut  *pTempOut = (AudioMTKStreamOut *)mStreamOutVector.valueAt(i);
+                rvalue =  pTempOut->getParameters(keys);
+            }
+        }
+    }
+    else
+    {
+        if (mStreamInVector.size())
+        {
+            for (i=0;i<mStreamInVector.size();i++)
+            {
+                AudioMTKStreamIn  *pTempIn = (AudioMTKStreamIn *)mStreamInVector.valueAt(i);
+                rvalue =  pTempIn->getParameters(keys);
+            }
+        }
+    }
+    return rvalue;
+}
+
+}
 
 
 

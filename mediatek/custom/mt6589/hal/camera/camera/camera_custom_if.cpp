@@ -72,12 +72,12 @@ namespace NSCamCustom
 /*******************************************************************************
 * custom exif
 *******************************************************************************/
-//#define EN_CUSTOM_EXIF_INFO
+#define EN_CUSTOM_EXIF_INFO
 MINT32 custom_SetExif(void **ppCustomExifTag)
 {
 #ifdef EN_CUSTOM_EXIF_INFO
-#define CUSTOM_EXIF_STRING_MAKE  "custom make"
-#define CUSTOM_EXIF_STRING_MODEL "custom model"
+#define CUSTOM_EXIF_STRING_MAKE  "bq"
+#define CUSTOM_EXIF_STRING_MODEL "Aquaris 5"
 #define CUSTOM_EXIF_STRING_SOFTWARE "custom software"
 static customExifInfo_t exifTag = {CUSTOM_EXIF_STRING_MAKE,CUSTOM_EXIF_STRING_MODEL,CUSTOM_EXIF_STRING_SOFTWARE};
     if (0 != ppCustomExifTag) {

@@ -504,6 +504,9 @@ int do_sw_tx_dq_dqs_calib(void){
     unsigned int finish_count;
 
     dbg_print("in do_sw_tx_dq_dqs_calib()\n");
+    #ifdef TX_SHORT_CALI
+    print("in do_sw_tx_dq_dqs_calib new\n");    //For dram vendor recommand
+    #endif
     for(i = 0; i < 4; i++)
     {
         //dqs_perbyte_dly[i].first_dqdly_pass = -1; 
@@ -552,13 +555,14 @@ int do_sw_tx_dq_dqs_calib(void){
             data = (data & mask) | ((i <<0) | (i<<4) | (i <<8) | (i <<12));
             //dbg_print("mask:%x, data:%x\n",mask,data);
             DRAMC_WRITE_REG(data,DRAMC_PADCTL3);
-
+            #ifndef TX_SHORT_CALI
             //adjust CMD addr output delay
             calib_cmd_addr_output_dly_factor_handler(i);
             //adjust CLK delay
             calib_clk_output_dly_factor_handler(i);
             //gating window calibration
             do_dqs_gw_calib_1();
+            #endif
             /* 2.2 use test agent to find the pass range */
             /* set test patern length*/
             DRAMC_WRITE_REG(0x55000000,0x3C);
@@ -596,13 +600,14 @@ int do_sw_tx_dq_dqs_calib(void){
         
         /* 3. fix DQS delay = 0, delay DQ to find the pass range  */
         DRAMC_WRITE_CLEAR(0xFFFF ,DRAMC_PADCTL3);
+        #ifndef TX_SHORT_CALI
         //adjust CMD addr output delay
         calib_cmd_addr_output_dly_factor_handler(0);
         //adjust CLK delay
         calib_clk_output_dly_factor_handler(0);
         //gating window calibration
         do_dqs_gw_calib_1();
-
+        #endif
         //dqs_perbyte_dly[byte].first_dqdly_pass = 0;
         //dbg_print("dqs_perbyte_dly.first_dqdly_pass=%x \n",dqs_perbyte_dly[byte].first_dqdly_pass);
 
@@ -851,6 +856,7 @@ int dramc_calib(void)
     {
         /*modify MA type*/
         //printf("before:0x04:%x\n",*((volatile unsigned *)(DRAMC0_BASE + 0x04)));
+        RANK_CURR = 1; 
         rank1_col = (*(volatile unsigned *)(EMI_CONA) & (0x3<<6))>>6;
         *((volatile unsigned *)(DRAMC0_BASE + 0x04)) = (*((volatile unsigned *)(DRAMC0_BASE + 0x04)) & (~(0x3 << 8)))| (rank1_col << 8);
         *((volatile unsigned *)(EMI_CONA)) = (*((volatile unsigned *)(EMI_CONA)) & (~(0x3 << 4)))| (rank1_col << 4);
@@ -890,7 +896,7 @@ int dramc_calib(void)
         *((volatile unsigned *)(DRAMC0_BASE + 0x0110)) &= (~0x8);
         *((volatile unsigned *)(DDRPHY_BASE + 0x0110)) &= (~0x8);
     }
-
+     RANK_CURR = 0; 
     *(volatile unsigned *)(EMI_CONA) = bak_cona;
     *((volatile unsigned *)(DRAMC0_BASE + 0x04))= bak_conf1;
     dqsi_gw_dly_coarse_factor_handler(opt_gw_coarse_value0);
@@ -903,6 +909,8 @@ int dramc_calib(void)
     if (err < 0) {
         goto dramc_calib_exit;
     }
+    dqsi_gw_dly_coarse_factor_handler(opt_gw_coarse_value0);
+    dqsi_gw_dly_fine_factor_handler(opt_gw_fine_value0);    
 dramc_calib_exit:
 
 #if defined(DEBUG_DRAMC_CALIB)

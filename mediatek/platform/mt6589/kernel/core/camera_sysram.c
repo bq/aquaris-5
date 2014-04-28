@@ -53,6 +53,9 @@
 #include <mach/camera_sysram.h>
 #include <mach/mt_reg_base.h>
 #include <mach/camera_sysram_imp.h>
+
+#define ISP_VALID_REG_RANGE  0x10000
+#define IMGSYS_BASE_ADDR     0x15000000
 //-----------------------------------------------------------------------------
 static SYSRAM_STRUCT Sysram;
 //------------------------------------------------------------------------------
@@ -947,6 +950,15 @@ static int SYSRAM_mmap(
 {
     //LOG_MSG("");
     pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
+	long length = pVma->vm_end - pVma->vm_start;
+	MUINT32 pfn=pVma->vm_pgoff<<PAGE_SHIFT;//page from number, physical address of kernel memory
+	LOG_WRN("pVma->vm_pgoff(0x%x),phy(0x%x),pVmapVma->vm_start(0x%x),pVma->vm_end(0x%x),length(0x%x)",\
+			pVma->vm_pgoff,pVma->vm_pgoff<<PAGE_SHIFT,pVma->vm_start,pVma->vm_end,length);
+	if((length>ISP_VALID_REG_RANGE) || (pfn<IMGSYS_BASE_ADDR) || (pfn>(IMGSYS_BASE_ADDR+ISP_VALID_REG_RANGE)))
+	{
+		LOG_ERR("mmap range error : vm_start(0x%x),vm_end(0x%x),length(0x%x),pfn(0x%x)!",pVma->vm_start,pVma->vm_end,length,pfn);
+		return -EAGAIN;
+	}
     if(remap_pfn_range(
             pVma,
             pVma->vm_start,

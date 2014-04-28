@@ -258,6 +258,8 @@
 #define AIS_JOIN_CH_GRANT_THRESHOLD         10
 #define AIS_JOIN_CH_REQUEST_INTERVAL        2000
 
+#define AIS_SCN_DONE_TIMEOUT_SEC            5
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -336,6 +338,9 @@ typedef struct _AIS_FSM_INFO_T {
     TIMER_T             rIndicationOfDisconnectTimer;
 
     TIMER_T             rJoinTimeoutTimer;
+
+
+    TIMER_T             rScanDoneTimer; 
 
     UINT_8              ucSeqNumOfReqMsg;
     UINT_8              ucSeqNumOfChReq;
@@ -623,6 +628,13 @@ aisFsmRunEventJoinTimeout (
     IN P_ADAPTER_T prAdapter,
     UINT_32 u4Param
     );
+
+VOID
+aisFsmRunEventScanDoneTimeOut (
+    IN P_ADAPTER_T prAdapter,
+    UINT_32 u4Param
+    );
+
 
 /*----------------------------------------------------------------------------*/
 /* OID/IOCTL Handling                                                         */

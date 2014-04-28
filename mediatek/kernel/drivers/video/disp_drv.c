@@ -930,6 +930,11 @@ DISP_STATUS DISP_PowerEnable(BOOL enable)
     if (!is_ipoh_bootup)
         needStartEngine = true;
 
+    if (enable && lcm_drv && lcm_drv->resume_power)
+    {
+		lcm_drv->resume_power();
+    }
+
 	ret = (disp_drv->enable_power) ?
 		(disp_drv->enable_power(enable)) :
 		DISP_STATUS_NOT_IMPLEMENTED;
@@ -937,7 +942,11 @@ DISP_STATUS DISP_PowerEnable(BOOL enable)
     if (enable) {
         DAL_OnDispPowerOn();
     }
-	
+    else if (lcm_drv && lcm_drv->suspend_power)
+    {
+        lcm_drv->suspend_power();
+    }
+
 	up(&sem_update_screen);
 
 
@@ -2595,6 +2604,18 @@ DISP_STATUS DISP_Capture_Framebuffer( unsigned int pvbuf, unsigned int bpp, unsi
     unsigned int ret = 0;
     M4U_PORT_STRUCT portStruct;
 	DISP_FUNC();
+	int i;
+    for (i=0; i<OVL_LAYER_NUM; i++)
+    {
+        if (cached_layer_config[i].layer_en && cached_layer_config[i].security)
+            break;
+    }
+    if (i < OVL_LAYER_NUM)
+    {
+        // There is security layer.
+        memset(pvbuf, 0, DISP_GetScreenHeight()*DISP_GetScreenWidth()*bpp/8);
+        return DISP_STATUS_OK;
+    }
 	disp_drv_init_context();
 	disp_module_clock_on(DISP_MODULE_WDMA1, "Screen Capture");
 

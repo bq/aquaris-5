@@ -225,6 +225,18 @@ class AudioMTKVolumeInterface
         * @return PGA gain
         */
         virtual uint16_t MappingToPGAGain(unsigned char Gain) = 0;
+        		
+        /**
+        * volume controller SetMicGainTuning
+        * base on mode gain and route to decide sidetone gain
+        * @param Mode
+        * @param Gain
+        * @param routes
+        * @return status_t
+        */
+        virtual status_t SetMicGainTuning(uint32_t Mode, uint32_t gain) = 0 ;
+        
+        virtual status_t ApplySideTone(uint32_t Mode) = 0;
 
 };
 

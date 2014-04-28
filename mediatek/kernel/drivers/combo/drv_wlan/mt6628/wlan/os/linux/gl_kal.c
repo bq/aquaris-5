@@ -3372,6 +3372,11 @@ kalScanDone(
 {
     ASSERT(prGlueInfo);
 
+    P_AIS_FSM_INFO_T prAisFsmInfo;
+    prAisFsmInfo = &(prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo);
+
+    cnmTimerStopTimer(prGlueInfo->prAdapter, &prAisFsmInfo->rScanDoneTimer);
+
     /* check for system configuration for generating error message on scan list */
     wlanCheckSystemConfiguration(prGlueInfo->prAdapter);
 

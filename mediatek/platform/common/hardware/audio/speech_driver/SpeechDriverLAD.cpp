@@ -98,7 +98,12 @@ speech_mode_t SpeechDriverLAD::GetSpeechModeByOutputDevice(const audio_devices_t
         speech_mode = SPEECH_MODE_BT_EARPHONE;
     }
     else if (output_device == AUDIO_DEVICE_OUT_SPEAKER) {
-        speech_mode = SPEECH_MODE_LOUD_SPEAKER;
+        if (SpeechEnhancementController::GetInstance()->GetMagicConferenceCallOn() == true) {
+            speech_mode = SPEECH_MODE_MAGIC_CON_CALL;
+        }
+        else {
+            speech_mode = SPEECH_MODE_LOUD_SPEAKER;
+        }
     }
     else if (output_device == AUDIO_DEVICE_OUT_WIRED_HEADSET ||
              output_device == AUDIO_DEVICE_OUT_WIRED_HEADPHONE) {
@@ -724,10 +729,15 @@ status_t SpeechDriverLAD::SetDualMicSpeechParameters(const AUDIO_CUSTOM_EXTRA_PA
 
 #if defined(MTK_WB_SPEECH_SUPPORT)
     // NVRAM always contain(44+76), for WB we send full (44+76)
-    const uint16_t data_length = sizeof(unsigned short) * (NUM_ABF_PARAM + NUM_ABFWB_PARAM); // NB + WB
+    uint16_t data_length = sizeof(unsigned short) * (NUM_ABF_PARAM + NUM_ABFWB_PARAM); // NB + WB
+
+    // Check if support Loud Speaker Mode DMNR
+    if (sizeof(AUDIO_CUSTOM_EXTRA_PARAM_STRUCT) >= (data_length * 2)) {
+        data_length *= 2; // 1 for receiver mode DMNR, 1 for loud speaker mode DMNR
+    }
 #else
     // for NB we send (44) only
-    const uint16_t data_length = sizeof(unsigned short) * (NUM_ABF_PARAM); // NB Only
+    uint16_t data_length = sizeof(unsigned short) * (NUM_ABF_PARAM); // NB Only
 #endif
 
     return SetVariousKindsOfSpeechParameters(pSphParamDualMic, data_length, MSG_A2M_EM_DMNR);

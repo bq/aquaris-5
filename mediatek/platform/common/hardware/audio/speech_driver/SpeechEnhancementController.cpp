@@ -9,6 +9,8 @@
 #include "AudioCustParam.h"
 
 static const char PROPERTY_KEY_SPH_ENH_MASKS[PROPERTY_KEY_MAX] = "persist.af.modem.sph_enh_mask";
+static const char PROPERTY_KEY_MAGIC_CON_CALL_ON[PROPERTY_KEY_MAX] = "persist.af.magic_con_call_on";
+
 
 namespace android
 {
@@ -42,6 +44,11 @@ SpeechEnhancementController::SpeechEnhancementController()
     ALOGD("mSpeechEnhancementMask: main_func = 0x%x, sub_func = 0x%x",
           mSpeechEnhancementMask.main_func,
           mSpeechEnhancementMask.dynamic_func);
+
+    // Magic conference call
+    char magic_conference_call_on[PROPERTY_VALUE_MAX];
+    property_get(PROPERTY_KEY_MAGIC_CON_CALL_ON, magic_conference_call_on, "0"); //"0": default off
+    mMagicConferenceCallOn = (magic_conference_call_on[0] == '0') ? false : true;
 }
 
 SpeechEnhancementController::~SpeechEnhancementController()
@@ -121,5 +128,37 @@ status_t SpeechEnhancementController::SetSpeechEnhancementMaskToAllModem(const s
 
     return NO_ERROR;
 }
+
+
+status_t SpeechEnhancementController::SetDynamicMaskOnToAllModem(const sph_enh_dynamic_mask_t dynamic_mask_type, const bool new_flag_on)
+{
+    sph_enh_mask_struct_t mask = GetSpeechEnhancementMask();
+
+    const bool current_flag_on = ((mask.dynamic_func & dynamic_mask_type) > 0);
+    if (new_flag_on == current_flag_on) {
+        ALOGW("%s(), dynamic_mask_type(%x), new_flag_on(%d) == current_flag_on(%d), return",
+              __FUNCTION__, dynamic_mask_type, new_flag_on, current_flag_on);
+        return NO_ERROR;
+    }
+
+    if (new_flag_on == false) {
+        mask.dynamic_func &= (~dynamic_mask_type);
+    }
+    else {
+        mask.dynamic_func |= dynamic_mask_type;
+    }
+
+    return SetSpeechEnhancementMaskToAllModem(mask);
+}
+
+void SpeechEnhancementController::SetMagicConferenceCallOn(const bool magic_conference_call_on)
+{
+    ALOGD("%s(), mMagicConferenceCallOn = %d, new magic_conference_call_on = %d",
+          __FUNCTION__, mMagicConferenceCallOn, magic_conference_call_on);
+
+    property_set(PROPERTY_KEY_MAGIC_CON_CALL_ON, (magic_conference_call_on == false) ? "0" : "1");
+    mMagicConferenceCallOn = magic_conference_call_on;
+}
+
 
 }

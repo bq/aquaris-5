@@ -322,7 +322,9 @@ setEncodeParam(MUINT32 const & u4IsSOI, MUINT32 const & u4Quality)
     FUNCTION_LOG_START;
     MY_LOGI("enc param (SOI, Quality) = (%d, %d)", u4IsSOI, u4Quality); 
     mTargetImgInfo.u4IsSOI = u4IsSOI; 
-    mTargetImgInfo.u4Quality = u4Quality; 
+    mTargetImgInfo.u4Quality = u4Quality>95?95:u4Quality;
+    MY_LOGI("enc param (SOI, Quality) = (%d, %d)", u4IsSOI, u4Quality);
+	
     FUNCTION_LOG_END;
     //
     return MTRUE;

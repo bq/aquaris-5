@@ -236,10 +236,6 @@ int dramc_ta1(unsigned int start, unsigned int len, void *ext_arg){
     int err =  TEST_PASS;
     int check_result = (int)ext_arg;
     unsigned int data;
-    if (RANK_CURR == 1){
-       /*setup dramc test agent base address for rank1 test*/
-       DRAMC_WRITE_SET((0xF<<20),DRAMC_TEST2_1);
-    }
     /* set test patern length*/
     data = DRAMC_READ_REG(0x40);
     DRAMC_WRITE_REG((data & 0xFF000000) | len, 0x40);
@@ -295,10 +291,6 @@ int dramc_ta2(unsigned int start, unsigned int len, void *ext_arg)
     int err = 0;
     int check_result = (int)ext_arg;
     unsigned int data;
-    if (RANK_CURR == 1){
-       /*setup dramc test agent base address for rank1 test*/
-       DRAMC_WRITE_SET((0xF<<20),DRAMC_TEST2_1);
-    }
     /* set test patern length*/
     data = DRAMC_READ_REG(0x40);
     DRAMC_WRITE_REG((data & 0xFF000000) | 0x3FF, 0x40);
@@ -650,6 +642,14 @@ static int __do_dqs_gw_calib(print_callbacks *cbs)
                 c = i;
             }
     }
+
+   if ((RANK_CURR == 1) && ((atoi(opt_gw_coarse_value0) & 0x1c)!= (atoi(dqsi_gw_dly_coarse_tbl[c]) & 0x1c))){    
+        //fix rank 0 coarse value not match rank 1 coarse value
+        c = atoi(opt_gw_coarse_value0) - atoi(dqsi_gw_dly_coarse_tbl[0]);
+        print("[EMI] Fix Rank 1 coarse value\n");
+    }
+    print("Rank %d coarse tune value selection : %d, %s\n", RANK_CURR, c, dqsi_gw_dly_coarse_tbl[c]);
+
     cnt = nr_bit_set(dqs_gw[c]);
     if (cnt) {
         //print("first_bit_set(dqs_gw[c]):%d,f:%d\n",first_bit_set(dqs_gw[c]),cnt/2);

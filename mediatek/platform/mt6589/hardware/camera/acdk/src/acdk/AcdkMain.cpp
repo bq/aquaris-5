@@ -142,9 +142,9 @@ using namespace NSCamShot;
 #include "flash_param.h"
 #include "isp_tuning_mgr.h"
 #include "ae_mgr.h"
-using namespace NS3A;
 #endif
 
+using namespace NS3A;
 /******************************************************************************
 * Define Value
 *******************************************************************************/
@@ -184,11 +184,13 @@ AcdkMain::AcdkMain ()
     ,mPrvStartX(0)
     ,mPrvStartY(0)
     ,mOrientation(0)
+    ,mTestPatternOut(0)
     ,mCapWidth(0)
     ,mCapHeight(0)
     ,mCapType(0)
     ,mQVWidth(0)
     ,mQVHeight(0)
+    ,mUnPack(MFALSE)
     ,mIsSOI(MFALSE)
     ,mLCMOrientation(0)
     ,mSurfaceIndex(0)
@@ -199,6 +201,8 @@ AcdkMain::AcdkMain ()
     ,mSensorOrientation(0)
     ,mSensorVFlip(0)
     ,mSensorHFlip(0)
+    ,mSetShutTime(0)
+    ,mGetShutTime(0)
     ,mGetAFInfo(0)
     ,mIsFacotory(MFALSE)
 {
@@ -995,6 +999,20 @@ MINT32 AcdkMain::getSensorInfo()
         goto getSensorInfoExit;
     }
 
+    //get sensor test pattern checksum value 
+    err = m_pSensorHalObj->sendCommand((halSensorDev_e)mSensorDev,
+                                        SENSOR_CMD_GET_TEST_PATTERN_CHECKSUM_VALUE,
+                                        (MINT32)&mGetCheckSumValue,
+                                        0,
+                                        0);
+    if (err != ACDK_RETURN_NO_ERROR)
+    {
+        ACDK_LOGE("SENSOR_CMD_GET_TEST_PATTERN_CHECKSUM_VALUE fail(0x%x)",err);
+        err = ACDK_RETURN_API_FAIL;
+        goto getSensorInfoExit;
+    }
+
+
     ACDK_LOGD("mSensorDev(%d)",mSensorDev);
     ACDK_LOGD("0-RAW,1-YUV(%d)",mSensorType);
     ACDK_LOGD("preview size : w(%u),h(%u)", mSensorResolution.SensorPreviewWidth, mSensorResolution.SensorPreviewHeight);
@@ -1003,6 +1021,8 @@ MINT32 AcdkMain::getSensorInfo()
     ACDK_LOGD("bit depth(%u)",mSensorFormatInfo.u4BitDepth);
     ACDK_LOGD("isPacked(%u)",mSensorFormatInfo.u4IsPacked);
     ACDK_LOGD("color order(%u)",mSensorFormatInfo.u1Order);
+    ACDK_LOGD("Checksum value(0x%x)",mGetCheckSumValue);
+
 
 getSensorInfoExit:
 
@@ -1496,6 +1516,17 @@ MINT32 AcdkMain::startPreview(Func_CB prvCb)
         goto startPreviewExit;
     }
 
+    if(mTestPatternOut)
+    {
+        MINT32 u32Enable = 1;
+        err = m_pSensorHalObj->sendCommand((halSensorDev_e)mSensorDev,
+                                           SENSOR_CMD_SET_TEST_PATTERN_OUTPUT,
+                                           (MINT32)&u32Enable,
+                                           0,
+                                           0);
+    }
+
+
     //====== Preview Parameter Setting ======
 
     memset(&mAcdkMhalPrvParam, 0, sizeof(acdkMhalPrvParam_t));        
@@ -1977,6 +2008,17 @@ MINT32 AcdkMain::takePicture(
     ACDK_LOGD("rSensorParam.fgBypassScenaio = %u", rSensorParam.fgBypassScenaio);
     ACDK_LOGD("rSensorParam.u4RawType       = %u", rSensorParam.u4RawType);
 
+    //config sensor test pattern 
+    if(mTestPatternOut)
+    {
+        MINT32 u32Enable = 1;
+        err = m_pSensorHalObj->sendCommand((halSensorDev_e)mSensorDev,
+                                           SENSOR_CMD_SET_TEST_PATTERN_OUTPUT,
+                                           (MINT32)&u32Enable,
+                                           0,
+                                           0);
+    }
+
     m_pSingleShot->setCallbacks(NULL, camShotDataCB, this);
 
     m_pSingleShot->setShotParam(rShotParam);
@@ -1997,6 +2039,23 @@ MINT32 AcdkMain::takePicture(
     
     for(MUINT32 i = 0; i < captureLoop; ++i)
     {
+        //====== Factory-Camera Auto-Testing Get Current Shutter Time ======
+
+        mGetShutTime = m_pAcdkMhalObj->acdkMhalGetShutTime();
+        
+        ACDK_LOGD("mGetShutTime(%u)",mGetShutTime);
+        
+        //====== Factory-Camera Auto-Testing Set Shutter Time Forcedly ======
+
+        if(mOperaMode == ACDK_OPT_FACTORY_MODE && mSetShutTime != 0)
+        {
+            ACDK_LOGD("set shutter time forcedly(%d)",mSetShutTime);
+
+            m_pAcdkMhalObj->acdkMhalSetShutTime(mSetShutTime);
+
+            mSetShutTime = 0;
+        }
+        
         m_pSingleShot->startOne(rSensorParam);  
 
         //====== Show QV Image ======
@@ -2008,6 +2067,7 @@ MINT32 AcdkMain::takePicture(
         char value[32] = {'\0'};
         property_get("camera.acdkdump.enable", value, "0");
         MINT32 dumpEnable = atoi(value);
+
 
         if(isSaveImg == 1 || dumpEnable == 4)
         {
@@ -2021,45 +2081,157 @@ MINT32 AcdkMain::takePicture(
                 saveJPEGImg();
             }
         }
-        
+
         //====== Capture Callback ======
 
         if(capCb != NULL)
         {
             ImageBufInfo acdkCapInfo;
             acdkCapInfo.eImgType = (eIMAGE_TYPE)mCapType;
-            
-            if(mCapType & 0x3C)
+            // PURE_RAW8_TYPE =0x04, PURE_RAW10_TYPE = 0x08 
+            // PURE_RAW10_TYPE = 0x10, PROCESSED_RAW10_TYPE = 0x20
+            if(mCapType & 0x3C)  
             {   
-                acdkCapInfo.RAWImgBufInfo.bufAddr   = (MUINT8 *)mRawIMemInfo.virtAddr;
-                acdkCapInfo.RAWImgBufInfo.bitDepth  = mSensorFormatInfo.u4BitDepth;
-                acdkCapInfo.RAWImgBufInfo.imgSize   = mRawIMemInfo.size;
-                acdkCapInfo.RAWImgBufInfo.isPacked  = MTRUE;
-                acdkCapInfo.RAWImgBufInfo.eColorOrder = (eRAW_ColorOrder)mSensorFormatInfo.u1Order;
+                if(mSensorType == SENSOR_TYPE_YUV) //YUV
+                {
+                    acdkCapInfo.eImgType             = YUV_TYPE;
+                    acdkCapInfo.imgBufInfo.bufAddr   = (MUINT8 *)mRawIMemInfo.virtAddr;                    
+                    acdkCapInfo.imgBufInfo.imgSize   = mRawIMemInfo.size;
 
-                if(mode == PREVIEW_MODE)
-                {
-                    acdkCapInfo.RAWImgBufInfo.imgWidth  = mSensorResolution.SensorPreviewWidth;
-                    acdkCapInfo.RAWImgBufInfo.imgHeight = mSensorResolution.SensorPreviewHeight;
-                }
-                else if(mode == VIDEO_MODE)
-                {
-                    acdkCapInfo.RAWImgBufInfo.imgWidth  = mSensorResolution.SensorVideoWidth;
-                    acdkCapInfo.RAWImgBufInfo.imgHeight = mSensorResolution.SensorVideoHeight;
+                    if(mode == PREVIEW_MODE)
+                    {
+                        acdkCapInfo.imgBufInfo.imgWidth  = mSensorResolution.SensorPreviewWidth;
+                        acdkCapInfo.imgBufInfo.imgHeight = mSensorResolution.SensorPreviewHeight;
+                    }
+                    else if(mode == VIDEO_MODE)
+                    {
+                        acdkCapInfo.imgBufInfo.imgWidth  = mSensorResolution.SensorVideoWidth;
+                        acdkCapInfo.imgBufInfo.imgHeight = mSensorResolution.SensorVideoHeight;
+                    }
+                    else
+                    {
+                        acdkCapInfo.imgBufInfo.imgWidth  = mSensorResolution.SensorFullWidth;
+                        acdkCapInfo.imgBufInfo.imgHeight = mSensorResolution.SensorFullHeight;
+                    }
+
+                    switch(mSensorFormatInfo.u1Order)
+                    {
+                        case SENSOR_OUTPUT_FORMAT_UYVY :
+                        case SENSOR_OUTPUT_FORMAT_CbYCrY :
+                                acdkCapInfo.imgBufInfo.imgFmt= YUVFmt_UYVY;
+                            break;
+                        case SENSOR_OUTPUT_FORMAT_VYUY :
+                        case SENSOR_OUTPUT_FORMAT_CrYCbY :
+                                acdkCapInfo.imgBufInfo.imgFmt= YUVFmt_VYUY;
+                            break;
+                        case SENSOR_OUTPUT_FORMAT_YUYV :
+                        case SENSOR_OUTPUT_FORMAT_YCbYCr :
+                                acdkCapInfo.imgBufInfo.imgFmt= YUVFmt_YUY2;
+                            break;
+                        case SENSOR_OUTPUT_FORMAT_YVYU :
+                        case SENSOR_OUTPUT_FORMAT_YCrYCb :
+                                acdkCapInfo.imgBufInfo.imgFmt= YUVFmt_YVYU;
+                            break;
+                        default : acdkCapInfo.imgBufInfo.imgFmt = YUVFmt_Unknown;
+                                  ACDK_LOGE("unknown YUV type(0x%x)",mSensorFormatInfo.u1Order);                                  
+                    }
+
+                    ACDK_LOGD("YUVImg.bufAddr     = 0x%x", (MUINT32)acdkCapInfo.imgBufInfo.bufAddr);                    
+                    ACDK_LOGD("YUVImg.imgWidth    = %u", acdkCapInfo.imgBufInfo.imgWidth);
+                    ACDK_LOGD("YUVImg.imgHeight   = %u", acdkCapInfo.imgBufInfo.imgHeight);
+                    ACDK_LOGD("YUVImg.imgSize     = %u", acdkCapInfo.imgBufInfo.imgSize);
+                    ACDK_LOGD("YUVImg.imgFmt      = %d", acdkCapInfo.imgBufInfo.imgFmt);
                 }
                 else
                 {
-                    acdkCapInfo.RAWImgBufInfo.imgWidth  = mSensorResolution.SensorFullWidth;
-                    acdkCapInfo.RAWImgBufInfo.imgHeight = mSensorResolution.SensorFullHeight;
-                }
+                    if(mode == PREVIEW_MODE)
+                    {
+                        acdkCapInfo.RAWImgBufInfo.imgWidth  = mSensorResolution.SensorPreviewWidth;
+                        acdkCapInfo.RAWImgBufInfo.imgHeight = mSensorResolution.SensorPreviewHeight;
+                    }
+                    else if(mode == VIDEO_MODE)
+                    {
+                        acdkCapInfo.RAWImgBufInfo.imgWidth  = mSensorResolution.SensorVideoWidth;
+                        acdkCapInfo.RAWImgBufInfo.imgHeight = mSensorResolution.SensorVideoHeight;
+                    }
+                    else
+                    {
+                        acdkCapInfo.RAWImgBufInfo.imgWidth  = mSensorResolution.SensorFullWidth;
+                        acdkCapInfo.RAWImgBufInfo.imgHeight = mSensorResolution.SensorFullHeight;
+                    }
+                    
+                    if(mUnPack == MTRUE) //for specail mode use : unpack raw image to normal package 
+                    {
+                        MUINT32 imgStride = mSensorResolution.SensorFullWidth, unPackSize = 0;
+                        MUINT32 tempFmt, tempRAWPixelByte;
+                        IMEM_BUF_INFO unPackIMem;
 
-                ACDK_LOGD("RAWImgBufInfo.bufAddr     = 0x%x", (MUINT32)acdkCapInfo.RAWImgBufInfo.bufAddr);
-                ACDK_LOGD("RAWImgBufInfo.bitDepth    = %u", acdkCapInfo.RAWImgBufInfo.bitDepth);
-                ACDK_LOGD("RAWImgBufInfo.imgWidth    = %u", acdkCapInfo.RAWImgBufInfo.imgWidth);
-                ACDK_LOGD("RAWImgBufInfo.imgHeight   = %u", acdkCapInfo.RAWImgBufInfo.imgHeight);
-                ACDK_LOGD("RAWImgBufInfo.imgSize     = %u", acdkCapInfo.RAWImgBufInfo.imgSize);
-                ACDK_LOGD("RAWImgBufInfo.isPacked    = %u", acdkCapInfo.RAWImgBufInfo.isPacked);
-                ACDK_LOGD("RAWImgBufInfo.eColorOrder = %u", acdkCapInfo.RAWImgBufInfo.eColorOrder);            
+                        //calculate stride                        
+                        switch(mSensorFormatInfo.u4BitDepth)
+                        {
+                            case 8 : tempFmt  = eImgFmt_BAYER8;
+                                break;
+                            case 10 : tempFmt = eImgFmt_BAYER10;
+                                break;
+                            case 12 : tempFmt = eImgFmt_BAYER12;
+                                break;
+                            default : tempFmt = eImgFmt_UNKNOWN;
+                                      ACDK_LOGE("unknown raw image bit depth(%u)",mSensorFormatInfo.u4BitDepth);
+                                      break;
+                        }
+
+                        // calculate real stride and get byte per pixel. for RAW sensor only
+                        if(ACDK_RETURN_NO_ERROR != m_pAcdkUtilityObj->queryRAWImgFormatInfo(tempFmt,acdkCapInfo.RAWImgBufInfo.imgWidth,imgStride,tempRAWPixelByte))
+                        {
+                            ACDK_LOGE("queryRAWImgFormatInfo fail");                            
+                        }                        
+                        
+                        //prepare memory
+                        unPackSize = acdkCapInfo.RAWImgBufInfo.imgWidth * acdkCapInfo.RAWImgBufInfo.imgHeight * 2;
+                        ACDK_LOGD("unPackSize(%u),imgStride(%u)",unPackSize,imgStride);
+                        
+                        createMemBuf(unPackSize, 1, &unPackIMem);
+
+                        if(unPackIMem.virtAddr == 0)
+                        {
+                            memset((MVOID *)unPackIMem.virtAddr, 0, unPackIMem.size);
+                            ACDK_LOGE("unPackIMem is NULL");
+                        }
+                        else
+                        { 
+                            m_pAcdkUtilityObj->rawImgUnpack(mRawIMemInfo,
+                                                            unPackIMem,
+                                                            acdkCapInfo.RAWImgBufInfo.imgWidth,
+                                                            acdkCapInfo.RAWImgBufInfo.imgHeight,
+                                                            mSensorFormatInfo.u4BitDepth,
+                                                            imgStride);
+
+                            acdkCapInfo.RAWImgBufInfo.bufAddr   = (MUINT8 *)unPackIMem.virtAddr;                        
+                            acdkCapInfo.RAWImgBufInfo.imgSize   = unPackIMem.size;
+                            acdkCapInfo.RAWImgBufInfo.isPacked  = MFALSE;
+                        }
+
+                        
+                    }
+                    else
+                    {
+                        acdkCapInfo.RAWImgBufInfo.bufAddr   = (MUINT8 *)mRawIMemInfo.virtAddr;                        
+                        acdkCapInfo.RAWImgBufInfo.imgSize   = mRawIMemInfo.size;
+                        acdkCapInfo.RAWImgBufInfo.isPacked  = MTRUE;
+                        
+                    }
+
+                    acdkCapInfo.RAWImgBufInfo.bitDepth  = mSensorFormatInfo.u4BitDepth;
+                    acdkCapInfo.RAWImgBufInfo.eColorOrder = (eRAW_ColorOrder)mSensorFormatInfo.u1Order;
+
+                    ACDK_LOGD("RAWImg.bufAddr     = 0x%x", (MUINT32)acdkCapInfo.RAWImgBufInfo.bufAddr);
+                    ACDK_LOGD("RAWImg.bitDepth    = %u", acdkCapInfo.RAWImgBufInfo.bitDepth);
+                    ACDK_LOGD("RAWImg.imgWidth    = %u", acdkCapInfo.RAWImgBufInfo.imgWidth);
+                    ACDK_LOGD("RAWImg.imgHeight   = %u", acdkCapInfo.RAWImgBufInfo.imgHeight);
+                    ACDK_LOGD("RAWImg.imgSize     = %u", acdkCapInfo.RAWImgBufInfo.imgSize);
+                    ACDK_LOGD("RAWImg.isPacked    = %u", acdkCapInfo.RAWImgBufInfo.isPacked);
+                    ACDK_LOGD("RAWImg.eColorOrder = %u", acdkCapInfo.RAWImgBufInfo.eColorOrder);
+                }               
             }
             else if(mCapType == JPEG_TYPE)
             {
@@ -2067,13 +2239,14 @@ MINT32 AcdkMain::takePicture(
                 acdkCapInfo.imgBufInfo.imgWidth  = mCapWidth;
                 acdkCapInfo.imgBufInfo.imgHeight = mCapHeight;
                 acdkCapInfo.imgBufInfo.imgSize   = mJpgIMemInfo.size;
+                acdkCapInfo.imgBufInfo.imgFmt    = -1;  // JPEG
 
-                ACDK_LOGD("imgBufInfo.bufAddr   = 0x%x", (MUINT32)acdkCapInfo.imgBufInfo.bufAddr);
-                ACDK_LOGD("imgBufInfo.imgWidth  = %u", acdkCapInfo.imgBufInfo.imgWidth);
-                ACDK_LOGD("imgBufInfo.imgHeight = %u", acdkCapInfo.imgBufInfo.imgHeight);
-                ACDK_LOGD("imgBufInfo.imgSize   = %u", acdkCapInfo.imgBufInfo.imgSize);
-            }
-
+                ACDK_LOGD("JPEGImg.bufAddr   = 0x%x", (MUINT32)acdkCapInfo.imgBufInfo.bufAddr);
+                ACDK_LOGD("JPEGImg.imgWidth  = %u", acdkCapInfo.imgBufInfo.imgWidth);
+                ACDK_LOGD("JPEGImg.imgHeight = %u", acdkCapInfo.imgBufInfo.imgHeight);
+                ACDK_LOGD("JPEGImg.imgSize   = %u", acdkCapInfo.imgBufInfo.imgSize);
+            } 
+                
             capCb(&acdkCapInfo);
         }
     }
@@ -2144,7 +2317,7 @@ MINT32 AcdkMain::getFrameCnt(MUINT32 &frameCnt)
 /*******************************************************************************
 *
 ********************************************************************************/
-MRESULT AcdkMain::quickViewImg(MUINT32 qvFormat)
+MINT32 AcdkMain::quickViewImg(MUINT32 qvFormat)
 { 
     //====== Check Input Argument ======
 
@@ -2341,6 +2514,18 @@ MINT32 AcdkMain::setSrcDev(MINT32 srcDev)
 
     ACDK_LOGD("-");
     return err;
+}
+
+/*******************************************************************************
+*
+********************************************************************************/
+MINT32 AcdkMain::setShutterTime(MUINT32 a_Time)
+{
+    ACDK_LOGD("time(%u)",a_Time);
+
+    mSetShutTime = a_Time;
+    
+    return ACDK_RETURN_NO_ERROR;
 }
 
 /*******************************************************************************
@@ -2970,26 +3155,31 @@ MINT32 AcdkMain::saveRAWImg(MINT32 mode)
     }
 
     //====== Write RAW Data ======
-
     ACDK_LOGD("RAW src VA(0x%x)",(MUINT32)pImgBufIn);
+    if(mSensorType == SENSOR_TYPE_YUV) //YUV
+    {
+        sprintf(szFileName, "%s/YUVImg_YUY2.yuv" , MEDIA_PATH);
+    }
+    else
+    {
+        if(mCapType == PURE_RAW8_TYPE || g_dumpRAW == PURE_RAW8_TYPE)
+        {
+            sprintf(szFileName, "%s/acdkCapPureRaw8.raw" , MEDIA_PATH);
+        }
+        else if(mCapType == PURE_RAW10_TYPE || g_dumpRAW == PURE_RAW10_TYPE)
+        {
+            sprintf(szFileName, "%s/acdkCapPureRaw10.raw" , MEDIA_PATH);
+        }
+        else if(mCapType == PROCESSED_RAW8_TYPE || g_dumpRAW == PROCESSED_RAW8_TYPE)
+        {
+            sprintf(szFileName, "%s/acdkCapProcRaw8.raw" , MEDIA_PATH);
+        }
+        else if(mCapType == PROCESSED_RAW10_TYPE || g_dumpRAW == PROCESSED_RAW10_TYPE)
+        {
+            sprintf(szFileName, "%s/acdkCapProcRaw10.raw" , MEDIA_PATH);
+        }
+    }
 
-    if(mCapType == PURE_RAW8_TYPE || g_dumpRAW == PURE_RAW8_TYPE)
-    {
-        sprintf(szFileName, "%s/acdkCapPureRaw8.raw" , MEDIA_PATH);
-    }
-    else if(mCapType == PURE_RAW10_TYPE || g_dumpRAW == PURE_RAW10_TYPE)
-    {
-        sprintf(szFileName, "%s/acdkCapPureRaw10.raw" , MEDIA_PATH);
-    }
-    else if(mCapType == PROCESSED_RAW8_TYPE || g_dumpRAW == PROCESSED_RAW8_TYPE)
-    {
-        sprintf(szFileName, "%s/acdkCapProcRaw8.raw" , MEDIA_PATH);
-    }
-    else if(mCapType == PROCESSED_RAW10_TYPE || g_dumpRAW == PROCESSED_RAW10_TYPE)
-    {
-        sprintf(szFileName, "%s/acdkCapProcRaw10.raw" , MEDIA_PATH);
-    }
-    
     FILE *pFp = fopen(szFileName, "wb");
 
     if(NULL == pFp)
@@ -3093,20 +3283,20 @@ MINT32 AcdkMain::sendcommand(
 
 #endif
 
-    if (a_u4Ioctl == ACDK_CCT_FEATURE_QUICK_VIEW_IMAGE)
+    if(a_u4Ioctl == ACDK_CCT_FEATURE_QUICK_VIEW_IMAGE)
     {
         //ACDK_LOGD("ACDK_CCT_FEATURE_QUICK_VIEW_IMAGE");
         //err = quickViewImg((MUINT8*)puParaIn, (Func_CB)puParaOut);
 
         ACDK_LOGD("no need to call QV command right now");
     }
-    else if (a_u4Ioctl == ACDK_CCT_FEATURE_RESET_LAYER_BUFFER)
+    else if(a_u4Ioctl == ACDK_CCT_FEATURE_RESET_LAYER_BUFFER)
     {
         ACDK_LOGD("ACDK_CCT_FEATURE_RESET_LAYER_BUFFER");
         
         err = m_pAcdkSurfaceViewObj->resetLayer(0);
     }
-    else if (a_u4Ioctl == ACDK_CCT_FEATURE_SET_SRC_DEV)
+    else if(a_u4Ioctl == ACDK_CCT_FEATURE_SET_SRC_DEV)
     {
         MINT32 *pSrcDev = (MINT32 *)puParaIn;
         err = setSrcDev(*pSrcDev);
@@ -3121,6 +3311,26 @@ MINT32 AcdkMain::sendcommand(
         //err = mmHalCam4CCTObj->mHalCamSetOperationMode(reinterpret_cast<MUINT32>(puParaIn));
         ACDK_LOGD("ACDK_CCT_FEATURE_SET_OPERATION_MODE not ready");
     }
+    else if(a_u4Ioctl == ACDK_CMD_SET_SHUTTER_TIME)
+    {
+        MINT32 *pShutterTime = (MINT32 *)puParaIn;
+        err = setShutterTime(*pShutterTime);
+
+        if(err != ACDK_RETURN_NO_ERROR)
+        {
+            ACDK_LOGE("ACDK_CMD_SET_SHUTTER_TIME fail(0x%x)",err);
+        }
+    }
+    else if(a_u4Ioctl == ACDK_CMD_GET_SHUTTER_TIME)
+    {        
+        *((MUINT32 *)puParaOut) = mGetShutTime;
+        ACDK_LOGD("ACDK_CMD_GET_SHUTTER_TIME(%u)",*((MUINT32 *)puParaOut));
+    }
+    else if(a_u4Ioctl == ACDK_CMD_GET_CHECKSUM)
+    {        
+        *((MUINT32 *)puParaOut) = mGetCheckSumValue;
+        ACDK_LOGD("ACDK_CMD_GET_CHECKSUM(%u)",*((MUINT32 *)puParaOut));
+    }   
     else if(a_u4Ioctl == ACDK_CMD_GET_AF_INFO)
     {        
         mGetAFInfo = m_pAcdkMhalObj->acdkMhalGetAFInfo();
@@ -3128,14 +3338,15 @@ MINT32 AcdkMain::sendcommand(
         *((MUINT32 *)puParaOut) = mGetAFInfo;;
         ACDK_LOGD("ACDK_CMD_GET_AF_INFO(%u)",*((MUINT32 *)puParaOut));
     }   
-    else if (a_u4Ioctl == ACDK_CCT_OP_PREVIEW_LCD_START)
+    else if(a_u4Ioctl == ACDK_CCT_OP_PREVIEW_LCD_START)
     {
         PACDK_CCT_CAMERA_PREVIEW_STRUCT pCamPreview = (ACDK_CCT_CAMERA_PREVIEW_STRUCT *)puParaIn;
 
         ACDK_LOGD("CCTOP_PreviewStart");
         ACDK_LOGD("Preview Width:%d", pCamPreview->u2PreviewWidth);
         ACDK_LOGD("Preview Height:%d", pCamPreview->u2PreviewHeight);
-        ACDK_LOGD("Preview eOperaMode:%d", pCamPreview->eOperaMode);
+        ACDK_LOGD("PreviewTestPatEn:%d", pCamPreview->u16PreviewTestPatEn);
+        mTestPatternOut = pCamPreview->u16PreviewTestPatEn;
         if(pCamPreview->eOperaMode == ACDK_OPT_FACTORY_MODE)
         {
             mIsFacotory = 1;
@@ -3169,9 +3380,11 @@ MINT32 AcdkMain::sendcommand(
         ACDK_LOGD("Width:%d", pStillCapConfig->u2JPEGEncWidth);
         ACDK_LOGD("Height:%d", pStillCapConfig->u2JPEGEncHeight);
         ACDK_LOGD("isSave:%d", pStillCapConfig->i4IsSave);
+        ACDK_LOGD("unPack:%d", pStillCapConfig->bUnPack);
 
         // get operation mode
         mOperaMode = pStillCapConfig->eOperaMode;
+        mUnPack    = pStillCapConfig->bUnPack;
         mIsSOI     = MFALSE;  //  True : JFPIF header , False : EXIF  header
 
         if (pStillCapConfig->eOutputFormat == OUTPUT_JPEG)

@@ -827,7 +827,7 @@ static const UINT_32 mtk_cipher_suites[] = {
     WLAN_CIPHER_SUITE_WEP104,
     WLAN_CIPHER_SUITE_TKIP,
     WLAN_CIPHER_SUITE_CCMP,
-    
+
     /* keep last -- depends on hw flags! */
     WLAN_CIPHER_SUITE_AES_CMAC
 };
@@ -1641,8 +1641,8 @@ wlanHardStartXmit(
         ASSERT(u2QueueIdx < CFG_MAX_TXQ_NUM);
 #endif
 
-#if CFG_ENABLE_PKT_LIFETIME_PROFILE    
-        GLUE_SET_PKT_ARRIVAL_TIME(prSkb, kalGetTimeTick());    
+#if CFG_ENABLE_PKT_LIFETIME_PROFILE
+        GLUE_SET_PKT_ARRIVAL_TIME(prSkb, kalGetTimeTick());
 #endif
     	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_TX_QUE);
     	QUEUE_INSERT_TAIL(prTxQueue, prQueueEntry);
@@ -1935,7 +1935,7 @@ wlanUpdateChannelTable(
                 }
             }
             break;
-            
+
         case BAND_5G:
             for(j = 0 ; j < ARRAY_SIZE(mtk_5ghz_channels) ; j++) {
                 if(mtk_5ghz_channels[j].hw_value == aucChannelList[i].ucChannelNum) {
@@ -1944,7 +1944,7 @@ wlanUpdateChannelTable(
                 }
             }
             break;
-            
+
         default:
             break;
         }
@@ -2141,7 +2141,7 @@ wlanNetCreate(
     }
 
     //4 <3> Initial Glue structure
-    //4 <3.1> create net device 
+    //4 <3.1> create net device
     prGlueInfo->prDevHandler = alloc_netdev_mq(sizeof(P_GLUE_INFO_T), NIC_INF_NAME, ether_setup, CFG_MAX_TXQ_NUM);
 
     DBGLOG(INIT, INFO, ("net_device prDev(0x%p) allocated\n", prGlueInfo->prDevHandler));
@@ -2170,7 +2170,7 @@ wlanNetCreate(
     //4 <3.1.3> co-relate net device & prDev
     SET_NETDEV_DEV(prGlueInfo->prDevHandler, wiphy_dev(prWdev->wiphy));
 
-    //4 <3.2> initiali glue variables 
+    //4 <3.2> initiali glue variables
     prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED;
     prGlueInfo->ePowerState = ParamDeviceStateD0;
     prGlueInfo->fgIsMacAddrOverride = FALSE;
@@ -2432,6 +2432,7 @@ static void wlanLateResume(void)
 {
     struct net_device *prDev = NULL;
     P_GLUE_INFO_T prGlueInfo = NULL;
+    WLAN_STATUS rStatus = WLAN_STATUS_FAILURE;
     UINT_8  ip[4] = { 0 };
 #ifdef  CONFIG_IPV6
     UINT_8  ip6[16] = { 0 };     // FIX ME: avoid to allocate large memory in stack
@@ -2450,17 +2451,40 @@ static void wlanLateResume(void)
 
 fgIsUnderEarlierSuspend = false;
 
-    // <2> get the IPv4 address
-    if(!prDev || !(prDev->ip_ptr)||\
-        !((struct in_device *)(prDev->ip_ptr))->ifa_list||\
-        !(&(((struct in_device *)(prDev->ip_ptr))->ifa_list->ifa_local))){
-        DBGLOG(INIT, INFO, ("ip is not avaliable.\n"));
+    if(!prDev ){
+        DBGLOG(INIT, INFO, ("prDev == NULL!!! \n"));
         return;
     }
 
     // <3> acquire the prGlueInfo
     prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prDev));
     ASSERT(prGlueInfo);
+    EVENT_AIS_BSS_INFO_T rParam;
+    UINT_32 u4BufLen = 0;
+    kalMemZero(&rParam, sizeof(EVENT_AIS_BSS_INFO_T));
+
+    rStatus = kalIoctl(prGlueInfo,
+                    wlanoidQueryBSSInfo,
+                    &rParam,
+                    sizeof(EVENT_AIS_BSS_INFO_T),
+                    TRUE,
+                    TRUE,
+                    TRUE,
+                    FALSE,
+                    &u4BufLen);
+            if (rStatus != WLAN_STATUS_SUCCESS) {
+                DBGLOG(INIT, ERROR, ("Query BSSinfo fail 0x%lx!!\n", rStatus));
+            }else{
+                DBGLOG(INIT, INFO, ("Status[%d], Mode[%d], Active[%d]\\n", rParam.eConnectionState, rParam.eCurrentOPMode, rParam.fgIsNetActive));
+            }
+
+    // <2> get the IPv4 address
+    if(!(prDev->ip_ptr)||\
+        !((struct in_device *)(prDev->ip_ptr))->ifa_list||\
+        !(&(((struct in_device *)(prDev->ip_ptr))->ifa_list->ifa_local))){
+        DBGLOG(INIT, INFO, ("ip is not avaliable.\n"));
+        return;
+    }
 
     // <4> copy the IPv4 address
     kalMemCopy(ip, &(((struct in_device *)(prDev->ip_ptr))->ifa_list->ifa_local), sizeof(ip));
@@ -2856,6 +2880,7 @@ wlanRemove(
     prGlueInfo->prAdapter->fgIsWlanLaunched = FALSE;
     if(prGlueInfo->prAdapter->fgIsP2PRegistered) {
         p2pNetUnregister(prGlueInfo, FALSE);
+		p2pEalySuspendReg(prGlueInfo, FALSE);
         p2pRemove(prGlueInfo);
     }
 

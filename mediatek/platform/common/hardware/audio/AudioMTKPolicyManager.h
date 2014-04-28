@@ -677,6 +677,10 @@ private:
         //    routing of notifications
         void handleNotificationRoutingForStream(AudioSystem::stream_type stream);
         static bool isVirtualInputDevice(audio_devices_t device);
+
+#ifdef MTK_AUDIO
+        bool mIsPhoneStateSetOutputDevice;
+#endif
 };
 
 };

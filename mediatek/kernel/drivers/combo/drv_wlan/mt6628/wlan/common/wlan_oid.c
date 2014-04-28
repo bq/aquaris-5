@@ -1662,6 +1662,12 @@ wlanoidSetBssidListScanExt (
         u4IeLength = 0;
     }
 
+    P_AIS_FSM_INFO_T prAisFsmInfo;
+    prAisFsmInfo = &(prAdapter->rWifiVar.rAisFsmInfo);
+    cnmTimerStartTimer(prAdapter,
+                    &prAisFsmInfo->rScanDoneTimer,
+                    SEC_TO_MSEC(AIS_SCN_DONE_TIMEOUT_SEC));
+
 #if CFG_SUPPORT_RDD_TEST_MODE
     if (prAdapter->prGlueInfo->rRegInfo.u4RddTestMode) {
         if((prAdapter->fgEnOnlineScan == TRUE) && (prAdapter->ucRddStatus)){
@@ -3126,7 +3132,7 @@ wlanoidSetAddKey (
     prCmdKey->ucTxKey = ((prNewKey->u4KeyIndex & IS_TRANSMIT_KEY) == IS_TRANSMIT_KEY) ? 1 : 0;
     prCmdKey->ucKeyType = ((prNewKey->u4KeyIndex & IS_UNICAST_KEY) == IS_UNICAST_KEY) ? 1 : 0;
     prCmdKey->ucIsAuthenticator = ((prNewKey->u4KeyIndex & IS_AUTHENTICATOR) == IS_AUTHENTICATOR) ? 1 : 0;
-    
+
     kalMemCopy(prCmdKey->aucPeerAddr, (PUINT_8)prNewKey->arBSSID, MAC_ADDR_LEN);
 
     prCmdKey->ucNetType = 0; /* AIS */
@@ -10702,4 +10708,64 @@ wlanoidQueryBuildDateCode (
 
 } /* end of wlanoidQueryBuildDateCode() */
 #endif
+
+/*----------------------------------------------------------------------------*/
+/*!
+* \brief This routine is used to query BSS info from firmware
+*
+* \param[in] pvAdapter Pointer to the Adapter structure.
+* \param[out] pvQueryBuffer A pointer to the buffer that holds the result of
+*                           the query.
+* \param[in] u4QueryBufferLen The length of the query buffer.
+* \param[out] pu4QueryInfoLen If the call is successful, returns the number of
+*                            bytes written into the query buffer. If the call
+*                            failed due to invalid length of the query buffer,
+*                            returns the amount of storage needed.
+*
+* \retval WLAN_STATUS_SUCCESS
+* \retval WLAN_STATUS_INVALID_LENGTH
+*/
+/*----------------------------------------------------------------------------*/
+WLAN_STATUS
+wlanoidQueryBSSInfo (
+    IN  P_ADAPTER_T prAdapter,
+    OUT PVOID       pvQueryBuffer,
+    IN  UINT_32     u4QueryBufferLen,
+    OUT PUINT_32    pu4QueryInfoLen
+
+    )
+{
+    WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
+    EVENT_AIS_BSS_INFO_T rCmdBSSInfo;
+
+
+    ASSERT(prAdapter);
+    ASSERT(pu4QueryInfoLen);
+    if (u4QueryBufferLen) {
+            ASSERT(pvQueryBuffer);
+    }
+
+    *pu4QueryInfoLen = sizeof(EVENT_AIS_BSS_INFO_T);
+
+    if (u4QueryBufferLen < sizeof(EVENT_AIS_BSS_INFO_T)) {
+            return WLAN_STATUS_INVALID_LENGTH;
+     }
+    kalMemZero(&rCmdBSSInfo, sizeof(EVENT_AIS_BSS_INFO_T));
+
+    rStatus =  wlanSendSetQueryCmd(prAdapter,
+            CMD_ID_GET_BSS_INFO,
+            FALSE,
+            TRUE,
+            TRUE,
+            nicCmdEventGetBSSInfo,
+            nicOidCmdTimeoutCommon,
+            sizeof(P_EVENT_AIS_BSS_INFO_T),
+            (PUINT_8)&rCmdBSSInfo,
+            pvQueryBuffer,
+            u4QueryBufferLen
+            );
+
+    return rStatus;
+}   /* wlanoidSetWiFiWmmPsTest */
+
 

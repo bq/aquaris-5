@@ -266,12 +266,12 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
         case AudioAnalogType::DEVICE_IN_ADC1:
         case AudioAnalogType::DEVICE_IN_ADC2:
             ALOGD("AudioPlatformDevice::DEVICE_IN_ADC2:");
+            mAudioAnalogReg->SetAnalogReg(0x0106 ,0x0003,0xffff);
 
             mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0000,0x0002);
             mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0000,0xffff);
             mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0002,0x0002);
 
-            mAudioAnalogReg->SetAnalogReg(0x0106 ,0x0003,0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4026 ,0x0000,0xffff);
             mAudioAnalogReg->SetAnalogReg(0x400e ,0x0000|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4000 ,0x007f,0xffff);
@@ -282,12 +282,25 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
 #endif
             mAudioAnalogReg->SetAnalogReg(0x4020 ,0x004f,0xffff);
 
+            usleep(600);
+            mAudioAnalogReg->SetAnalogReg(0x400e ,0x0000,0xffff);
+            usleep(600);
+            mAudioAnalogReg->SetAnalogReg(0x400e ,0x0000|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
+            usleep(600);
+            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0000,0xffff);
+            usleep(600);
+
+#ifdef MTK_AUDIO_HD_REC_SUPPORT
+            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0201,0xffff);
+#else
+            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0601,0xffff);
+#endif
             break;
         case AudioAnalogType::DEVICE_IN_DIGITAL_MIC:
+            mAudioAnalogReg->SetAnalogReg(0x0106 ,0x0003,0xffff);
             mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0000,0x0002);
             mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0000,0xffff);
 
-            mAudioAnalogReg->SetAnalogReg(0x0106 ,0x0003,0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4026 ,0x0000,0xffff);
             mAudioAnalogReg->SetAnalogReg(0x400e ,0x00e0|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4000 , 0x007f, 0xffff);
@@ -297,6 +310,14 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
             mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0423,0xffff);
 #endif
             mAudioAnalogReg->SetAnalogReg(0x4020 ,0x004f,0xffff);
+
+            // reset to default samplerate
+            usleep(600);
+            mAudioAnalogReg->SetAnalogReg(0x400e ,0x00e0,0xffff);
+            usleep(600);
+            mAudioAnalogReg->SetAnalogReg(0x400e ,0x00e0|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
+            usleep(600);
+
             break;
         case AudioAnalogType::DEVICE_2IN1_SPK:
             mAudioAnalogReg->SetAnalogReg(0x0106 , 0x0607, 0xffff);

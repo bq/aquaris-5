@@ -2,7 +2,8 @@
 #include <utils/Log.h>
 #include <utils/String16.h>
 #include "AudioUtility.h"
-
+#include "AudioMTKStreamIn.h"
+#include "SpeechEnhancementController.h"
 
 #define LOG_TAG "AudioSpeechEnhanceInfo"
 
@@ -34,6 +35,12 @@ AudioSpeechEnhanceInfo::AudioSpeechEnhanceInfo()
     mIsLRSwitch = false;
     mUseSpecificMic = 0;
     mHDRecTunningEnable = false;
+#ifndef DMNR_TUNNING_AT_MODEMSIDE    
+    mAPDMNRTuningEnable = false;
+#endif
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+    mEnableNormalModeVoIP = false;
+#endif 
 }
 
 AudioSpeechEnhanceInfo::~AudioSpeechEnhanceInfo()
@@ -129,6 +136,65 @@ void AudioSpeechEnhanceInfo::GetHDRecVMFileName(char * VMFileName)
     ALOGD("GetHDRecVMFileName mVMFileName=%s, VMFileName=%s",mVMFileName,VMFileName);
 }
 
+#ifndef DMNR_TUNNING_AT_MODEMSIDE
+//----------------for AP DMNR tunning --------------------------------
+void AudioSpeechEnhanceInfo::SetAPDMNRTuningEnable(bool bEnable)
+{
+#ifdef MTK_DUAL_MIC_SUPPORT
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("SetAPDMNRTuningEnable=%d",bEnable);
+    mAPDMNRTuningEnable = bEnable;
+#else
+    ALOGD("SetAPDMNRTuningEnable not Dual MIC, not set");
+#endif
+}
+
+bool AudioSpeechEnhanceInfo::IsAPDMNRTuningEnable(void)
+{
+#ifdef MTK_DUAL_MIC_SUPPORT
+    Mutex::Autolock lock(mHDRInfoLock);
+    //ALOGD("IsAPDMNRTuningEnable=%d",mAPDMNRTuningEnable);
+    return mAPDMNRTuningEnable;
+#else
+    return false;
+#endif
+}
+#endif
+
+#if defined(MTK_HANDSFREE_DMNR_SUPPORT) && defined(MTK_VOIP_ENHANCEMENT_SUPPORT)
+//----------------Get MMI info for AP Speech Enhancement --------------------------------
+bool AudioSpeechEnhanceInfo::GetDynamicSpeechEnhancementMaskOnOff(const sph_enh_dynamic_mask_t dynamic_mask_type)
+{    
+    bool bret = false;
+    sph_enh_mask_struct_t mask;
+    uint32_t dynamicMask;    
+    mask = SpeechEnhancementController::GetInstance()->GetSpeechEnhancementMask();
+    dynamicMask = mask.dynamic_func;    
+
+    if(SpeechEnhancementController::GetInstance()->GetDynamicMask(dynamic_mask_type) == true)
+        bret= true;
+    ALOGD("%s(), %x, %x, bret=%d",__FUNCTION__,dynamicMask,dynamic_mask_type,bret);
+    return bret;
+}
+
+void AudioSpeechEnhanceInfo::UpdateDynamicSpeechEnhancementMask()
+{    
+    Mutex::Autolock lock(mHDRInfoLock);
+    sph_enh_mask_struct_t mask;
+    mask = SpeechEnhancementController::GetInstance()->GetSpeechEnhancementMask();
+    ALOGD("%s(), %x",__FUNCTION__,mask.dynamic_func);    
+    
+    if(mSPELayerVector.size())
+    {                
+        for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+        {
+            AudioMTKStreamIn *pTempMTKStreamIn = (AudioMTKStreamIn *)mSPELayerVector.keyAt(i);                
+            pTempMTKStreamIn->UpdateDynamicFunction();
+        }
+    }
+}
+#endif 
+
 //----------------for Android Native Preprocess-----------------------------
 void AudioSpeechEnhanceInfo::SetStreamOutPointer(void *pStreamOut)
 {
@@ -173,8 +239,162 @@ void AudioSpeechEnhanceInfo::remove_echo_reference(struct echo_reference_itfe *r
     mStreamOut->remove_echo_reference(reference);
 }
 
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+void AudioSpeechEnhanceInfo::SetOutputStreamRunning(bool bRun)
+{
+
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("SetOutputStreamRunning %d, SPELayer %d",bRun, mSPELayerVector.size());
+
+    if (mSPELayerVector.size())
+    {
+        for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+        {
+            SPELayer *pTempSPELayer = (SPELayer *)mSPELayerVector.valueAt(i);
+            pTempSPELayer->SetOutputStreamRunning(bRun, true);
+        }
+    }
+}
+void AudioSpeechEnhanceInfo::SetSPEPointer(AudioMTKStreamIn * pMTKStreamIn, SPELayer *pSPE)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("AudioSpeechEnhanceInfo SetSPEPointer %p, %p",pMTKStreamIn,pSPE);
+    //mStreamOut->SetSPEPointer(pSPE);
+    if (mSPELayerVector.size())
+    {
+        for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+        {
+            if(pMTKStreamIn == mSPELayerVector.keyAt(i))
+            {
+                ALOGD("SetSPEPointer already add this before, not add it again");
+                return;
+            }
+        }
+    }
+    pSPE->SetDownLinkLatencyTime(mStreamOut->latency());
+    mSPELayerVector.add(pMTKStreamIn, pSPE);
+    ALOGD("SetSPEPointer size %d",mSPELayerVector.size());
 }
 
+void AudioSpeechEnhanceInfo::ClearSPEPointer(AudioMTKStreamIn * pMTKStreamIn)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("ClearSPEPointer %p, size=%d",pMTKStreamIn, mSPELayerVector.size());
+    //mStreamOut->ClearSPEPointer();
+    if (mSPELayerVector.size())
+    {
+        for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+        {
+            if(pMTKStreamIn == mSPELayerVector.keyAt(i))
+            {
+                ALOGD("find and remove it ++");
+                mSPELayerVector.removeItem(pMTKStreamIn);
+                ALOGD("find and remove it --");
+            }
+        }
+    }
+}
 
+bool AudioSpeechEnhanceInfo::IsInputStreamAlive(void)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    if(mSPELayerVector.size())
+    {
+        return true;
+    }    
+    return false;
+}
 
+//no argument, check if there is VoIP running input stream
+//MTKStreamIn argument, check if the dedicated MTKStreamIn is VoIP running stream
+bool AudioSpeechEnhanceInfo::IsVoIPActive(AudioMTKStreamIn * pMTKStreamIn)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    if(mSPELayerVector.size())
+    {
+        if(pMTKStreamIn == NULL)
+        {
+            //ALOGD("IsVoIPActive!");
+            for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+            {
+                AudioMTKStreamIn *pTempMTKStreamIn = (AudioMTKStreamIn *)mSPELayerVector.keyAt(i);                
+                if(pTempMTKStreamIn->GetVoIPRunningState())
+                    return true;                
+            }
+            return false;
+        }
+        else
+        {
+            for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+            {
+                if(pMTKStreamIn == mSPELayerVector.keyAt(i))
+                {
+                    if(pMTKStreamIn->GetVoIPRunningState())
+                        return true;
+                }
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+void AudioSpeechEnhanceInfo::GetDownlinkIntrStartTime(void)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("GetDownlinkIntrStartTime %d",mSPELayerVector.size());
+    if (mSPELayerVector.size())
+    {
+        for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+        {
+            SPELayer *pTempSPELayer = (SPELayer *)mSPELayerVector.valueAt(i);
+            pTempSPELayer->GetDownlinkIntrStartTime();
+        }
+    }
+}
+
+void AudioSpeechEnhanceInfo::WriteReferenceBuffer(struct InBufferInfo *Binfo)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("WriteReferenceBuffer %d",mSPELayerVector.size());
+    if (mSPELayerVector.size())
+    {
+        for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+        {
+            SPELayer *pTempSPELayer = (SPELayer *)mSPELayerVector.valueAt(i);
+            pTempSPELayer->WriteReferenceBuffer(Binfo);
+        }
+    }
+}
+
+void AudioSpeechEnhanceInfo::NeedUpdateVoIPParams(void)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("NeedUpdateVoIPParams %d",mSPELayerVector.size());    
+    if (mSPELayerVector.size())
+    {
+        for (size_t i = 0; i < mSPELayerVector.size() ; i++)
+        {
+            AudioMTKStreamIn *pTempMTKStreamIn = (AudioMTKStreamIn *)mSPELayerVector.keyAt(i);
+            pTempMTKStreamIn->NeedUpdateVoIPParams();
+        }
+    }
+}
+
+void AudioSpeechEnhanceInfo::SetEnableNormalModeVoIP(bool bEnable)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("SetEnableNormalModeVoIP=%d",bEnable);
+    mEnableNormalModeVoIP = bEnable;    
+}
+
+bool AudioSpeechEnhanceInfo::GetEnableNormalModeVoIP(void)
+{
+    Mutex::Autolock lock(mHDRInfoLock);
+    ALOGD("GetEnableNormalModeVoIP=%x",mEnableNormalModeVoIP);
+    return mEnableNormalModeVoIP;
+}
+#endif
+
+}
 

@@ -100,6 +100,14 @@ public:
         // ACF Preview parameter
         virtual status_t SetACFPreviewParameter(void *ptr , int len)=0;
         virtual status_t SetHCFPreviewParameter(void *ptr , int len)=0;
+
+        // FSync flag
+        virtual bool GetFSyncFlag(int streamType) = 0;
+        virtual void ClearFSync(int streamType) = 0;
+
+        virtual status_t setParameters(const String8 &keyValuePairs,int IOport) =0;
+        virtual String8 	getParameters(const String8 &keys,int IOport) =0;
+
 };
 
 }

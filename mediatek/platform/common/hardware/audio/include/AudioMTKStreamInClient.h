@@ -12,7 +12,9 @@ extern "C" {
 
 namespace android
 {
-
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+class AudioMTKStreamIn;
+#endif 
 class AudioMTKStreamInClient
 {
     public:
@@ -35,6 +37,10 @@ class AudioMTKStreamInClient
         // BLI_SRC
         BLI_HANDLE *mBliHandlerBuffer;
         char       *mBliOutputLinearBuffer;
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+		bool mEnableBesRecord;
+		AudioMTKStreamIn *mStreamIn;
+#endif
 };
 
 }

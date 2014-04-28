@@ -201,6 +201,17 @@ typedef struct
    int bAudioPlay;
 }SPH_Control;
 
+struct _Info_Data {
+    unsigned int info;
+    unsigned int param1;
+    unsigned int param2;
+};
+
+// below defines the YUSU_INFO_FROM_USER message
+#define INFO_U2K_MATV_AUDIO_START   0x1001
+#define INFO_U2K_MATV_AUDIO_STOP     0x1002
+#define INFO_U2K_MICANA_SWITCH         0x1003
+
 /*****************************************************************************
 *                        F U N C T I O N   D E F I N I T I O N
 ******************************************************************************

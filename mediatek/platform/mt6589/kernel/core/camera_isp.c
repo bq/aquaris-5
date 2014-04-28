@@ -98,6 +98,27 @@ typedef bool                    MBOOL;
 /*******************************************************************************
 *
 ********************************************************************************/
+///////////////////////////////////////////////////////////////////
+//for restricting range in mmap function
+//isp driver
+#define ISP_RTBUF_REG_RANGE  0x10000
+#define IMGSYS_BASE_ADDR     0x15000000
+#define ISP_REG_RANGE  	     (0x7000)   //0x6100,the same with the value in isp_reg.h and page-aligned
+//seninf driver
+#define SENINF_BASE_ADDR     0x15008000 //the same with the value in seninf_drv.cpp(chip-dependent)
+#define SENINF_REG_RANGE    (0x1000)   //0x800,the same with the value in seninf_reg.h and page-aligned
+//#define IMGSYS_CG_CLR0_ADDR  0x15000000 //the same with the value in seninf_drv.cpp(chip-dependent)
+//#define MMSYS_RANGE          (0x1000)   //0x100,the same with the value in seninf_drv.cpp and page-aligned
+#define PLL_BASE_ADDR        0x10000000 //the same with the value in seninf_drv.cpp(chip-dependent)
+#define PLL_RANGE            (0x1000)   //0x200,the same with the value in seninf_drv.cpp and page-aligned
+#define MIPIRX_CONFIG_ADDR   0x1500C000 //the same with the value in seninf_drv.cpp(chip-dependent)
+#define MIPIRX_CONFIG_RANGE (0x1000)//0x100,the same with the value in seninf_drv.cpp and page-aligned
+#define MIPIRX_ANALOG_ADDR   0x10012000 //the same with the value in seninf_drv.cpp(chip-dependent)
+#define MIPIRX_ANALOG_RANGE (0x1000)
+#define GPIO_BASE_ADDR       0x10005000 //the same with the value in seninf_drv.cpp(chip-dependent)
+#define GPIO_RANGE          (0x1000)
+
+///////////////////////////////////////////////////////////////////
 #define ISP_ADDR                        (CAMINF_BASE + 0x4000)
 #define ISP_ADDR_CAMINF                 CAMINF_BASE
 #define ISP_REG_ADDR_EN1                (ISP_ADDR + 0x4)
@@ -522,11 +543,37 @@ static MINT32 ISP_DumpReg(void)
     LOG_DBG("0x%08X %08X ", ISP_ADDR + 0x40, 0);
     LOG_DBG("0x%08X %08X ", ISP_ADDR + 0x44, 0);
     LOG_DBG("0x%08X %08X ", ISP_ADDR + 0x48, 0);
-    for(i = 0x4C; i <= 0x5048; i += 4)
+    for(i = 0x4C; i <= 0x5E08; i += 4)
     {
         //LOG_DBG("0x%08X %08X ", ISP_ADDR + i, ISP_RD32(ISP_ADDR + i));
         LOG_DBG("0x%08X %08X ", ISP_ADDR + i, ISP_RD32(ISP_ADDR + i));
     }
+
+{
+    int tpipePA = ISP_RD32(ISP_ADDR + 0x204);
+    int ctlStart = ISP_RD32(ISP_ADDR + 0x000);
+    int ctlTcm = ISP_RD32(ISP_ADDR + 0x054);
+    int map_va=0, map_size;
+    int i;
+    int *pMapVa;
+#define TPIPE_DUMP_SIZE    200
+
+    if((ctlStart&0x01)&&(tpipePA)&&(ctlTcm&0x80000000)){ // for pass2
+        map_va = 0;
+        m4u_mva_map_kernel( tpipePA, TPIPE_DUMP_SIZE, 0, &map_va, &map_size);
+        pMapVa = map_va;
+        LOG_DBG("pMapVa(0x%x),map_size(0x%x)",pMapVa,map_size);
+        LOG_DBG("ctlStart(0x%x),tpipePA(0x%x),ctlTcm(0x%x)",ctlStart,tpipePA,ctlTcm);
+        if(pMapVa){
+            for(i=0;i<TPIPE_DUMP_SIZE;i+=10) {
+                LOG_DBG("[idx(%d)]%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X",i,pMapVa[i],pMapVa[i+1],pMapVa[i+2],pMapVa[i+3],
+                    pMapVa[i+4],pMapVa[i+5],pMapVa[i+6],pMapVa[i+7],pMapVa[i+8],pMapVa[i+9]);
+            }
+        }
+        m4u_mva_unmap_kernel(tpipePA, map_size, map_va);
+    }
+}
+
 #else
 
     //
@@ -557,6 +604,9 @@ static MINT32 ISP_DumpReg(void)
 #endif
     LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x050, ISP_RD32(ISP_ADDR + 0x050));
     LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x054, ISP_RD32(ISP_ADDR + 0x054));
+    LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x074, ISP_RD32(ISP_ADDR + 0x074));
+    LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x078, ISP_RD32(ISP_ADDR + 0x078));
+    LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x07C, ISP_RD32(ISP_ADDR + 0x07C));
     LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x080, ISP_RD32(ISP_ADDR + 0x080));
     LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x084, ISP_RD32(ISP_ADDR + 0x084));
     LOG_DBG("0x%08X %08X", ISP_TPIPE_ADDR + 0x088, ISP_RD32(ISP_ADDR + 0x088));
@@ -1940,6 +1990,7 @@ static MINT32 ISP_RTBC_ENQUE(MINT32 dma)
         //break;
     }
 
+#if 0
     //
     //spin_lock_irqsave(&(IspInfo.SpinLockRTBC),g_Flash_SpinLock);
     //check if buffer exist
@@ -1953,6 +2004,7 @@ static MINT32 ISP_RTBC_ENQUE(MINT32 dma)
             break;
         }
     }
+#endif
     //
     if (buffer_exist) {
         //
@@ -2521,7 +2573,7 @@ static MINT32 ISP_SOF_Buf_Get(unsigned long long sec,unsigned long usec)
     CQ_RTBC_FBC img2o_fbc;
     MUINT32 curr_imgo = 0;//(imgo_fbc.Bits.WCNT+imgo_fbc.Bits.FB_NUM-1)%imgo_fbc.Bits.FB_NUM; //[0,1,2,...]
     MUINT32 curr_img2o = 0;//(img2o_fbc.Bits.WCNT+img2o_fbc.Bits.FB_NUM-1)%img2o_fbc.Bits.FB_NUM; //[0,1,2,...]
-    volatile MUINT32 curr_pa = 0;    
+    volatile MUINT32 curr_pa = 0;
     MUINT32 i=0;
     //
     imgo_fbc.Reg_val    = ISP_RD32(ISP_REG_ADDR_IMGO_FBC);
@@ -2568,7 +2620,7 @@ static MINT32 ISP_SOF_Buf_Get(unsigned long long sec,unsigned long usec)
             for( i = 0; i< pstRTBuf->ring_buf[_imgo_].total_count; i++ ) {
                 //
                 if ( curr_pa == pstRTBuf->ring_buf[_imgo_].data[i].base_pAddr ) {
-                    //  
+                    //
                     if(IspInfo.DebugMask & ISP_DBG_BUF_CTRL) {
                         LOG_DBG("[rtbc]curr:old/new(%d/%d)",curr_imgo,i);
                     }
@@ -2576,7 +2628,7 @@ static MINT32 ISP_SOF_Buf_Get(unsigned long long sec,unsigned long usec)
                     curr_imgo  = i;
                     curr_img2o = i;
                     break;
-                }                
+                }
             }
         }
 #endif
@@ -2593,7 +2645,7 @@ static MINT32 ISP_SOF_Buf_Get(unsigned long long sec,unsigned long usec)
                 pstRTBuf->ring_buf[_imgo_].data[curr_imgo].timeStampUs, \
                 curr_imgo,
                 pstRTBuf->ring_buf[_imgo_].data[curr_imgo].base_pAddr,  \
-                pstRTBuf->ring_buf[_img2o_].data[curr_imgo].base_pAddr,  \                
+                pstRTBuf->ring_buf[_img2o_].data[curr_imgo].base_pAddr,  \
                 ISP_RD32(ISP_REG_ADDR_IMGO_BASE_ADDR), \
                 ISP_RD32(ISP_REG_ADDR_IMG2O_BASE_ADDR), \
                 imgo_fbc.Reg_val, \
@@ -3658,12 +3710,19 @@ static MINT32 mmap_kmem(struct file *filp, struct vm_area_struct *vma)
                 return -EIO;
 
         /* map the whole physically contiguous area in one piece */
-        if ((ret = remap_pfn_range(vma,
+		LOG_INF("Vma->vm_pgoff(0x%x),Vma->vm_start(0x%x),Vma->vm_end(0x%x),length(0x%x)",\
+			vma->vm_pgoff,vma->vm_start,vma->vm_end,length);
+		if(length>ISP_RTBUF_REG_RANGE)
+		{
+			LOG_ERR("mmap range error! : length(0x%x),ISP_RTBUF_REG_RANGE(0x%x)!",length,ISP_RTBUF_REG_RANGE);
+			return -EAGAIN;
+		}
+		if ((ret = remap_pfn_range(vma,
                                    vma->vm_start,
                                    virt_to_phys((void *)pTbl_RTBuf) >> PAGE_SHIFT,
                                    length,
                                    vma->vm_page_prot)) < 0) {
-                return ret;
+            return ret;
         }
 
         return 0;
@@ -3676,18 +3735,71 @@ static MINT32 ISP_mmap(
     struct vm_area_struct*  pVma)
 {
     LOG_DBG("- E.");
-
+	long length = pVma->vm_end - pVma->vm_start;
     /* at offset RT_BUF_TBL_NPAGES we map the kmalloc'd area */
     if (pVma->vm_pgoff == RT_BUF_TBL_NPAGES) {
             return mmap_kmem(pFile, pVma);
     }
-    else {
-    //
-    pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
-    if(remap_pfn_range(pVma, pVma->vm_start, pVma->vm_pgoff,pVma->vm_end - pVma->vm_start, pVma->vm_page_prot))
-    {
-        return -EAGAIN;
-    }
+    else 
+	{
+    	//
+	    pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
+		LOG_INF("pVma->vm_pgoff(0x%x),phy(0x%x),pVmapVma->vm_start(0x%x),pVma->vm_end(0x%x),length(0x%x)",\
+			pVma->vm_pgoff,pVma->vm_pgoff<<PAGE_SHIFT,pVma->vm_start,pVma->vm_end,length);
+		MUINT32 pfn=pVma->vm_pgoff<<PAGE_SHIFT;//page from number, physical address of kernel memory
+		switch(pfn)
+		{
+			case IMGSYS_BASE_ADDR:	//imgsys
+				if(length>ISP_REG_RANGE)
+				{
+					LOG_ERR("mmap range error : length(0x%x),ISP_REG_RANGE(0x%x)!",length,ISP_REG_RANGE);
+					return -EAGAIN;
+				}
+				break;
+			case SENINF_BASE_ADDR:
+				if(length>SENINF_REG_RANGE)
+				{
+					LOG_ERR("mmap range error : length(0x%x),SENINF_REG_RANGE(0x%x)!",length,SENINF_REG_RANGE);
+					return -EAGAIN;
+				}
+				break;
+			case PLL_BASE_ADDR:
+				if(length>PLL_RANGE)
+				{
+					LOG_ERR("mmap range error : length(0x%x),PLL_RANGE(0x%x)!",length,PLL_RANGE);
+					return -EAGAIN;
+				}
+				break;
+			case MIPIRX_CONFIG_ADDR:
+				if(length>MIPIRX_CONFIG_RANGE)
+				{
+					LOG_ERR("mmap range error : length(0x%x),MIPIRX_CONFIG_RANGE(0x%x)!",length,MIPIRX_CONFIG_RANGE);
+					return -EAGAIN;
+				}
+				break;
+			case MIPIRX_ANALOG_ADDR:
+				if(length>MIPIRX_ANALOG_RANGE)
+				{
+					LOG_ERR("mmap range error : length(0x%x),MIPIRX_ANALOG_RANGE(0x%x)!",length,MIPIRX_ANALOG_RANGE);
+					return -EAGAIN;
+				}
+				break;
+			case GPIO_BASE_ADDR:
+				if(length>GPIO_RANGE)
+				{
+					LOG_ERR("mmap range error : length(0x%x),GPIO_RANGE(0x%x)!",length,GPIO_RANGE);
+					return -EAGAIN;
+				}
+				break;
+			default:
+				LOG_ERR("Illegal starting HW addr for mmap!");
+				return -EAGAIN;
+				break;
+		}
+	    if(remap_pfn_range(pVma, pVma->vm_start, pVma->vm_pgoff,pVma->vm_end - pVma->vm_start, pVma->vm_page_prot))
+	    {
+	        return -EAGAIN;
+	    }
     }
     //
     return 0;
@@ -4370,13 +4482,13 @@ void ISP_MCLK1_EN(MBOOL En)
     if(En)
     {
         temp |= 0x20000000;
-        ISP_WR32(ISP_ADDR + 0x4300,temp);       
+        ISP_WR32(ISP_ADDR + 0x4300,temp);
     }
     else
     {
         temp &= 0xDFFFFFFF;
         ISP_WR32(ISP_ADDR + 0x4300,temp);
-    }    
+    }
 
 }
 
@@ -4387,13 +4499,13 @@ void ISP_MCLK2_EN(MBOOL En)
     if(En)
     {
         temp |= 0x20000000;
-        ISP_WR32(ISP_ADDR + 0x43A0,temp);       
+        ISP_WR32(ISP_ADDR + 0x43A0,temp);
     }
     else
     {
         temp &= 0xDFFFFFFF;
         ISP_WR32(ISP_ADDR + 0x43A0,temp);
-    }    
+    }
 
 }
 /*******************************************************************************

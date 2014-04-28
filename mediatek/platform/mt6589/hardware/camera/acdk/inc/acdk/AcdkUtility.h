@@ -162,7 +162,7 @@ namespace NSACDK
 
             /**                       
                        *@brief Image Process
-                       *@details Rotate, image format transform, resize, etc.                       
+                       *@details Rotate, image format transform, resize, etc
                        *
                        *@param[in] imgFormat : image format
                        *@param[in] srcImgW : width of input image
@@ -186,6 +186,27 @@ namespace NSACDK
                                       IMEM_BUF_INFO dstImem,
                                       MUINT32 dstImgW = 0,
                                       MUINT32 dstImgH = 0);
+            
+            /**                       
+                       *@brief Unpack RAW image
+                       *@details for MT6589 RAW type
+                       *
+                       *@param[in] srcImem : IMEM of input image
+                       *@param[in] dstImem : IMEM of output image
+                       *@param[in] a_imgW : width of input image
+                       *@param[in] a_imgH  : height of input image
+                       *@param[in] a_bitDepth  : bit depth of input image
+                       *@param[in] a_Stride  : stride of input image
+                       *
+                       *@return
+                       *-0 indicates success, otherwise indicates fail
+                     */
+            MINT32 rawImgUnpack(IMEM_BUF_INFO srcImem,
+                                      IMEM_BUF_INFO dstImem,
+                                      MUINT32 a_imgW,
+                                      MUINT32 a_imgH,
+                                      MUINT32 a_bitDepth,
+                                      MUINT32 a_Stride);
     };
 };
 #endif //end AcdkUtility.h 

@@ -272,8 +272,25 @@ namespace NSAcdkMhal
                        *-0 indicates success, otherwise indicates fail
                      */
             virtual MINT32 acdkMhalCaptureProc() = 0;
+
             /**                       
-                       *@brief  Get AF information
+                       *@brief  Get shutter time in us
+                       *@return
+                       *-0 indicates success, otherwise indicates fail
+                     */
+            virtual MUINT32 acdkMhalGetShutTime() = 0;
+
+            /**                       
+                       *@brief  Set shutter time
+                       *
+                       *@param[in] a_time : specific shutter time in us
+                       *
+                       *@return
+                       *-0 indicates success, otherwise indicates fail
+                     */
+            virtual MVOID acdkMhalSetShutTime(MUINT32 a_time) = 0;
+            /**                       
+                       *@brief  Get shutter time in us
                        *@return
                        *-0 indicates success, otherwise indicates fail
                      */

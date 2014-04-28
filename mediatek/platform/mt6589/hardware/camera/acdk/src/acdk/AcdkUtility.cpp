@@ -436,3 +436,148 @@ MINT32 AcdkUtility::imageProcess(MUINT32 imgOutFormat,
 }
 
 
+/******************************************************************************
+*
+*******************************************************************************/
+MINT32 AcdkUtility::rawImgUnpack(IMEM_BUF_INFO srcImem,
+                                       IMEM_BUF_INFO dstImem,
+                                       MUINT32 a_imgW,
+                                       MUINT32 a_imgH,
+                                       MUINT32 a_bitDepth,
+                                       MUINT32 a_Stride)
+{   
+
+    ACDK_LOGD("srcImem : VA(0x%x),PA(0x%x),ID(%d),SZ(%u)",srcImem.virtAddr,
+                                                           srcImem.phyAddr,
+                                                           srcImem.memID,
+                                                           srcImem.size);
+
+    ACDK_LOGD("dstImem : VA(0x%x),PA(0x%x),ID(%d),SZ(%u)",dstImem.virtAddr,
+                                                           dstImem.phyAddr,
+                                                           dstImem.memID,
+                                                           dstImem.size);
+
+    ACDK_LOGD("imgW(%u),imgH(%u),bitDepth(%u),stride(%u)",a_imgW,
+                                                           a_imgH,
+                                                           a_bitDepth,
+                                                           a_Stride);
+  
+    //====== Unpack ======
+
+    MUINT8 *pSrcBuf = (MUINT8 *)srcImem.virtAddr;
+    MUINT16 *pDstBuf = (MUINT16 *)dstImem.virtAddr;
+
+    if(a_bitDepth == 8)
+    {
+        MUINT8 pixelValue;
+        for(MUINT32 i = 0; i < (a_imgW * a_imgH); ++i)
+        {
+            pixelValue = *(pSrcBuf++);
+            *(pDstBuf) = pixelValue;
+        }
+    }
+    else if(a_bitDepth == 10)
+    {
+        MUINT8 *lineBuf;
+        
+        for(MUINT32 i = 0; i < a_imgH; ++i)
+        {
+            lineBuf = pSrcBuf + i * a_Stride;
+
+            for(MUINT32 j = 0; j < (a_imgW / 4); ++j)
+            {
+                MUINT8 byte0 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte1 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte2 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte3 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte4 = (MUINT8)(*(lineBuf++));
+
+                *(pDstBuf++) = (MUINT16)(byte0 + ((byte1 & 0x3) << 8));
+                *(pDstBuf++) = (MUINT16)(((byte1 & 0xFC) >> 2) + ((byte2 & 0xF) << 6));
+                *(pDstBuf++) = (MUINT16)(((byte2 & 0xF0) >> 4) + ((byte3 & 0x3F) << 4));
+                *(pDstBuf++) = (MUINT16)(((byte3 & 0xC0) >> 6) + (byte4 << 2));
+            }
+
+            //process last pixel in the width
+            if((a_imgW % 4) != 0)
+            {
+                MUINT8 byte0 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte1 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte2 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte3 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte4 = (MUINT8)(*(lineBuf++));  
+
+                for(MUINT32 j = 0; j < (a_imgW % 4); ++j)
+                {
+                    switch(j)
+                    {
+                        case 0 : *(pDstBuf++) = (MUINT16)(byte0 + ((byte1 & 0x3) << 8));
+                            break;
+                        case 1 : *(pDstBuf++) = (MUINT16)(((byte1 & 0x3F) >> 2) + ((byte2 & 0xF) << 6));
+                            break;
+                        case 2 : *(pDstBuf++) = (MUINT16)(((byte2 & 0xF0) >> 4) + ((byte3 & 0x3F) << 6));
+                            break;
+                        case 3 : *(pDstBuf++) = (MUINT16)(((byte3 & 0xC0) >> 6) + (byte4 << 2));
+                            break;
+                    }
+                }
+            }
+        }
+    }
+    else if(a_bitDepth == 12)
+    {
+        MUINT8 *lineBuf;
+        
+        for(MUINT32 i = 0; i < a_imgH; ++i)
+        {
+            lineBuf = pSrcBuf + i * a_Stride;
+            
+            for(MUINT32 j = 0; j < (a_imgW / 4); ++j)
+            {
+                MUINT8 byte0 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte1 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte2 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte3 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte4 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte5 = (MUINT8)(*(lineBuf++));
+
+                *(pDstBuf++) = (MUINT16)(byte0 + ((byte1 & 0xF) << 8));
+                *(pDstBuf++) = (MUINT16)((byte1 >> 4) + (byte2 << 4));
+                *(pDstBuf++) = (MUINT16)(byte3 + ((byte4 & 0xF) << 8));
+                *(pDstBuf++) = (MUINT16)((byte4 >> 4) + (byte5 << 4));
+            }
+
+             //process last pixel in the width
+            if((a_imgW % 4) != 0)
+            {
+                MUINT8 byte0 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte1 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte2 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte3 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte4 = (MUINT8)(*(lineBuf++));
+                MUINT8 byte5 = (MUINT8)(*(lineBuf++));
+
+                for(MUINT32 j = 0; j < (a_imgW % 4); ++j)
+                {
+                    switch(j)
+                    {
+                        case 0 : *(pDstBuf++) = (MUINT16)(byte0 + ((byte1 & 0xF) << 8));
+                            break;
+                        case 1 : *(pDstBuf++) = (MUINT16)((byte1 >> 4) + (byte2 << 4));
+                            break;
+                        case 2 : *(pDstBuf++) = (MUINT16)(byte3 + ((byte4 & 0xF) << 8));
+                            break;
+                        case 3 : *(pDstBuf++) = (MUINT16)((byte4 >> 4) + (byte5 << 4));
+                            break;
+                    }
+                }
+            }
+        }
+    }
+
+    return ACDK_RETURN_NO_ERROR;
+    ACDK_LOGD("-");
+}
+
+
+

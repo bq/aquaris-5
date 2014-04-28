@@ -22,6 +22,12 @@ namespace android
 class AudioMTKStreamManager : public AudioMTKStreamManagerInterface
 {
     public:
+        typedef enum
+        {
+            AudStreamOutput =0,
+            AudStreamInput =1 ,
+            AudStreamInputOutput =2
+        }AudStreamIO;
 
         /**
         * virtual destrutor
@@ -108,6 +114,13 @@ class AudioMTKStreamManager : public AudioMTKStreamManagerInterface
         // ACF Preview parameter
         virtual status_t SetACFPreviewParameter(void *ptr , int len);
         virtual status_t SetHCFPreviewParameter(void *ptr , int len);
+
+        // FSync flag
+        virtual bool GetFSyncFlag(int streamType);
+        virtual void ClearFSync(int streamType);
+
+        virtual status_t setParameters(const String8 &keyValuePairs,int IOport);
+        virtual String8 	getParameters(const String8 &keys,int IOport);
 
         static AudioMTKStreamManager *getInstance();
 

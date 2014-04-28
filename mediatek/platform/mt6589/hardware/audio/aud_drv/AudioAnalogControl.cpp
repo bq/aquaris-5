@@ -267,6 +267,20 @@ status_t AudioAnalogControl::setmode(audio_mode_t mode)
 // set parameters and get parameters
 status_t AudioAnalogControl::setParameters(int command1 , int command2 , unsigned int data)
 {
+    ALOGD("command1 = %d command2 = %d", command1, command2);
+    switch(command1)
+    {
+        #ifdef MTK_3MIC_SUPPORT
+        case INFO_U2K_MICANA_SWITCH:
+        {
+            mAudioMachineDevice->setParameters(command1,command2,data);
+            break;
+        }
+        #endif
+        default :
+        ALOGW("setParameters woth no such command = %d",command1);
+    }
+
     return NO_ERROR;
 }
 

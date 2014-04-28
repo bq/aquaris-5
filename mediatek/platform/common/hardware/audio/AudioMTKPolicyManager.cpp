@@ -536,7 +536,14 @@ void AudioMTKPolicyManager::setPhoneState(int state)
     }
 
     // change routing is necessary
+#ifdef MTK_AUDIO // set a flag to notate phone state routing or not
+    mIsPhoneStateSetOutputDevice = true;
+#endif
     setOutputDevice(mPrimaryOutput, newDevice, force, delayMs);
+#ifdef MTK_AUDIO // set a flag to notate phone state routing or not
+    mIsPhoneStateSetOutputDevice = false;
+#endif
+
 #ifdef MTK_AUDIO
 #ifdef MTK_AUDIO_GAIN_TABLE
     updateAnalogVolume(mPrimaryOutput,newDevice,delayMs);
@@ -674,6 +681,20 @@ AudioSystem::forced_config AudioMTKPolicyManager::getForceUse(AudioSystem::force
 void AudioMTKPolicyManager::setSystemProperty(const char* property, const char* value)
 {
     ALOGV("setSystemProperty() property %s, value %s", property, value);
+    #ifdef MTK_AUDIO
+    #ifdef ENABLE_CAMERA_SOUND_FORCED_SET
+    if (strcmp(property, "ro.camera.sound.forced") == 0) {
+        if (atoi(value)) {
+            ALOGD("ENFORCED_AUDIBLE cannot be muted");
+            mStreams[AudioSystem::ENFORCED_AUDIBLE].mCanBeMuted = false;
+        } else {
+            ALOGD("ENFORCED_AUDIBLE can be muted");
+            mStreams[AudioSystem::ENFORCED_AUDIBLE].mCanBeMuted = true;
+        }        
+    }
+    #endif
+    #endif
+
 }
 
 AudioMTKPolicyManager::IOProfile *AudioMTKPolicyManager::getProfileForDirectOutput(
@@ -1749,6 +1770,10 @@ AudioMTKPolicyManager::AudioMTKPolicyManager(AudioPolicyClientInterface *clientI
     ActiveStream =0;
     PreActiveStream =-1;
 #endif
+
+#ifdef MTK_AUDIO
+    mIsPhoneStateSetOutputDevice = false;
+#endif
 }
 
 AudioMTKPolicyManager::~AudioMTKPolicyManager()
@@ -2007,7 +2032,7 @@ status_t AudioMTKPolicyManager::checkOutputsForDevice(audio_devices_t device,
                                   reply.string());
                         value = strpbrk((char *)reply.string(), "=");
                         if (value != NULL) {
-                            loadSamplingRates(value, profile);
+                            loadSamplingRates(value + 1, profile);
                         }
                     }
                     if (profile->mFormats[0] == 0) {
@@ -2017,7 +2042,7 @@ status_t AudioMTKPolicyManager::checkOutputsForDevice(audio_devices_t device,
                                   reply.string());
                         value = strpbrk((char *)reply.string(), "=");
                         if (value != NULL) {
-                            loadFormats(value, profile);
+                            loadFormats(value + 1, profile);
                         }
                     }
                     if (profile->mChannelMasks[0] == 0) {
@@ -2979,7 +3004,17 @@ uint32_t AudioMTKPolicyManager::setOutputDevice(audio_io_handle_t output,
     ALOGV("setOutputDevice() changing device");
     // do the routing
     param.addInt(String8(AudioParameter::keyRouting), (int)device);
+#ifdef MTK_AUDIO // do not create another thread to set routing
+    if (mIsPhoneStateSetOutputDevice == true) {
+        usleep(delayMs * 1000);
+        mpClientInterface->setParameters(output, param.toString(), 0);
+    }
+    else {
+        mpClientInterface->setParameters(output, param.toString(), delayMs);
+    }
+#else // original Google code
     mpClientInterface->setParameters(output, param.toString(), delayMs);
+#endif
 
     // update stream volumes according to new device
     applyStreamVolumes(output, device, delayMs);
@@ -3502,14 +3537,7 @@ status_t AudioMTKPolicyManager::checkAndSetVolume(int stream,
     // - the float value returned by computeVolume() changed
     // - the force flag is set
     if (volume != mOutputs.valueFor(output)->mCurVolume[stream] ||
-            force) {
-        mOutputs.valueFor(output)->mCurVolume[stream] = volume;
-        ALOGVV("checkAndSetVolume() for output %d stream %d, volume %f, delay %d", output, stream, volume, delayMs);
-            // Force VOICE_CALL to track BLUETOOTH_SCO stream volume when bluetooth audio is
-            // enabled
-            if (stream == AudioSystem::BLUETOOTH_SCO) {
-                mpClientInterface->setStreamVolume(AudioSystem::VOICE_CALL, volume, output, delayMs);
-            }
+            force) {        
 #ifdef MTK_AUDIO
         int bSetStreamVolume=1;
         //Overall, Don't set volume to affect direct mode volume setting if the later routing is still direct mode . HoChi . This is very tricky that WFD support FM,others(BT/...) don't. 
@@ -3528,6 +3556,13 @@ status_t AudioMTKPolicyManager::checkAndSetVolume(int stream,
         if(bSetStreamVolume==1)
         {
 #endif
+            mOutputs.valueFor(output)->mCurVolume[stream] = volume;
+            ALOGVV("checkAndSetVolume() for output %d stream %d, volume %f, delay %d", output, stream, volume, delayMs);
+            // Force VOICE_CALL to track BLUETOOTH_SCO stream volume when bluetooth audio is
+            // enabled
+            if (stream == AudioSystem::BLUETOOTH_SCO) {
+                mpClientInterface->setStreamVolume(AudioSystem::VOICE_CALL, volume, output, delayMs);
+            }
             mpClientInterface->setStreamVolume((AudioSystem::stream_type)stream, volume, output, delayMs);
 #ifdef MTK_AUDIO
         }

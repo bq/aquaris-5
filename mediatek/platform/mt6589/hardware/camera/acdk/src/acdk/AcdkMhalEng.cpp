@@ -556,17 +556,6 @@ MINT32 AcdkMhalEng::acdkMhal3ASetParam(MINT32 devID, MUINT8 IsFactory)
     cam3aParam.u4EdgeMode       = 1;
     cam3aParam.u4ContrastMode   = 1;
 
-
-
-#if defined(MTK_FACTORY_AUTO_FLASH_SUPPORT)
-  cam3aParam.rNewParam.i4MinFps = 50;
-  cam3aParam.rNewParam.i4MaxFps = 300;
-	XLOGD("line=%d factory flash=auto (support)",__LINE__);
-	cam3aParam.u4StrobeMode = 0;
-#else
-	XLOGD("line=%d MTK_FACTORY_AUTO_FLASH_SUPPORT not support",__LINE__);
-#endif
-
     //set zoom info
     m_p3AHal->setZoom(100, 0, 0, mAcdkMhalPrvParam.sensorWidth, mAcdkMhalPrvParam.sensorHeight);
 
@@ -1702,9 +1691,34 @@ MINT32 AcdkMhalEng::acdkMhalCaptureProc()
 }
 
 /*******************************************************************************
+* 
+*******************************************************************************/
+MUINT32 AcdkMhalEng::acdkMhalGetShutTime()
+{
+    m_p3AHal->getCaptureParams(0, 0, mCap3AParam);
+
+    ACDK_LOGD("mCap3AParam.u4Eposuretime(%u)",mCap3AParam.u4Eposuretime);
+
+    return mCap3AParam.u4Eposuretime;
+    
+}
 
 /*******************************************************************************
-*
+* 
+*******************************************************************************/
+MVOID AcdkMhalEng::acdkMhalSetShutTime(MUINT32 a_time)
+{
+    // get and then set
+    m_p3AHal->getCaptureParams(0, 0, mCap3AParam);
+
+    ACDK_LOGD("ori(%u),new(%u)",mCap3AParam.u4Eposuretime,a_time);
+    
+    mCap3AParam.u4Eposuretime = a_time;
+    m_p3AHal->updateCaptureParams(mCap3AParam);
+}
+
+/*******************************************************************************
+* 
 *******************************************************************************/
 MUINT32 AcdkMhalEng::acdkMhalGetAFInfo()
 {

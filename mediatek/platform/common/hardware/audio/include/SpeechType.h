@@ -35,7 +35,7 @@ enum speech_mode_t {
     SPEECH_MODE_BT_EARPHONE     = 3,
     SPEECH_MODE_BT_CORDLESS     = 4,
     SPEECH_MODE_BT_CARKIT       = 5,
-    SPEECH_MODE_PRESERVED_1     = 6,
+    SPEECH_MODE_MAGIC_CON_CALL  = 6,
     SPEECH_MODE_PRESERVED_2     = 7,
     SPEECH_MODE_NO_CONNECT      = 8
 };
@@ -121,10 +121,11 @@ enum sph_enh_main_mask_t {
 // speech enhancement function dynamic mask
 // This is the dynamic switch to decided the enhancment output.
 enum sph_enh_dynamic_mask_t {
-    SPH_ENH_DYNAMIC_MASK_DMNR = (1 << 0),
-    SPH_ENH_DYNAMIC_MASK_VCE  = (1 << 1),
-    SPH_ENH_DYNAMIC_MASK_BWE  = (1 << 2),
-    SPH_ENH_DYNAMIC_MASK_ALL = 0xFFFFFFFF
+    SPH_ENH_DYNAMIC_MASK_DMNR      = (1 << 0), // for receiver
+    SPH_ENH_DYNAMIC_MASK_VCE       = (1 << 1),
+    SPH_ENH_DYNAMIC_MASK_BWE       = (1 << 2),
+    SPH_ENH_DYNAMIC_MASK_LSPK_DMNR = (1 << 5), // for loud speaker 
+    SPH_ENH_DYNAMIC_MASK_ALL       = 0xFFFFFFFF
 };
 
 typedef struct {

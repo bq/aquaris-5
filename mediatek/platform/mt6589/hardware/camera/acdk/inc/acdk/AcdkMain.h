@@ -213,7 +213,7 @@ namespace NSACDK
                 *@return
                 *-0 indicates success, otherwise indicates fail
               */
-        virtual MINT32 setSrcDev(MINT32 srcDev);
+        virtual MINT32 setSrcDev(MINT32 srcDev); 
 
         /**
                 *@brief Show quick-view image
@@ -425,6 +425,16 @@ namespace NSACDK
               */
         MINT32 sensorFormatSetting(MUINT32 mode, MUINT32 &imgFormat, MUINT32 &imgSize, MUINT32 *imgStride = NULL);
 
+        /**
+                *@brief Setting shutter time
+                *@note this is for factory-camera auto-testing usage
+                *
+                *@param[in] a_time : specific shutter time
+                *
+                *@return
+                *-0 indicates success, otherwise indicates fail
+              */
+        virtual MINT32 setShutterTime(MUINT32 a_time);
 
         /**
                 *@brief MakeExif Header
@@ -478,6 +488,7 @@ namespace NSACDK
         MUINT32 mPrvStartY;
         MUINT32 mOrientation;
         MBOOL   mIsFacotory;
+        MUINT16 mTestPatternOut;
 
         //capture related variable
         ISingleShot *m_pSingleShot;
@@ -486,8 +497,9 @@ namespace NSACDK
         MUINT32 mCapType;
         MUINT32 mQVWidth;
         MUINT32 mQVHeight;
+        MBOOL   mUnPack;
         MBOOL   mIsSOI; 
-       
+
         // preview & display buffer
         IMEM_BUF_INFO mPrvIMemInfo[OVERLAY_BUFFER_CNT];
         IMEM_BUF_INFO mDispIMemInfo[OVERLAY_BUFFER_CNT];
@@ -514,6 +526,11 @@ namespace NSACDK
         MUINT32 mSensorHFlip;
         ACDK_SENSOR_RESOLUTION_INFO_STRUCT mSensorResolution;
         halSensorRawImageInfo_t mSensorFormatInfo;  // Although name is RawImageInfo, but can get both raw/yuv type
+
+        //factory-camera auto-testing
+        MUINT32 mSetShutTime;
+        MUINT32 mGetShutTime;
+        MUINT32 mGetCheckSumValue;
         //AF information
         MUINT32 mGetAFInfo;
 

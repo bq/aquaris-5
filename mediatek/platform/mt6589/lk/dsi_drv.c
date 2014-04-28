@@ -791,9 +791,11 @@ DSI_STATUS DSI_StartTransfer(BOOL needStartDSI)
         DSI_WaitBtaTE();
 	
 	if(needStartDSI){
-		if(1 == lcm_params->dsi.compatibility_for_nvk){
+		if(0 < lcm_params->dsi.compatibility_for_nvk){
 			if(1== DSI_Detect_CLK_Glitch()){
-				return DSI_STATUS_OK;
+				if(lcm_params->dsi.mode == CMD_MODE){
+					return DSI_STATUS_OK;
+				}
 			}
 		}
 		DSI_clk_HS_mode(1);
@@ -805,7 +807,7 @@ DSI_STATUS DSI_StartTransfer(BOOL needStartDSI)
 
 unsigned int glitch_detect_fail_cnt = 0;
 
-unsigned int DSI_Detect_CLK_Glitch(void)
+unsigned int DSI_Detect_CLK_Glitch_Default(void)
 {
     int data_array[2];
 	DSI_T0_INS t0;
@@ -1018,6 +1020,269 @@ unsigned int DSI_Detect_CLK_Glitch(void)
 	}
 	glitch_detect_fail_cnt = 0;
 	return 0;
+}
+
+
+unsigned int DSI_Detect_CLK_Glitch_Parallel(void)
+{
+    int data_array[2];
+	DSI_T0_INS t0;
+	char i, j;
+	int read_timeout_cnt=10000;
+	int read_timeout_ret = 0;
+	unsigned int try_times = 50;
+    int read_IC_ID = 0;
+    
+//    MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagStart, 0, 0);
+/**********************start******************/
+    _WaitForEngineNotBusy();
+   // lcdStartTransfer = true;
+	if(glitch_detect_fail_cnt>2){
+		return 0;
+	}
+	
+	DSI_BackUpCmdQ();
+
+	DSI_SetMode(CMD_MODE);
+
+	for(i=0;i<try_times*4;i++)
+	{
+        if(read_IC_ID == 0) // slave
+        {
+            
+	    if(glitch_log_on)
+		  printk("Test log 1: try time i = %d!!\n", i);
+		 DSI_clk_HS_mode(0);
+		 
+		while((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x1) == 0);	 // polling bit0
+		
+		OUTREGBIT(DSI_COM_CTRL_REG,DSI_REG->DSI_COM_CTRL,DSI_RESET,0);
+		OUTREGBIT(DSI_COM_CTRL_REG,DSI_REG->DSI_COM_CTRL,DSI_RESET,1);//reset
+		OUTREGBIT(DSI_COM_CTRL_REG,DSI_REG->DSI_COM_CTRL,DSI_RESET,0);
+    	
+		if(i>0)
+			 {
+			  MASKREG32(MIPI_CONFIG_BASE + 0x04, 0x20, 0x0);
+			 }
+		  DSI_clk_HS_mode(1);
+		  while((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x40000) == 0)	 // polling bit18 start
+		  	{
+			  if(glitch_log_on)
+		         printk("Test log 2: wait for DSI_STATE_DBG0 bit18==1 \n");
+		  	}
+		  if(i>0)
+			 {
+			  MASKREG32(MIPI_CONFIG_BASE + 0x04, 0x20, 0x20);
+			 }
+//			OUTREG32(&DSI_CMDQ_REG->data[0], 0x00290508);
+
+        }
+
+#if 1 // HS command
+                  OUTREG32(&DSI_CMDQ_REG->data[0], 0xAA801508);
+                  OUTREG32(&DSI_REG->DSI_CMDQ_SIZE, 1);
+                   
+                  OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,0);
+                  OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,1);
+          
+                  read_timeout_cnt=1000000;
+
+                  while(DSI_REG->DSI_INTSTA.BUSY) {
+                      udelay(1);
+                      if (--read_timeout_cnt < 0) {
+                          DISP_LOG_PRINT(ANDROID_LOG_ERROR, "DSI", " Wait for DSI engine not busy timeout!!!:%d\n",__LINE__);
+                          DSI_DumpRegisters();
+                          DSI_Reset();
+                          break;
+                      }
+                  }
+
+                  OUTREG32(&DSI_REG->DSI_INTSTA, 0x0);
+#endif
+                  // LP command
+                  if(read_IC_ID == 0) // slave
+                  {
+                      //OUTREG32(&DSI_CMDQ_REG->data[0], 0x00023902);
+                      //OUTREG32(&DSI_CMDQ_REG->data[1], 0x000010B5);
+                      OUTREG32(&DSI_CMDQ_REG->data[0], 0x10B51500);
+                  }
+                  else // read_IC_ID == 1, master
+                  {
+                      //OUTREG32(&DSI_CMDQ_REG->data[0], 0x00023902);
+                      //OUTREG32(&DSI_CMDQ_REG->data[1], 0x000090B5);
+                      OUTREG32(&DSI_CMDQ_REG->data[0], 0x90B51500);
+                  }
+                    
+                  OUTREG32(&DSI_REG->DSI_CMDQ_SIZE, 1);        
+                  OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,0);
+                  OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,1);
+                  while(DSI_REG->DSI_INTSTA.CMD_DONE == 0);
+                  OUTREGBIT(DSI_INT_STATUS_REG,DSI_REG->DSI_INTSTA,CMD_DONE,0);
+        
+		  t0.CONFG = 0x04;
+		  t0.Data0 = 0;
+		  t0.Data_ID = 0;
+		  t0.Data1 = 0;
+	 
+		  OUTREG32(&DSI_CMDQ_REG->data[0], AS_UINT32(&t0));
+		  OUTREG32(&DSI_REG->DSI_CMDQ_SIZE, 1);
+		 
+		  OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,0);
+	      OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,1);
+		
+		 DSI_RX_DATA_REG read_data0;
+		 DSI_RX_DATA_REG read_data1;
+
+			read_timeout_cnt=10;
+		  while(DSI_REG->DSI_INTSTA.RD_RDY == 0)  ///read clear
+				 {
+					 ///keep polling
+				if(glitch_log_on)
+		             printk("Test log 3:polling ack & error report \n");
+					 udelay(100);
+					 read_timeout_cnt--;
+//					printk("polling time = %d us\n", ((unsigned int)end_time - (unsigned int)start_time));
+					if(read_timeout_cnt==0)
+					 {
+//					    if(glitch_log_on)
+//		                   printk("Test log 4:Polling DSI read ready timeout,%d us\n", (unsigned int)sched_clock() - (unsigned int)start_time);
+
+//						DSI_DumpRegisters();
+						 OUTREGBIT(DSI_RACK_REG,DSI_REG->DSI_RACK,DSI_RACK,1);
+						 DSI_Reset();
+						 read_timeout_ret = 1;
+						 break;
+					 }
+				 }
+		if(1 == read_timeout_ret){
+			read_timeout_ret = 0;
+            printk("iii detect timeout ID:%d\n",read_IC_ID);
+            read_IC_ID = 0;
+			continue;
+		}
+		  OUTREGBIT(DSI_RACK_REG,DSI_REG->DSI_RACK,DSI_RACK,1);
+       	OUTREGBIT(DSI_INT_STATUS_REG,DSI_REG->DSI_INTSTA,RD_RDY,0);
+
+		 if(((DSI_REG->DSI_TRIG_STA.TRIG2) )==1)
+		 {
+            if(read_IC_ID == 0)
+            {
+                read_IC_ID = 1;
+                continue;
+            }
+			break;
+//			continue;			 
+		  }
+		 else
+			 {
+			  //read error report
+			  OUTREG32(&read_data0, AS_UINT32(&DSI_REG->DSI_RX_DATA0));
+			  OUTREG32(&read_data1, AS_UINT32(&DSI_REG->DSI_RX_DATA1));
+
+			  if(glitch_log_on)
+			  	{
+			  	  printk("read_data0, %x,%x,%x,%x\n", read_data0.byte0, read_data0.byte1, read_data0.byte2, read_data0.byte3);
+	              printk("read_data1, %x,%x,%x,%x\n", read_data1.byte0, read_data1.byte1, read_data1.byte2, read_data1.byte3);
+			  	}
+
+			  if(((read_data0.byte1&0x7) != 0)||((read_data0.byte2&0x3)!=0)) //bit 0-3	bit 8-9
+				{
+                    printk("read_data0, %x,%x,%x,%x\n", read_data0.byte0, read_data0.byte1, read_data0.byte2, read_data0.byte3);
+		            printk("iii detect error ID:%d\n",read_IC_ID);
+                    read_IC_ID = 0;
+				  continue;
+				}
+			  else
+				 {
+                    if(read_IC_ID == 0)
+                    {
+                        read_IC_ID = 1;
+                        continue;
+                    }
+//	 				continue;			 
+				  break;// jump out the for loop ,go to refresh
+				 }
+	 
+			 }
+	 	}
+#if 1
+	if(i>1)
+		printk("detect times:%d\n",i);
+#endif
+    DSI_RestoreCmdQ();
+
+#if 1
+	switch(lcm_params->dsi.LANE_NUM)
+	{
+		case LCM_FOUR_LANE:
+			OUTREG32(MIPI_CONFIG_BASE + 0x84, 0x3CF3C7B1); 
+			break;
+		case LCM_THREE_LANE:
+			OUTREG32(MIPI_CONFIG_BASE + 0x84, 0x00F3C7B1); 
+			break;
+        default:
+            OUTREG32(MIPI_CONFIG_BASE + 0x84, 0x0003C7B1); 
+	}	
+
+	 OUTREG32(MIPI_CONFIG_BASE + 0x88, 0x0); 
+	 OUTREG32(MIPI_CONFIG_BASE + 0x80, 0x1); 
+
+     DSI_REG->DSI_COM_CTRL.DSI_RESET = 0;
+	 DSI_REG->DSI_COM_CTRL.DSI_RESET = 1;
+	 DSI_REG->DSI_COM_CTRL.DSI_RESET = 0;
+
+     DSI_clk_HS_mode(1);
+
+	  if(glitch_log_on)
+		     printk("Test log 5:start Polling bit18\n");
+
+	 while((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x40000) == 0)	 // polling bit18
+		 {
+		  	  udelay(1);
+		  }
+
+	 if(glitch_log_on)
+		    printk("Test log 6:start Polling bit18\n");
+	 
+     OUTREG32(MIPI_CONFIG_BASE + 0x80, 0x0); 
+#endif
+	
+	read_timeout_cnt=1000000;
+	while(DSI_REG->DSI_INTSTA.BUSY) {
+		udelay(1);
+			/*printk("xuecheng, dsi wait\n");*/
+		if (--read_timeout_cnt < 0) {
+			DISP_LOG_PRINT(ANDROID_LOG_ERROR, "DSI", " Wait for DSI engine not busy timeout!!!:%d\n",__LINE__);
+			DSI_DumpRegisters();
+			DSI_Reset();
+			break;
+		}
+	}
+	OUTREG32(&DSI_REG->DSI_INTSTA, 0x0);
+	DSI_SetMode(lcm_params->dsi.mode);
+//	if(glitch_log_on)
+	if(i == try_times){
+		glitch_detect_fail_cnt++;
+		return 1;
+	}
+	glitch_detect_fail_cnt = 0;
+	return 0;
+}
+
+unsigned int DSI_Detect_CLK_Glitch(void)
+{
+    if (lcm_params->dsi.compatibility_for_nvk == 1)
+    {
+        return DSI_Detect_CLK_Glitch_Default();
+    }
+    else if (lcm_params->dsi.compatibility_for_nvk == 2)
+    {
+        return DSI_Detect_CLK_Glitch_Parallel();
+    }
+    else
+    {
+        return DSI_Detect_CLK_Glitch_Default();
+    }
 }
 
 DSI_STATUS DSI_DisableClk(void)

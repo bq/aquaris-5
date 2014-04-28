@@ -121,6 +121,9 @@ class AudioMTKStreamIn : public android_audio_legacy::AudioStreamIn
         status_t RequesetRecordclock();
         status_t ReleaseRecordclock();
 
+        void ClearFSync();
+        bool GetFSyncFlag();
+
         // defualt setting for Streamin
         static const int mStream_Default_Format = AUDIO_FORMAT_PCM_16_BIT;
         static const int mStream_Default_Channels = AUDIO_CHANNEL_IN_STEREO;

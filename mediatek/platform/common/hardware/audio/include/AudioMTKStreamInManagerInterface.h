@@ -48,7 +48,12 @@ class AudioMTKStreamInManagerInterface
         * this function is set mic mute
         * @return status_t*/
         virtual uint32 SetInputMute(bool bEnable) = 0;
-
+#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+		/**
+        * this function is get record drop time
+        * @return status_t*/
+        virtual uint32 GetRecordDropTime() = 0;
+#endif
 };
 
 }

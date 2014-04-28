@@ -179,7 +179,7 @@ class AudioResourceManagerInterface
         * a function for to get MIC digital gain for HD Record
         */
         virtual long GetSwMICDigitalGain(void) = 0;
-        
+
         /**
         * a function for doing setMode()
         */
@@ -189,6 +189,12 @@ class AudioResourceManagerInterface
         * a function for set mic inverse
         */
         virtual status_t SetMicInvserse(bool bEnable) = 0;
+
+       /**
+        * a function for set hardware mute
+        */
+        virtual status_t SetHardwareMute(bool bEnable) = 0;
+
 };
 
 #endif

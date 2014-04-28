@@ -20,6 +20,12 @@
         } \
     } while(0)
 
+#define WARNING(string) \
+    do { \
+        ALOGW("WARNING("string") fail: \""  __FILE__ "\", %uL", __LINE__); \
+        aee_system_warning("libaudio.primary.default.so", NULL, DB_OPT_DEFAULT, string); \
+    } while(0)
+
 
 #ifndef int8_t
 typedef signed char         int8_t;

@@ -34,6 +34,11 @@ extern void mt_fh_popod_restore(void);
 extern void mt_cpufreq_return_default_DVS_by_ptpod(void);
 extern unsigned int mt_cpufreq_voltage_set_by_ptpod(unsigned int pmic_volt[], unsigned int array_size);
 
+u32 PTP_VO_0, PTP_VO_1, PTP_VO_2, PTP_VO_3, PTP_VO_4, PTP_VO_5, PTP_VO_6, PTP_VO_7;
+u32 PTP_init2_VO_0, PTP_init2_VO_1, PTP_init2_VO_2, PTP_init2_VO_3, PTP_init2_VO_4, PTP_init2_VO_5, PTP_init2_VO_6, PTP_init2_VO_7;
+u32 PTP_INIT_FLAG = 0;
+u32 PTP_DCVOFFSET = 0;
+u32 PTP_AGEVOFFSET = 0;
 
 u32 PTP_Enable = 1;
 volatile u32 ptp_data[3] = {0xffffffff, 0, 0};
@@ -137,8 +142,17 @@ static void PTP_set_ptp_volt(void)
 
             return;
         }
-        	
-        ptpod_pmic_volt[0] =  PTP_VO_0; 
+
+        #if ENHANCE_TURBO_OPP
+            ptpod_pmic_volt[0] =  PTP_VO_0 + 8;
+            if (ptpod_pmic_volt[0] > 0x5D)
+            {
+                ptpod_pmic_volt[0] = 0x5D;
+            }
+        #else
+            ptpod_pmic_volt[0] =  PTP_VO_0;
+        #endif
+
         array_size++;
     }
     

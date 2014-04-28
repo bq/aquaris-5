@@ -70,6 +70,10 @@ ifeq ($(strip $(MTK_USE_ANDROID_MM_DEFAULT_CODE)),yes)
   LOCAL_CFLAGS += -DANDROID_DEFAULT_CODE
 endif
 
+#ifeq ($(strip $(DMNR_TUNNING_AT_MODEMSIDE)),yes)
+LOCAL_CFLAGS += -DDMNR_TUNNING_AT_MODEMSIDE
+#endif
+
 LOCAL_GENERATE_CUSTOM_FOLDER := custom:hal/audioflinger
 
 -include $(TOPDIR)$(MTK_PATH_SOURCE)/hardware/mtk/audio/mtk_cust.mk
@@ -251,6 +255,18 @@ ifeq ($(MTK_AUDIO_HD_REC_SUPPORT),yes)
     LOCAL_CFLAGS += -DMTK_AUDIO_HD_REC_SUPPORT
 endif
 # Audio HD Record
+
+# MTK VoIP
+ifeq ($(MTK_VOIP_ENHANCEMENT_SUPPORT),yes)
+    LOCAL_CFLAGS += -DMTK_VOIP_ENHANCEMENT_SUPPORT
+endif
+# MTK VoIP
+
+# DMNR 3.0
+ifeq ($(strip $(MTK_HANDSFREE_DMNR_SUPPORT)),yes)
+  LOCAL_CFLAGS += -DMTK_HANDSFREE_DMNR_SUPPORT
+endif
+# DMNR 3.0
 
 # Native Audio Preprocess
 ifeq ($(strip $(NATIVE_AUDIO_PREPROCESS_ENABLE)),yes)

@@ -137,6 +137,13 @@ enum SOUND_PATH {
     IN1_IN2_MIX,
 };
 
+#ifdef MTK_3MIC_SUPPORT
+enum MIC_ANALOG_SWICTH {
+    MIC_ANA_DEFAULT_PATH = 0,
+    MIC_ANA_SWITCH1_HIGH
+};
+#endif
+
 enum PolicyParameters {
     POLICY_LOAD_VOLUME =         0,
     POLICY_SET_FM_SPEAKER,
@@ -297,8 +304,9 @@ static const char *keySetRecordStreamStop = "SetRecordStreamStop";
 // below defines the YUSU_INFO_FROM_USER message
 #define INFO_U2K_MATV_AUDIO_START   0x1001
 #define INFO_U2K_MATV_AUDIO_STOP     0x1002
-
-
+#ifdef MTK_3MIC_SUPPORT
+#define INFO_U2K_MICANA_SWITCH         0x1003
+#endif
 
 static char const *const kAudioDeviceName = "/dev/eac";
 

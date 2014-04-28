@@ -1690,4 +1690,60 @@ nicCmdEventBuildDateCode (
 }
 #endif
 
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief This function is called when event for query FW bss info
+*        has been retrieved
+*
+* @param prAdapter          Pointer to the Adapter structure.
+* @param prCmdInfo          Pointer to the command information
+* @param pucEventBuf        Pointer to the event buffer
+*
+* @return none
+*
+*/
+/*----------------------------------------------------------------------------*/
+
+VOID
+nicCmdEventGetBSSInfo (
+    IN P_ADAPTER_T  prAdapter,
+    IN P_CMD_INFO_T prCmdInfo,
+    IN PUINT_8      pucEventBuf
+    )
+{
+    UINT_32 u4QueryInfoLen;
+    P_EVENT_AIS_BSS_INFO_T prEvent;
+    P_GLUE_INFO_T prGlueInfo;
+    P_BSS_INFO_T prAisBssInfo;
+
+    ASSERT(prAdapter);
+
+    ASSERT(prCmdInfo);
+    ASSERT(pucEventBuf);
+
+    //4 <2> Update information of OID
+    if (prCmdInfo->fgIsOid) {
+        prGlueInfo = prAdapter->prGlueInfo;
+        prEvent = (P_EVENT_AIS_BSS_INFO_T)pucEventBuf;
+
+        u4QueryInfoLen = sizeof(EVENT_AIS_BSS_INFO_T);
+        kalMemCopy(prCmdInfo->pvInformationBuffer, prEvent, sizeof(EVENT_AIS_BSS_INFO_T));
+        prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
+
+    if(prEvent->eCurrentOPMode == OP_MODE_INFRASTRUCTURE){
+        if (prEvent->eConnectionState != prAisBssInfo->eConnectionState) {
+            DBGLOG(INIT, ERROR, ("driver[%d] & FW[%d] status didn't sync !!!\n",
+                    prAisBssInfo->eConnectionState, prEvent->eCurrentOPMode));
+            aisFsmStateAbort(prAdapter, DISCONNECT_REASON_CODE_RADIO_LOST, FALSE);
+        }
+    }
+
+        kalOidComplete(prGlueInfo, prCmdInfo->fgSetQuery, u4QueryInfoLen, WLAN_STATUS_SUCCESS);
+    }
+
+    return;
+}
+
+
+
 

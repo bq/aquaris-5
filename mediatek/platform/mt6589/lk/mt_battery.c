@@ -1368,8 +1368,8 @@ PMU_STATUS BAT_BatteryStatusFailAction(void)
     /*  Disable charger */
     pchr_turn_off_charging();    
    
-	 if ((BMT_status.temperature <= (MAX_CHARGE_TEMPERATURE - 10)) &&     // 小于MAX_CHARGE_TEMPERATURE-5以及高于MIN_CHARGE_TEMPERATURE+5的时候恢复充电
-	    (BMT_status.temperature >= (MIN_CHARGE_TEMPERATURE + 10))&&
+	 if ((BMT_status.temperature <= (MAX_CHARGE_TEMPERATURE - 5)) &&     // 小于MAX_CHARGE_TEMPERATURE-5以及高于MIN_CHARGE_TEMPERATURE+5的时候恢复充电
+	    (BMT_status.temperature >= (MIN_CHARGE_TEMPERATURE + 5))&&
 	    (BMT_status.temperature != ERR_CHARGE_TEMPERATURE)&&
 	    (BMT_status.charger_protect_status == BATTERY_OVER_TEMP))
 	 {

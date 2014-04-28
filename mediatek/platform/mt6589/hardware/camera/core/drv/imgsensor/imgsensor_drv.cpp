@@ -901,6 +901,14 @@ ImgSensorDrv::sendCommand(
         pFeaturePara = (MUINT8*)&u4FeaturePara[0];  
 
         break;
+
+    case CMD_SENSOR_SET_TEST_PATTERN_OUTPUT:
+        FeatureId = SENSOR_FEATURE_SET_TEST_PATTERN;
+        u2FeaturePara = (MUINT16)*parg1; 
+        FeatureParaLen = sizeof(MUINT16);
+        pFeaturePara =  (MUINT8*)&u2FeaturePara; 
+        break;
+        
     case CMD_SENSOR_GET_UNSTABLE_DELAY_FRAME_CNT:
         {
             *parg1 = getSensorDelayFrameCnt(sensorDevId,(halSensorDelayFrame_e)*parg2); 
@@ -1117,7 +1125,15 @@ ImgSensorDrv::sendCommand(
                 break;
         }      
         return err;
-       break;         
+       break;      
+       
+     case CMD_SENSOR_GET_TEST_PATTERN_CHECKSUM_VALUE:
+        FeatureId = SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE; 
+        pu4FeaturePara = (MUINT32*)parg1;
+        FeatureParaLen = sizeof(MUINT32);
+        pFeaturePara = (MUINT8*)pu4FeaturePara;           
+        break;
+
      case CMD_SENSOR_SET_YUV_FEATURE_CMD:        
          FeatureId = SENSOR_FEATURE_SET_YUV_CMD; 
          u4FeaturePara[0] = *parg1; 

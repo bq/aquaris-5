@@ -77,6 +77,26 @@
 #include "AcdkTypes.h"
 
 /**  
+*@enum eACDK_COMMAND
+*/
+typedef enum
+{
+    ACDK_COMMAND_START = 0x80001000,
+    ACDK_CMD_PREVIEW_START,
+    ACDK_CMD_PREVIEW_STOP,
+    ACDK_CMD_CAPTURE,
+    ACDK_CMD_QV_IMAGE,
+    ACDK_CMD_RESET_LAYER_BUFFER,
+    ACDK_CMD_SET_SRC_DEV,
+    ACDK_CMD_SET_OPERATION_MODE,
+    ACDK_CMD_SET_SHUTTER_TIME,
+    ACDK_CMD_GET_SHUTTER_TIME,
+    ACDK_CMD_GET_CHECKSUM,
+    ACDK_CMD_GET_AF_INFO,
+    ACDK_COMMAND_END
+}eACDK_COMMAND;
+
+/**  
 *@enum eIMAGE_TYPE
 */
 typedef enum 
@@ -87,7 +107,8 @@ typedef enum
     PURE_RAW10_TYPE      = 0x00000008,
     PROCESSED_RAW8_TYPE  = 0x00000010,
     PROCESSED_RAW10_TYPE = 0x00000020,
-    JPEG_TYPE            = 0x00000040 
+    JPEG_TYPE            = 0x00000040,
+    YUV_TYPE             = 0x00000080
 }eIMAGE_TYPE;
 
 /**  
@@ -103,6 +124,19 @@ typedef enum
 }eRAW_ColorOrder;
 
 /**  
+*@enum eYUV_ColorOrder
+*@brief YUV format
+*/
+typedef enum
+{
+    YUVFmt_Unknown = 0,
+    YUVFmt_UYVY,  
+    YUVFmt_VYUY,
+    YUVFmt_YUY2,
+    YUVFmt_YVYU
+}eYUV_ColorOrder;
+
+/**  
 *@struct bufInfo
 *@brief Infomation of image (except RAW)
 */
@@ -111,7 +145,8 @@ typedef struct
     MUINT8 *bufAddr; 
     MUINT32 imgWidth;
     MUINT32 imgHeight;
-    MUINT32 imgSize; 
+    MUINT32 imgSize;
+    MINT32  imgFmt;
 } bufInfo;
 
 /**  

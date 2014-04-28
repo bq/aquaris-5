@@ -1812,6 +1812,10 @@ MINT32 SensorHalImp::sendCommand(
         bwc.Fps_Set((*(MUINT32 *) arg2)/10);
         LOG_MSG("  SENSOR_CMD_SET_MAX_FRAME_RATE_BY_SCENARIO: scenario = %d, frame rates = %d (10base) \n", *(MUINT32 *) arg1,*(MUINT32 *) arg2);
         break;
+    case SENSOR_CMD_SET_TEST_PATTERN_OUTPUT:
+        cmdId = CMD_SENSOR_SET_TEST_PATTERN_OUTPUT;
+        pDeviceDrv->sendCommand((SENSOR_DEV_ENUM)sensorDevId,cmdId, (MUINT32 *) arg1);
+        break;
 
     //0x2000
     case SENSOR_CMD_GET_SENSOR_DEV:
@@ -2153,6 +2157,10 @@ MINT32 SensorHalImp::sendCommand(
     case SENSOR_CMD_GET_SENSOR_VIEWANGLE:
         cmdId = CMD_SENSOR_GET_SENSOR_VIEWANGLE;
         pDeviceDrv->sendCommand((SENSOR_DEV_ENUM)sensorDevId,cmdId, (MUINT32 *) arg1, (MUINT32 *) arg2);                       
+        break;        
+    case SENSOR_CMD_GET_TEST_PATTERN_CHECKSUM_VALUE:
+        cmdId = CMD_SENSOR_GET_TEST_PATTERN_CHECKSUM_VALUE;
+        pDeviceDrv->sendCommand((SENSOR_DEV_ENUM)sensorDevId,cmdId, (MUINT32 *) arg1); 
         break;     
     //0x3000    
     case SENSOR_CMD_SET_YUV_FEATURE_CMD:

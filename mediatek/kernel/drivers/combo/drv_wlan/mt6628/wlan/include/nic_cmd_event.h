@@ -757,6 +757,8 @@ typedef enum _ENUM_CMD_ID_T {
 #if CFG_SUPPORT_BUILD_DATE_CODE
     CMD_ID_GET_BUILD_DATE_CODE = 0xF8,
 #endif
+    CMD_ID_GET_BSS_INFO = 0xF9
+
 } ENUM_CMD_ID_T, *P_ENUM_CMD_ID_T;
 
 typedef enum _ENUM_EVENT_ID_T {
@@ -814,6 +816,8 @@ typedef enum _ENUM_EVENT_ID_T {
 #if CFG_SUPPORT_BUILD_DATE_CODE
     EVENT_ID_BUILD_DATE_CODE = 0xF8,
 #endif
+    EVENT_ID_GET_AIS_BSS_INFO = 0xF9
+
 } ENUM_EVENT_ID_T, *P_ENUM_EVENT_ID_T;
 
 
@@ -1645,6 +1649,13 @@ typedef struct _EVENT_RDD_STATUS_T {
 } EVENT_RDD_STATUS_T, *P_EVENT_RDD_STATUS_T;
 #endif
 
+typedef struct _EVENT_AIS_BSS_INFO_T{
+    ENUM_PARAM_MEDIA_STATE_T eConnectionState; /* Connected Flag used in AIS_NORMAL_TR */
+    ENUM_OP_MODE_T eCurrentOPMode; /* Current Operation Mode - Infra/IBSS */
+    BOOLEAN fgIsNetActive; /* TRUE if this network has been actived */
+    UINT_8 ucReserved[3];
+}EVENT_AIS_BSS_INFO_T, *P_EVENT_AIS_BSS_INFO_T;
+
 typedef struct _CMD_SET_TXPWR_CTRL_T{
     INT_8    c2GLegacyStaPwrOffset;  /* Unit: 0.5dBm, default: 0*/
     INT_8    c2GHotspotPwrOffset;
@@ -1907,6 +1918,14 @@ nicCmdEventBuildDateCode (
     IN PUINT_8      pucEventBuf
     );
 #endif
+
+VOID
+nicCmdEventGetBSSInfo (
+    IN P_ADAPTER_T  prAdapter,
+    IN P_CMD_INFO_T prCmdInfo,
+    IN PUINT_8      pucEventBuf
+    );
+
 
 /*******************************************************************************
 *                              F U N C T I O N S

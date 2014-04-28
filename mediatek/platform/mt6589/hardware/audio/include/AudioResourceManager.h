@@ -219,6 +219,11 @@ class AudioResourceManager : public AudioResourceManagerInterface
         */
         virtual status_t SetMicInvserse(bool bEnable);
 
+       /**
+        * a function for set hardware mute
+        */
+        virtual status_t SetHardwareMute(bool bEnable);
+
     private:
         AudioResourceManager();
         // use to open deivce file descriptor
@@ -248,6 +253,7 @@ class AudioResourceManager : public AudioResourceManagerInterface
         int m4waystatus;
         bool mMicDefaultsetting;
         bool mMicInverseSetting;
+        bool mHardwareMute;
 
         AudioMTKVolumeInterface *mAudioVolumeInstance;
         AudioAnalogControlInterface *mAudioAnalogInstance;

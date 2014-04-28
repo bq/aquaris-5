@@ -2212,6 +2212,7 @@ nicRxProcessEventPacket (
 #if CFG_SUPPORT_BUILD_DATE_CODE
     case EVENT_ID_BUILD_DATE_CODE:
 #endif
+    case EVENT_ID_GET_AIS_BSS_INFO:
     default:
         prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
 
