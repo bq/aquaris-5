@@ -39,6 +39,18 @@ typedef signed int      MINT32;
 #define KD_TORCH_FLASHLIGHT_ID      3
 #define KD_CONSTANT_FLASHLIGHT_ID   4
 
+
+typedef enum
+{
+    e_CAMERA_NONE_SENSOR=0,
+    e_CAMERA_MAIN_SENSOR     = 1,
+    e_CAMERA_SUB_SENSOR      = 2,
+    e_CAMERA_MAIN_2_SENSOR   = 8,
+    //for backward compatible
+    e_CAMERA_MAIN_SECOND_SENSOR = 8,
+    //DUAL_CAMERA_SUB_2_SENSOR   = 16,
+    e_CAMERA_SENSOR_MAX
+} eFlashSensorId;
 typedef struct
 {
     int (* flashlight_open)(void *pArg);
@@ -47,8 +59,7 @@ typedef struct
 } FLASHLIGHT_FUNCTION_STRUCT, *PFLASHLIGHT_FUNCTION_STRUCT;
 
 typedef struct
-{
-	MUINT32 flashlightId;
+{	
     MUINT32 (* flashlightInit)(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
 } KD_FLASHLIGHT_INIT_FUNCTION_STRUCT, *pKD_FLASHLIGHT_INIT_FUNCTION_STRUCT;
 

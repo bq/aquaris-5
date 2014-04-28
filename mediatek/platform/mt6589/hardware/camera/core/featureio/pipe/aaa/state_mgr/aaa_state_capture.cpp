@@ -194,7 +194,7 @@ sendIntent(intent2type<eIntent_CaptureEnd>)
 	   AeMgr::getInstance().doCapFlare(reinterpret_cast<MVOID *>(rBufInfo.virtAddr),reinterpret_cast<MVOID *>(&_a_rAWBOutput),FlashMgr::getInstance()->isFlashOnCapture() );
 
        MY_LOG("AeMgr::getInstance().doCapFlare() END");
-       
+
         // F858
         LscMgr::getInstance()->updateTSFinput(
                 static_cast<NSIspTuning::LscMgr::LSCMGR_TSF_INPUT_SRC>(NSIspTuning::LscMgr::TSF_INPUT_CAP),
@@ -279,6 +279,19 @@ sendIntent(intent2type<eIntent_AFUpdate>)
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//  eIntent_CameraPreviewStop
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+MRESULT
+StateCapture::
+sendIntent(intent2type<eIntent_CameraPreviewEnd>)
+{
+	MY_LOG("sendIntent(intent2type<eIntent_CameraPreviewStop>)  line=%d", __LINE__);
+
+    return  S_3A_OK;
+}
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //  eIntent_CameraPreviewStart
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 MRESULT
@@ -287,7 +300,8 @@ sendIntent(intent2type<eIntent_CameraPreviewStart>)
 {
 	MY_LOG("sendIntent(intent2type<eIntent_CameraPreviewStart>)  line=%d", __LINE__);
     MRESULT err;
-    FlashMgr::getInstance()->turnOffFlashDevice();
+    //FlashMgr::getInstance()->turnOffFlashDevice();
+    FlashMgr::getInstance()->cameraPreviewStart();
 
 
 
@@ -381,6 +395,9 @@ sendIntent(intent2type<eIntent_Uninit>)
     // AF uninit
     AfMgr::getInstance().uninit();
 
+    // Flash uninit
+    FlashMgr::getInstance()->uninit();
+
     // State transition: eState_Capture --> eState_Uninit
     transitState(eState_Capture, eState_Uninit);
 
@@ -408,6 +425,9 @@ sendIntent(intent2type<eIntent_CamcorderPreviewStart>)
     // AF uninit
     AfMgr::getInstance().uninit();
 
+    // Flash uninit
+    FlashMgr::getInstance()->uninit();
+
     // Get parameters
     Param_T rParam;
     m_pHal3A->getParams(rParam);
@@ -434,6 +454,13 @@ sendIntent(intent2type<eIntent_CamcorderPreviewStart>)
     err = AwbMgr::getInstance().camcorderPreviewInit(i4SensorDev, rParam);
     if (FAILED(err)) {
         MY_ERR("AwbMgr::getInstance().camcorderPreviewInit() fail\n");
+        return err;
+    }
+
+    // Flash init
+    err = FlashMgr::getInstance()->init(i4SensorDev);
+    if (FAILED(err)) {
+        MY_ERR("FlashMgr::getInstance()->init(i4SensorDev) fail\n");
         return err;
     }
 

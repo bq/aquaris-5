@@ -232,7 +232,39 @@ init(int bufwidth,int bufheight)
     }
     
     // (4) Initial algorithm
-    MTKPipeAutoramaEnvInfo mAutoramaInitInData; 
+    SensorHal* sensor_hal = SensorHal::createInstance();
+    int iFOV_horizontal = 50;
+    int iFOV_vertical = 50;
+    if(sensor_hal) {
+        sensor_hal->init();
+        sensor_hal->sendCommand(static_cast<halSensorDev_e>(i4SensorDevId)
+                                , static_cast<int>(SENSOR_CMD_GET_SENSOR_VIEWANGLE)
+                                , (int)&iFOV_horizontal
+                                , (int)&iFOV_vertical
+                                );
+        sensor_hal->uninit();
+        sensor_hal->destroyInstance();
+    }
+
+    MUINT32 focalLengthInPixel = mPanoramaFrameWidth
+                                / (2.0 * tan(iFOV_horizontal/2.0/180.0*M_PI));
+    // for debug
+    {
+    	char value[32] = {'\0'};
+    	property_get("mediatek.panorama.focal", value, "0");
+    	MUINT32 focal = atoi(value);
+        if(focal) {
+            focalLengthInPixel = focal;
+            MY_LOGD("force focal length %d", focalLengthInPixel);
+        }
+    }
+
+    MY_LOGD("viewnalge (h,v)=(%d,%d) focalLengthInPixel=%d"
+            , iFOV_horizontal
+            , iFOV_vertical
+            , focalLengthInPixel);
+
+    MTKPipeAutoramaEnvInfo mAutoramaInitInData;
     mAutoramaInitInData.SrcImgWidth = mPanoramaFrameWidth ;
     mAutoramaInitInData.SrcImgHeight = mPanoramaFrameHeight;
     mAutoramaInitInData.MaxPanoImgWidth = AUTORAMA_MAX_WIDTH;
@@ -240,9 +272,9 @@ init(int bufwidth,int bufheight)
     mAutoramaInitInData.WorkingBufSize = initBufSize;
     mAutoramaInitInData.MaxSnapshotNumber = PanoramaNum;
     mAutoramaInitInData.FixAE = 0;
-    mAutoramaInitInData.FocalLength = 750;
-    mAutoramaInitInData.GPUWarp = 0;      
-    
+    mAutoramaInitInData.FocalLength = focalLengthInPixel;
+    mAutoramaInitInData.GPUWarp = 0;
+
     MTKPipeMotionEnvInfo mMotionInitInfo;
     MTKPipeMotionTuningPara mMotionTuningPara;
     mMotionInitInfo.WorkingBuffAddr = (MUINT32)mpMotionBuffer.virtAddr;

@@ -141,7 +141,7 @@ sendIntent(intent2type<eIntent_AFEnd>)
     else
     {
     	transitState(eState_AF, g_ePrevState);
-    	if((FlashMgr::getInstance()->isAFLampOn()==1) && (FlashMgr::getInstance()->getFlashMode() != FLASHLIGHT_TORCH) )
+    	if((FlashMgr::getInstance()->isAFLampOn()==1) && (FlashMgr::getInstance()->getFlashMode() != FLASHLIGHT_TORCH) && (g_ePrevState != eState_Recording))
     		FlashMgr::getInstance()->setAFLampOnOff(0);
 	}
 
@@ -550,7 +550,7 @@ sendAFIntent(intent2type<eIntent_VsyncUpdate>, state2type<eAFState_AF>)
 			if((FlashMgr::getInstance()->getFlashMode() != FLASHLIGHT_TORCH) && (skipFrames == AfLampOnSkipFrame-2))
 			{
 				FlashMgr::getInstance()->setAFLampOnOff(0);
-        }
+      		}
 
 
 			int aeFrm;
@@ -609,7 +609,13 @@ sendAFIntent(intent2type<eIntent_VsyncUpdate>, state2type<eAFState_AF>)
         }
     }
     else {
-        if((FlashMgr::getInstance()->isAFLampOn()==1) && (FlashMgr::getInstance()->getFlashMode() != FLASHLIGHT_TORCH) )
+
+    	if(g_ePrevState == eState_Recording)
+    	{
+    		g_isAFLampOnInAfState=0;
+            skipFrames = 0;
+    	}
+        else if((FlashMgr::getInstance()->isAFLampOn()==1) && (FlashMgr::getInstance()->getFlashMode() != FLASHLIGHT_TORCH) )
         {
             skipFrames = AfLampOnSkipFrame;
             g_isAFLampOnInAfState=1;

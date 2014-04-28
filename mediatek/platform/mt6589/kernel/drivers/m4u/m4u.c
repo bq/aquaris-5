@@ -307,6 +307,7 @@ static volatile unsigned int FreeWrapRegs[TOTAL_M4U_NUM]= {M4U_WRAP_NR, M4U_WRAP
 
 
 unsigned int m4u_index_of_larb[SMI_LARB_NR] = {0,0,0,0,1};
+unsigned int m4u_index_of_larb5 = 0,  m4u_index_of_larb6 = 1;
 unsigned int smi_port0_in_larbx[SMI_LARB_NR+1] = {0, 10, 17, 29, 44 ,56};
 unsigned int m4u_port0_in_larbx[SMI_LARB_NR+1] = {0, 10, 17, 29, 43 ,53};
 unsigned int m4u_port_size_limit[M4U_PORT_NR] = {};
@@ -741,6 +742,9 @@ static int MTK_M4U_open(struct inode * a_pstInode, struct file * a_pstFile)
     return 0;
 }
 
+extern int m4u_reclaim_mva_callback_ovl(int moduleID, unsigned int va, unsigned int size, unsigned int mva);
+
+
 static int MTK_M4U_release(struct inode * a_pstInode, struct file * a_pstFile)
 {
     struct list_head *pListHead, *ptmp;
@@ -777,6 +781,9 @@ static int MTK_M4U_release(struct inode * a_pstInode, struct file * a_pstFile)
         if(pList->mvaStart != 0)        
         {
             int ret;
+            
+            m4u_reclaim_mva_callback_ovl(pList->eModuleId, pList->bufAddr, pList->size, pList->mvaStart);
+
             ret = m4u_dealloc_mva(pList->eModuleId, pList->bufAddr, pList->size, pList->mvaStart);
             if(ret)
                 m4u_free_garbage_list(pList);
@@ -4376,7 +4383,9 @@ int m4u_hw_init(void)
             |F_SMI_BUS_SEL_larb1(larb_2_m4u_id(1))  \
             |F_SMI_BUS_SEL_larb2(larb_2_m4u_id(2))  \
             |F_SMI_BUS_SEL_larb3(larb_2_m4u_id(3))  \
-            |F_SMI_BUS_SEL_larb4(larb_2_m4u_id(4))  ;
+            |F_SMI_BUS_SEL_larb4(larb_2_m4u_id(4))  \
+            |F_SMI_BUS_SEL_larb5(m4u_index_of_larb5)  \
+            |F_SMI_BUS_SEL_larb6(m4u_index_of_larb6)  ;
 
     M4UDBG("regval = 0x%x\n", regval);
 
@@ -4477,7 +4486,7 @@ int m4u_hw_init(void)
                 |F_MMU_CTRL_MONITOR_CLR(0)     \
                 |F_MMU_CTRL_PFH_RT_RPL_MODE(0) \
                 |F_MMU_CTRL_TF_PROT_VAL(2)    \
-                |F_MMU_CTRL_COHERE_EN(1)       ;
+                |F_MMU_CTRL_COHERE_EN(0)       ;
         
         if(g_debug_enable_error_hang)
             regval |= F_MMU_CTRL_INT_HANG_en(1);
@@ -5398,80 +5407,149 @@ int m4u_dump_user_addr_register(M4U_PORT_ID_ENUM port)
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
             break;
         case M4U_PORT_DISPO:
+            M4UINFO("0xF5004D40 = 0x%x\n", COM_ReadReg32(0xF5004D40));
+            M4UINFO("0xF5004D64 = 0x%x\n", COM_ReadReg32(0xF5004D64));
             M4UINFO("0xF5004D68 = 0x%x\n", COM_ReadReg32(0xF5004D68));
             M4UINFO("0xF5004D6C = 0x%x\n", COM_ReadReg32(0xF5004D6C));
-            M4UINFO("0xF5004D64 = 0x%x\n", COM_ReadReg32(0xF5004D64));
             M4UINFO("0xF5004D70 = 0x%x\n", COM_ReadReg32(0xF5004D70));
-            M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004D74 = 0x%x\n", COM_ReadReg32(0xF5004D74));
+            M4UINFO("0xF5004D78 = 0x%x\n", COM_ReadReg32(0xF5004D78));
+            M4UINFO("0xF5004D7C = 0x%x\n", COM_ReadReg32(0xF5004D7C));
+            M4UINFO("0xF5004DA4 = 0x%x\n", COM_ReadReg32(0xF5004DA4));
+            M4UINFO("0xF5004DA8 = 0x%x\n", COM_ReadReg32(0xF5004DA8));
+            M4UINFO("0xF5004DAC = 0x%x\n", COM_ReadReg32(0xF5004DAC));
             M4UINFO("0xF5004054 = 0x%x\n", COM_ReadReg32(0xF5004054));
             M4UINFO("0xF5004000 = 0x%x\n", COM_ReadReg32(0xF5004000));
             M4UINFO("0xF5004004 = 0x%x\n", COM_ReadReg32(0xF5004004));
+            M4UINFO("0xF5004008 = 0x%x\n", COM_ReadReg32(0xF5004008));
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004010 = 0x%x\n", COM_ReadReg32(0xF5004010));
+            M4UINFO("0xF5004234 = 0x%x\n", COM_ReadReg32(0xF5004234));
+            M4UINFO("0xF5004238 = 0x%x\n", COM_ReadReg32(0xF5004238));
+            M4UINFO("0xF500423C = 0x%x\n", COM_ReadReg32(0xF500423C));
+            M4UINFO("0xF5004240 = 0x%x\n", COM_ReadReg32(0xF5004240));
             COM_WriteReg32(0xF5004160,0x6000);
             M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF5004164));
             break;
         case M4U_PORT_DISPCO:
+            M4UINFO("0xF5004D40 = 0x%x\n", COM_ReadReg32(0xF5004D40));
+            M4UINFO("0xF5004D64 = 0x%x\n", COM_ReadReg32(0xF5004D64));
+            M4UINFO("0xF5004D68 = 0x%x\n", COM_ReadReg32(0xF5004D68));
+            M4UINFO("0xF5004D6C = 0x%x\n", COM_ReadReg32(0xF5004D6C));
+            M4UINFO("0xF5004D70 = 0x%x\n", COM_ReadReg32(0xF5004D70));
             M4UINFO("0xF5004D74 = 0x%x\n", COM_ReadReg32(0xF5004D74));
             M4UINFO("0xF5004D78 = 0x%x\n", COM_ReadReg32(0xF5004D78));
-            M4UINFO("0xF5004D64 = 0x%x\n", COM_ReadReg32(0xF5004D64));
             M4UINFO("0xF5004D7C = 0x%x\n", COM_ReadReg32(0xF5004D7C));
-            M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004DA4 = 0x%x\n", COM_ReadReg32(0xF5004DA4));
+            M4UINFO("0xF5004DA8 = 0x%x\n", COM_ReadReg32(0xF5004DA8));
+            M4UINFO("0xF5004DAC = 0x%x\n", COM_ReadReg32(0xF5004DAC));
             M4UINFO("0xF5004054 = 0x%x\n", COM_ReadReg32(0xF5004054));
             M4UINFO("0xF5004000 = 0x%x\n", COM_ReadReg32(0xF5004000));
             M4UINFO("0xF5004004 = 0x%x\n", COM_ReadReg32(0xF5004004));
+            M4UINFO("0xF5004008 = 0x%x\n", COM_ReadReg32(0xF5004008));
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004010 = 0x%x\n", COM_ReadReg32(0xF5004010));
+            M4UINFO("0xF5004234 = 0x%x\n", COM_ReadReg32(0xF5004234));
+            M4UINFO("0xF5004238 = 0x%x\n", COM_ReadReg32(0xF5004238));
+            M4UINFO("0xF500423C = 0x%x\n", COM_ReadReg32(0xF500423C));
+            M4UINFO("0xF5004240 = 0x%x\n", COM_ReadReg32(0xF5004240));
             COM_WriteReg32(0xF5004160,0x6000);
             M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF5004164));
             break;
         case M4U_PORT_DISPVO:
+            M4UINFO("0xF5004D40 = 0x%x\n", COM_ReadReg32(0xF5004D40));
+            M4UINFO("0xF5004D64 = 0x%x\n", COM_ReadReg32(0xF5004D64));
+            M4UINFO("0xF5004D68 = 0x%x\n", COM_ReadReg32(0xF5004D68));
+            M4UINFO("0xF5004D6C = 0x%x\n", COM_ReadReg32(0xF5004D6C));
+            M4UINFO("0xF5004D70 = 0x%x\n", COM_ReadReg32(0xF5004D70));
+            M4UINFO("0xF5004D74 = 0x%x\n", COM_ReadReg32(0xF5004D74));
+            M4UINFO("0xF5004D78 = 0x%x\n", COM_ReadReg32(0xF5004D78));
+            M4UINFO("0xF5004D7C = 0x%x\n", COM_ReadReg32(0xF5004D7C));
             M4UINFO("0xF5004DA4 = 0x%x\n", COM_ReadReg32(0xF5004DA4));
             M4UINFO("0xF5004DA8 = 0x%x\n", COM_ReadReg32(0xF5004DA8));
-            M4UINFO("0xF5004D64 = 0x%x\n", COM_ReadReg32(0xF5004D64));
             M4UINFO("0xF5004DAC = 0x%x\n", COM_ReadReg32(0xF5004DAC));
-            M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
             M4UINFO("0xF5004054 = 0x%x\n", COM_ReadReg32(0xF5004054));
             M4UINFO("0xF5004000 = 0x%x\n", COM_ReadReg32(0xF5004000));
             M4UINFO("0xF5004004 = 0x%x\n", COM_ReadReg32(0xF5004004));
+            M4UINFO("0xF5004008 = 0x%x\n", COM_ReadReg32(0xF5004008));
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004010 = 0x%x\n", COM_ReadReg32(0xF5004010));
+            M4UINFO("0xF5004234 = 0x%x\n", COM_ReadReg32(0xF5004234));
+            M4UINFO("0xF5004238 = 0x%x\n", COM_ReadReg32(0xF5004238));
+            M4UINFO("0xF500423C = 0x%x\n", COM_ReadReg32(0xF500423C));
+            M4UINFO("0xF5004240 = 0x%x\n", COM_ReadReg32(0xF5004240));
             COM_WriteReg32(0xF5004160,0x6000);
             M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF5004164));
             break;
         case M4U_PORT_VIDO:
+            M4UINFO("0xF5004CE4 = 0x%x\n", COM_ReadReg32(0xF5004CE4));
             M4UINFO("0xF5004CE8 = 0x%x\n", COM_ReadReg32(0xF5004CE8));
             M4UINFO("0xF5004CEC = 0x%x\n", COM_ReadReg32(0xF5004CEC));
-            M4UINFO("0xF5004CE4 = 0x%x\n", COM_ReadReg32(0xF5004CE4));
             M4UINFO("0xF5004CF0 = 0x%x\n", COM_ReadReg32(0xF5004CF0));
-            M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004CF4 = 0x%x\n", COM_ReadReg32(0xF5004CF4));
+            M4UINFO("0xF5004CF8 = 0x%x\n", COM_ReadReg32(0xF5004CF8));
+            M4UINFO("0xF5004CFC = 0x%x\n", COM_ReadReg32(0xF5004CFC));
+            M4UINFO("0xF5004D24 = 0x%x\n", COM_ReadReg32(0xF5004D24));
+            M4UINFO("0xF5004D28 = 0x%x\n", COM_ReadReg32(0xF5004D28));
+            M4UINFO("0xF5004D2C = 0x%x\n", COM_ReadReg32(0xF5004D2C));
             M4UINFO("0xF5004054 = 0x%x\n", COM_ReadReg32(0xF5004054));
             M4UINFO("0xF5004000 = 0x%x\n", COM_ReadReg32(0xF5004000));
             M4UINFO("0xF5004004 = 0x%x\n", COM_ReadReg32(0xF5004004));
+            M4UINFO("0xF5004008 = 0x%x\n", COM_ReadReg32(0xF5004008));
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004010 = 0x%x\n", COM_ReadReg32(0xF5004010));
+            M4UINFO("0xF5004234 = 0x%x\n", COM_ReadReg32(0xF5004234));
+            M4UINFO("0xF5004238 = 0x%x\n", COM_ReadReg32(0xF5004238));
+            M4UINFO("0xF500423C = 0x%x\n", COM_ReadReg32(0xF500423C));
+            M4UINFO("0xF5004240 = 0x%x\n", COM_ReadReg32(0xF5004240));
             COM_WriteReg32(0xF5004160,0x6000);
             M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF5004164));
             break;
         case M4U_PORT_VIDCO:
+            M4UINFO("0xF5004CE4 = 0x%x\n", COM_ReadReg32(0xF5004CE4));
+            M4UINFO("0xF5004CE8 = 0x%x\n", COM_ReadReg32(0xF5004CE8));
+            M4UINFO("0xF5004CEC = 0x%x\n", COM_ReadReg32(0xF5004CEC));
+            M4UINFO("0xF5004CF0 = 0x%x\n", COM_ReadReg32(0xF5004CF0));
             M4UINFO("0xF5004CF4 = 0x%x\n", COM_ReadReg32(0xF5004CF4));
             M4UINFO("0xF5004CF8 = 0x%x\n", COM_ReadReg32(0xF5004CF8));
-            M4UINFO("0xF5004CE4 = 0x%x\n", COM_ReadReg32(0xF5004CE4));
             M4UINFO("0xF5004CFC = 0x%x\n", COM_ReadReg32(0xF5004CFC));
-            M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004D24 = 0x%x\n", COM_ReadReg32(0xF5004D24));
+            M4UINFO("0xF5004D28 = 0x%x\n", COM_ReadReg32(0xF5004D28));
+            M4UINFO("0xF5004D2C = 0x%x\n", COM_ReadReg32(0xF5004D2C));
             M4UINFO("0xF5004054 = 0x%x\n", COM_ReadReg32(0xF5004054));
             M4UINFO("0xF5004000 = 0x%x\n", COM_ReadReg32(0xF5004000));
             M4UINFO("0xF5004004 = 0x%x\n", COM_ReadReg32(0xF5004004));
+            M4UINFO("0xF5004008 = 0x%x\n", COM_ReadReg32(0xF5004008));
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004010 = 0x%x\n", COM_ReadReg32(0xF5004010));
+            M4UINFO("0xF5004234 = 0x%x\n", COM_ReadReg32(0xF5004234));
+            M4UINFO("0xF5004238 = 0x%x\n", COM_ReadReg32(0xF5004238));
+            M4UINFO("0xF500423C = 0x%x\n", COM_ReadReg32(0xF500423C));
+            M4UINFO("0xF5004240 = 0x%x\n", COM_ReadReg32(0xF5004240));
             COM_WriteReg32(0xF5004160,0x6000);
             M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF5004164));
             break;
         case M4U_PORT_VIDVO:
+            M4UINFO("0xF5004CE4 = 0x%x\n", COM_ReadReg32(0xF5004CE4));
+            M4UINFO("0xF5004CE8 = 0x%x\n", COM_ReadReg32(0xF5004CE8));
+            M4UINFO("0xF5004CEC = 0x%x\n", COM_ReadReg32(0xF5004CEC));
+            M4UINFO("0xF5004CF0 = 0x%x\n", COM_ReadReg32(0xF5004CF0));
+            M4UINFO("0xF5004CF4 = 0x%x\n", COM_ReadReg32(0xF5004CF4));
+            M4UINFO("0xF5004CF8 = 0x%x\n", COM_ReadReg32(0xF5004CF8));
+            M4UINFO("0xF5004CFC = 0x%x\n", COM_ReadReg32(0xF5004CFC));
             M4UINFO("0xF5004D24 = 0x%x\n", COM_ReadReg32(0xF5004D24));
             M4UINFO("0xF5004D28 = 0x%x\n", COM_ReadReg32(0xF5004D28));
-            M4UINFO("0xF5004CE4 = 0x%x\n", COM_ReadReg32(0xF5004CE4));
             M4UINFO("0xF5004D2C = 0x%x\n", COM_ReadReg32(0xF5004D2C));
-            M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
             M4UINFO("0xF5004054 = 0x%x\n", COM_ReadReg32(0xF5004054));
             M4UINFO("0xF5004000 = 0x%x\n", COM_ReadReg32(0xF5004000));
             M4UINFO("0xF5004004 = 0x%x\n", COM_ReadReg32(0xF5004004));
+            M4UINFO("0xF5004008 = 0x%x\n", COM_ReadReg32(0xF5004008));
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
+            M4UINFO("0xF5004010 = 0x%x\n", COM_ReadReg32(0xF5004010));
+            M4UINFO("0xF5004234 = 0x%x\n", COM_ReadReg32(0xF5004234));
+            M4UINFO("0xF5004238 = 0x%x\n", COM_ReadReg32(0xF5004238));
+            M4UINFO("0xF500423C = 0x%x\n", COM_ReadReg32(0xF500423C));
+            M4UINFO("0xF5004240 = 0x%x\n", COM_ReadReg32(0xF5004240));
             COM_WriteReg32(0xF5004160,0x6000);
             M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF5004164));
             break;
@@ -5584,7 +5662,7 @@ int m4u_dump_user_addr_register(M4U_PORT_ID_ENUM port)
             M4UINFO("0xF5004004 = 0x%x\n", COM_ReadReg32(0xF5004004));
             M4UINFO("0xF500400C = 0x%x\n", COM_ReadReg32(0xF500400C));
             COM_WriteReg32(0xF5004160,0x6000);
-            M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF50040164));
+            M4UINFO("(CQ)0xF5004164 = 0x%x\n", COM_ReadReg32(0xF5004164));
             break;
         case M4U_PORT_AAO:
             M4UINFO("0xF5004388 = 0x%x\n", COM_ReadReg32(0xF5004388));

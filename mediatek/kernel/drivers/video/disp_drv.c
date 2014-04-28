@@ -1621,12 +1621,14 @@ static int _DISP_CaptureOvlKThread(void *data)
 	M4U_PORT_STRUCT portStruct;
 	unsigned int init = 0;
 	unsigned int enabled = 0;
-       MMP_MetaDataBitmap_t Bitmap;
+	int wait_ret = 0;
+    MMP_MetaDataBitmap_t Bitmap;
     buf_size = DISP_GetScreenWidth() * DISP_GetScreenHeight() * 4;
 
     while(1)
     {
-        wait_event_interruptible(reg_update_wq, gWakeupCaptureOvlThread);
+        wait_ret = wait_event_interruptible(reg_update_wq, gWakeupCaptureOvlThread);
+        DISP_LOG("[WaitQ] wait_event_interruptible() ret = %d, %d\n", wait_ret, __LINE__);
         gWakeupCaptureOvlThread = 0;
         if (init == 0)
         {
@@ -1877,7 +1879,7 @@ static int _DISP_ConfigUpdateKThread(void *data)
                         PanDispSettingPending = 0;
                     }
                     atomic_set(&OverlaySettingApplied, 1);
-                    wake_up_interruptible(&reg_update_wq);
+                    wake_up(&reg_update_wq);
                 }
                 MMProfileLog(MTKFB_MMP_Events.ConfigOVL, MMProfileFlagEnd);
 
@@ -2003,7 +2005,7 @@ static void _DISP_RegUpdateCallback(void* pParam)
         atomic_set(&OverlaySettingApplied, 1);
     }
     gWakeupCaptureOvlThread = 1;
-    wake_up_interruptible(&reg_update_wq);
+    wake_up(&reg_update_wq);
 }
 
 static void _DISP_TargetLineCallback(void* pParam)
@@ -2464,7 +2466,7 @@ UINT32 DISP_GetOutputBPPforDithering(void)
 
 DISP_STATUS DISP_Config_Overlay_to_Memory(unsigned int mva, int enable)
 {
-//	int ret = 0;
+	int wait_ret = 0;
 
 //	struct disp_path_config_mem_out_struct mem_out = {0};
 
@@ -2502,7 +2504,8 @@ DISP_STATUS DISP_Config_Overlay_to_Memory(unsigned int mva, int enable)
 //#endif
 
 		// Wait for reg update.
-		wait_event_interruptible(reg_update_wq, !MemOutConfig.dirty);
+		wait_ret = wait_event_interruptible(reg_update_wq, !MemOutConfig.dirty);
+		DISP_LOG("[WaitQ] wait_event_interruptible() ret = %d, %d\n", wait_ret, __LINE__);
 	}
 
 	return DSI_STATUS_OK;
@@ -2602,6 +2605,7 @@ DISP_STATUS DISP_Capture_Framebuffer( unsigned int pvbuf, unsigned int bpp, unsi
 {
     unsigned int mva;
     unsigned int ret = 0;
+    int wait_ret = 0;
     M4U_PORT_STRUCT portStruct;
 	DISP_FUNC();
 	int i;
@@ -2704,7 +2708,8 @@ DISP_STATUS DISP_Capture_Framebuffer( unsigned int pvbuf, unsigned int bpp, unsi
         MemOutConfig.dirty = 1;
         mutex_unlock(&MemOutSettingMutex);
         // Wait for reg update.
-        wait_event_interruptible(reg_update_wq, !MemOutConfig.dirty);
+        wait_ret = wait_event_interruptible(reg_update_wq, !MemOutConfig.dirty);
+        DISP_LOG("[WaitQ] wait_event_interruptible() ret = %d, %d\n", wait_ret, __LINE__);
         MMProfileLogEx(MTKFB_MMP_Events.CaptureFramebuffer, MMProfileFlagPulse, 4, 0);
     }
 

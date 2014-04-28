@@ -50,6 +50,8 @@
 #include "autorama_hal_base.h"
 #include "inc/IFeatureClient.h"
 #include "aaa_hal_base.h"
+#include <drv/sensor_hal.h>
+#include <math.h>
 using namespace android;
 using namespace MtkCamUtils;
 using namespace NS3A;

@@ -457,8 +457,8 @@ startOne(SensorParam const & rSensorParam, ImgBufInfo const & rImgBufInfo)
     NS3A::Hal3ABase *p3AObj = Hal3ABase::createInstance(rSensorParam.u4DeviceID);
     //
     ret = ret
-            && p3AObj->setIspProfile(EIspProfile_NormalCapture)
-            && p3AObj->sendCommand(ECmd_CaptureStart, 0);
+            && p3AObj->setIspProfile(EIspProfile_NormalCapture);
+            //&& p3AObj->sendCommand(ECmd_ZsdCaptureStart, 0);
 
 
     // post process
@@ -469,7 +469,8 @@ startOne(SensorParam const & rSensorParam, ImgBufInfo const & rImgBufInfo)
         startOne(rImgBufInfo);
     }
 
-    p3AObj->sendCommand(ECmd_CaptureEnd, 0);
+    //p3AObj->sendCommand(ECmd_CameraPreviewEnd, 0);
+    //p3AObj->sendCommand(ECmd_ZsdCaptureEnd, 0);
     p3AObj->destroyInstance();
     //
     CPTLogStr(Event_SShot_startOneSensor, CPTFlagSeparator, "camIOUninit");

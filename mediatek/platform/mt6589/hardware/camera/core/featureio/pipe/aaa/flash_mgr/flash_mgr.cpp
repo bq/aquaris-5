@@ -43,6 +43,10 @@
 #include <nvram_drv_mgr.h>
 #include "flash_util.h"
 #include <vector>
+#include "cct_feature.h"
+
+//#define CCT_TEST
+
 
 using namespace NS3A;
 using namespace NSIspTuning;
@@ -76,19 +80,27 @@ using namespace NSIspTuning;
 #define PROP_PF_MAX_AFE	"z.flash_pf_max_afe"
 
 
-
-
 #define ALG_TAG_SIZE 500
 #define A3_DIV_X 120
 #define A3_DIV_Y 90
 #define Z0_FL_DIV_X 24
 #define Z0_FL_DIV_Y 18
 
+
+
+
+
 #define LogInfo(fmt, arg...) XLOGD(fmt, ##arg)
 #define LogVerbose(fmt, arg...) if(g_isVerboseLogEn) LogInfo(fmt, ##arg)
-#define LogError(fmt, arg...)   XLOGE("FlashError: func=%s line=%d: "fmt, __FUNCTION__, __LINE__, ##arg)
+#define LogError(fmt, arg...)   XLOGE("MError: func=%s line=%d: "fmt, __FUNCTION__, __LINE__, ##arg)
+//#define LogErrClear() {FILE* fp; fp=fopen("/sdcard/err.txt","wt"); fclose(fp);}
+//#define LogErr(fmt, arg...)   {FILE* fp; fp=fopen("/sdcard/err.txt","at"); fprintf(fp,"MError: func=%s line=%d: "fmt, __FUNCTION__, __LINE__, ##arg); fprintf(fp, "\n"); fclose(fp);}
+#define LogErr(fmt, arg...) XLOGE("MError: func=%s line=%d: "fmt, __FUNCTION__, __LINE__, ##arg)
 #define LogWarning(fmt, arg...) XLOGE("FlashWarning: func=%s line=%d: "fmt, __FUNCTION__, __LINE__, ##arg)
 #endif
+
+#define getVideoFlashModeStyle getFlashModeStyle
+
 //====================================================
 // functions prototype
 static void PLineTrans(PLine* p, strAETable* pAE);
@@ -99,9 +111,18 @@ void hw_isoToGain(int iso, int* afe, int* isp);
 void hw_gainToIso(int afe, int isp, int* iso);
 void hw_speedUpExpPara(FlashAlgExpPara* expPara, int maxAfe);
 void ClearAePlineEvSetting();
-
+extern int cust_getFlashModeStyle(int sensorType, int flashMode);
 
 //====================================================
+enum
+{
+    e_NonePreview,
+    e_VideoPreview,
+    e_VideoRecording,
+    e_CapturePreview,
+
+};
+
 // variable
 #ifdef WIN32
 #else
@@ -110,10 +131,36 @@ StrobeDrv* g_pStrobe;
 FlashAlgExpPara g_expPara;
 static int g_isVerboseLogEn=0;
 int g_sceneCnt=0;
-
+static int g_previewMode=e_NonePreview;
 static strEvSetting* g_plineEvSetting;
+
+int g_eg_bUserMf=0;
+int g_eg_mfDuty=-1;
+int g_eg_mfStep=-1;
 //====================================================
 // function
+//====================================================
+void turnOnTorch()
+{
+    int bOn;
+	g_pStrobe->isOn(&bOn);
+	LogInfo("turnOnTorch line=%d isOn=%d",__LINE__,bOn);
+	if(bOn==0)
+	{
+        FLASH_PROJECT_PARA prjPara;
+    	int aeMode;
+    	aeMode = AeMgr::getInstance().getAEMode();
+    	prjPara = FlashMgr::getInstance()->getFlashProjectPara(aeMode);
+    	LogInfo("turnOnTorch duty,step=%d %d",prjPara.engLevel.torchDuty, prjPara.engLevel.torchStep);
+    	g_pStrobe->setDuty(prjPara.engLevel.torchDuty);
+    	g_pStrobe->setStep(prjPara.engLevel.torchStep);
+    	g_pStrobe->setTimeOutTime(0);
+    	g_pStrobe->setOnOff(0);
+    	g_pStrobe->setOnOff(1);
+    }
+}
+
+
 void updateVerboseFlag()
 {
 	g_isVerboseLogEn = FlashUtil::getPropInt(VERBOSE_STR, 0);
@@ -123,6 +170,46 @@ void ClearAePlineEvSetting()
 	if(g_plineEvSetting!=0)
 		delete []g_plineEvSetting;
 	g_plineEvSetting=0;
+}
+
+int FlashMgr::getFlashModeStyle(int sensorType, int flashMode)
+{
+  return cust_getFlashModeStyle(m_sensorType, flashMode);
+
+}
+FLASH_PROJECT_PARA& FlashMgr::getAutoProjectPara()
+{
+	return getFlashProjectPara(LIB3A_AE_MODE_AUTO);
+}
+
+
+FLASH_PROJECT_PARA& FlashMgr::getFlashProjectPara(int sensorId, int AEMode)
+{
+	NVRAM_CAMERA_STROBE_STRUCT* pBuf;
+	pBuf = getNvramBuf(sensorId);
+
+#ifdef MTK_SUB_STROBE_SUPPORT
+	if(sensorId == (int)DUAL_CAMERA_SUB_SENSOR)
+	{
+		return cust_getFlashProjectPara_sub(AEMode, pBuf);
+	}
+	else
+	{
+		return cust_getFlashProjectPara(AEMode, pBuf);
+	}
+#else
+	return cust_getFlashProjectPara(AEMode, pBuf);
+#endif
+
+}
+
+FLASH_PROJECT_PARA& FlashMgr::getFlashProjectPara(int AEMode)
+{
+  return getFlashProjectPara(m_sensorType, AEMode);
+}
+FLASH_PROJECT_PARA& FlashMgr::getFlashProjectPara1(int AEMode)
+{
+  return getFlashProjectPara(m_sensorType, AEMode);
 }
 FlashMgr::FlashMgr()
 {
@@ -135,12 +222,11 @@ FlashMgr::FlashMgr()
 	m_db.preFireEndTime=m_db.preFireStartTime;
 	m_db.coolingTime=0;
 	m_db.coolingTM = 0;
-	g_pStrobe = StrobeDrv::createInstance();
-	g_pStrobe->init(1);
+
+
 	m_flashMode = LIB3A_FLASH_MODE_FORCE_OFF;
 	m_flashOnPrecapture = 0;
 	m_digRatio = 1;
-	m_pNvram =0;
 	m_pfFrameCount=0;
 	m_thisFlashDuty=-1;
 	m_thisFlashStep=-1;
@@ -148,16 +234,26 @@ FlashMgr::FlashMgr()
 	m_evComp=0;
 
 	m_isCapFlashEndTimeValid=1;
+	m_pNvram =0;
+	m_pNvramMain=0;
+	m_pNvramSub=0;
+
+	m_sensorType = (int)DUAL_CAMERA_MAIN_SENSOR;
+	m_bRunPreFlash = 0;
+	m_sensorDev2=0;
 
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 FlashMgr::~FlashMgr()
 {
-	g_pStrobe = StrobeDrv::createInstance();
-	g_pStrobe->uninit();
+
 
 	if(m_pNvram!=0)
 		delete []m_pNvram;
+	if(m_pNvramMain!=0)
+		delete []m_pNvramMain;
+	if(m_pNvramSub!=0)
+		delete []m_pNvramSub;
 
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -532,9 +628,15 @@ void hw_setExpPara(FlashAlgExpPara* expPara, int sensorType, FLASH_PROJECT_PARA*
    	if(isFlash)
    	{
    		g_pStrobe = StrobeDrv::createInstance();
+   		g_pStrobe->setTimeOutTime(2000);
 		g_pStrobe->setDuty(duty);
 		g_pStrobe->setStep(step);
    		g_pStrobe->setOnOff(1);
+   	}
+	else
+   	{
+   		g_pStrobe = StrobeDrv::createInstance();
+   		g_pStrobe->setOnOff(0);
    	}
 
 	LogInfo("hw_setExpPara pfexp2 %d %d %d exp %d %d, %d %d",
@@ -757,9 +859,11 @@ void resizeYData(double r, short* data, int w, int h, int z0Wdiv, int z0Ydiv, sh
 	*rzH = hdiv;
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+float g_uiDigRatio=1;
 int FlashMgr::setDigZoom(int digx100)
 {
-	m_digRatio = digx100/100.0;
+	 g_uiDigRatio = digx100/100.0;
+	//m_digRatio = digx100/100.0;
 	return 0;
 }
 int FlashMgr::isBurstShotMode()
@@ -931,7 +1035,7 @@ void hw_speedUpExpPara(FlashAlgExpPara* expPara, int maxAfe)
 		g=maxG;
 	if(g>1)
 	{
-		expPara->exp = reducedExp;
+		expPara->exp = expPara->exp/g;
 		expPara->iso = g* expPara->iso;
 	}
 	LogInfo("line=%d hw_speedUpExpPara exp=%d iso=%d",__LINE__, expPara->exp, expPara->iso);
@@ -1048,15 +1152,33 @@ FlashMgr* FlashMgr::getInstance()
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 int FlashMgr::init(int sensorType)
 {
+	LogInfo("init sensorTypo=%d",sensorType);
 	m_sensorType = sensorType;
+	g_pStrobe = StrobeDrv::createInstance();
+	g_pStrobe->init(sensorType);
+	m_pNvram = getNvramBuf(sensorType);
 	//forceLoadNvram();
 	return 0;
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 int FlashMgr::uninit()
 {
+	LogInfo("uninitt");
+	g_pStrobe = StrobeDrv::createInstance();
+	g_pStrobe->setOnOff(0);
+	g_pStrobe->uninit();
+	m_flashMode = LIB3A_FLASH_MODE_UNSUPPORTED;
+	g_previewMode=e_NonePreview;
 	return 0;
 }
+//=======================================
+int FlashMgr::setSensorDev(int sensorDev)
+{
+    LogInfo("setSensorDev");
+    m_sensorDev2 = sensorDev;
+    return 0;
+}
+
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 void FlashMgr::setFlashOnOff(int en)
@@ -1078,9 +1200,9 @@ void FlashMgr::setAFLampOnOff(int en)
 	if(en==1)
 	{
 		LogInfo("setAFLampOnOff 1");
-		loadNvram();
+
 		FLASH_PROJECT_PARA prjPara;
-		prjPara = cust_getFlashProjectPara(LIB3A_AE_MODE_AUTO, m_pNvram);
+		prjPara = getFlashProjectPara(m_sensorType, LIB3A_AE_MODE_AUTO);
 
 		int step=0;
 		int duty=0;
@@ -1159,7 +1281,7 @@ int FlashMgr::getDebugInfo(FLASH_DEBUG_INFO_T* p)
 	setDebugTag(*p, FL_T_EST_PFMF_TIME, (MUINT32) m_db.estPf2MFTime); //@@
 	setDebugTag(*p, FL_T_DELAY_TIME, (MUINT32) m_db.delayTime); //@@
 
-	if(m_flashOnPrecapture==1)
+	if(m_flashOnPrecapture==1 && m_bRunPreFlash==1)
 	{
 		int algDebug[ALG_TAG_SIZE/4];
 		FlashAlg* pStrobeAlg;
@@ -1173,6 +1295,7 @@ int FlashMgr::getDebugInfo(FLASH_DEBUG_INFO_T* p)
 	}
 	return 0;
 }
+/*
 int FlashMgr::writeNvramMain(void* newNvramData)
 {
 	return writeNvram(DUAL_CAMERA_MAIN_SENSOR, newNvramData);
@@ -1212,7 +1335,85 @@ int FlashMgr::writeNvram(int sensorType, void* newNvramData)
 	}
 	return 0;
 }
+*/
+NVRAM_CAMERA_STROBE_STRUCT* FlashMgr::getNvramPointer(int sensorId)
+{
+	if(sensorId==DUAL_CAMERA_MAIN_SENSOR)
+	{
+		if(m_pNvramMain==0)
+			m_pNvramMain=new NVRAM_CAMERA_STROBE_STRUCT[1];
+		return m_pNvramMain;
+	}
+	else
+	{
+		if(m_pNvramSub==0)
+			m_pNvramSub=new NVRAM_CAMERA_STROBE_STRUCT[1];
+		return m_pNvramSub;
+	}
+	return 0;
+}
+int FlashMgr::forceReadNvram(int sensorId)
+{
+	LogInfo("forceReadNvram line=%d sensorType=%d", __LINE__,sensorId);
+	//get mem
+	NVRAM_CAMERA_STROBE_STRUCT* pMem;
+	pMem = (NVRAM_CAMERA_STROBE_STRUCT*)getNvramPointer(sensorId);
+	//read
+	NvramDrvBase* nvDrv = NvramDrvBase::createInstance();
+	nvDrv->readNvram( (CAMERA_DUAL_CAMERA_SENSOR_ENUM)sensorId, 0, CAMERA_NVRAM_DATA_STROBE, pMem, sizeof(NVRAM_CAMERA_STROBE_STRUCT));
+	return 0;
+}
 
+int FlashMgr::readNvram(int sensorId)
+{
+	int isRead;
+	if(sensorId==DUAL_CAMERA_MAIN_SENSOR)
+	{
+		static int isReadMain=0;
+		isRead = isReadMain;
+		isReadMain=1;
+	}
+	else
+	{
+		static int isReadSub=0;
+		isRead = isReadSub;
+		isReadSub=1;
+	}
+	if(isRead==0)
+		forceReadNvram(sensorId);
+	return 0;
+}
+int FlashMgr::writeNvram(int sensorId)
+{
+	//get mem
+	NVRAM_CAMERA_STROBE_STRUCT* pMem;
+	pMem = (NVRAM_CAMERA_STROBE_STRUCT*)getNvramPointer(sensorId);
+	//write
+	NvramDrvBase* nvDrv = NvramDrvBase::createInstance();
+	nvDrv->writeNvram( (CAMERA_DUAL_CAMERA_SENSOR_ENUM)sensorId, 0, CAMERA_NVRAM_DATA_STROBE, pMem, sizeof(NVRAM_CAMERA_STROBE_STRUCT));
+	return 0;
+}
+
+
+NVRAM_CAMERA_STROBE_STRUCT* FlashMgr::getNvramBuf(int sensorId)
+{
+	LogInfo("getNvramBuf line=%d sensorType=%d", __LINE__,sensorId);
+	readNvram(sensorId);
+	return getNvramPointer(sensorId);
+}
+
+NVRAM_CAMERA_STROBE_STRUCT* FlashMgr::getNvramBuf()
+{
+  return getNvramBuf(m_sensorType);
+}
+
+int FlashMgr::writeNvram()
+{
+  return writeNvram(m_sensorType);
+}
+///////////////////////////////////////////
+
+/*
 int FlashMgr::forceLoadNvram()
 {
 	if(m_pNvram==0)
@@ -1270,7 +1471,7 @@ int FlashMgr::loadNvram()
 		forceLoadNvram();
 	}
 	return 0;
-}
+}*/
 
 int FlashMgr::cctGetFlashInfo(void* in, int inSize, void* out, int outSize, MUINT32* realOutSize)
 {
@@ -1301,13 +1502,15 @@ int FlashMgr::cctFlashLightTest(void* pIn)
 
 	LogInfo("cctFlashLightTest() p[0]=%d, p[1]=%d", p[0], p[1]);
 
-	loadNvram();
+	m_pNvram = getNvramBuf((int)DUAL_CAMERA_MAIN_SENSOR);
 	FLASH_PROJECT_PARA prjPara;
-	prjPara = cust_getFlashProjectPara(LIB3A_AE_MODE_AUTO, m_pNvram);
+	//prjPara = cust_getFlashProjectPara(LIB3A_AE_MODE_AUTO, m_pNvram);
+	prjPara = getFlashProjectPara(m_sensorType, LIB3A_AE_MODE_AUTO);
 
 	int err=0;
 	int e;
 	StrobeDrv* pStrobe = StrobeDrv::createInstance();
+	g_pStrobe->init(1);
 	pStrobe->setDuty(prjPara.engLevel.torchDuty);
 	pStrobe->setStep(prjPara.engLevel.torchStep);
 	LogInfo("cctFlashLightTest() duty=%d, duty num=%d", prjPara.engLevel.torchDuty, prjPara.engLevel.torchStep);
@@ -1324,6 +1527,7 @@ int FlashMgr::cctFlashLightTest(void* pIn)
 	if(err==0)
 		err = e;
 	usleep(duration);
+	g_pStrobe->uninit();
 	LogInfo("cctFlashLightTest() err=%d", err);
 	return err;
 }
@@ -1337,22 +1541,20 @@ int FlashMgr::isNeedWaitCooling(int* a_waitTimeMs)
 	static int coolingFrame=0;
 	if(m_db.coolingTM!=0)
 	{
-LogInfo("isNeedWaitCooling() m_db.coolingTM=%d",(int)(m_db.coolingTM*1000));
 		m_db.preFireStartTime = m_db.thisFireStartTime;
-
-LogInfo("isNeedWaitCooling() m_db.thisFireStartTime=%d",(int)(m_db.thisFireStartTime));
-
 		m_db.preFireEndTime = m_db.thisFireEndTime;
-
-LogInfo("isNeedWaitCooling() m_db.thisFireEndTime=%d",(int)(m_db.thisFireEndTime));
-
 		m_db.coolingTime = (m_db.thisFireEndTime-m_db.thisFireStartTime)*m_db.coolingTM;
 
-LogInfo("isNeedWaitCooling() m_db.coolingTime=%d",(int)(m_db.coolingTime));
+LogInfo("isNeedWaitCooling() coolingTime=%d startTime=%d endTime=%d coolingTMx1000=%d",
+			(int)(m_db.coolingTime),(int)m_db.thisFireStartTime, (int)m_db.thisFireEndTime, (int)(m_db.coolingTM*1000));
 
 		int waitTime;
+		m_db.estPf2MFTime=300;
 		waitTime = (m_db.preFireEndTime+m_db.coolingTime) - (curTime+m_db.estPf2MFTime);
-LogInfo("isNeedWaitCooling() m_db.waitTime=%d",(int)(waitTime));
+LogInfo("isNeedWaitCooling() waitTime=%d endTime=%d coolingTime=%d curTime=%d, estPf2MFTime=%d coolFrame=%d",
+		(int)(waitTime), (int)m_db.preFireEndTime, (int)m_db.coolingTime, (int)curTime, (int)m_db.estPf2MFTime, (int)coolingFrame);
+
+
 		if(coolingFrame==0)
 		{
 			m_db.startCoolingTime = curTime;
@@ -1362,7 +1564,7 @@ LogInfo("isNeedWaitCooling() m_db.waitTime=%d",(int)(waitTime));
 				m_db.delayTime=0;
 		}
 		coolingFrame++;
-		m_db.estPf2MFTime=300;
+
 
 		if(waitTime<=0 || coolingFrame>150)
 		{
@@ -1385,6 +1587,7 @@ LogInfo("isNeedWaitCooling() m_db.waitTime=%d",(int)(waitTime));
 
 int FlashMgr::doPfOneFrame(FlashExePara* para, FlashExeRep* rep)
 {
+    LogInfo("doPfOneFrame +");
 	/*
 	FlashAlgStaData staData;
 	short g_data2[40*30*2];
@@ -1413,10 +1616,11 @@ int FlashMgr::doPfOneFrame(FlashExePara* para, FlashExeRep* rep)
 	if(m_cct_isUserDutyStep==1)
 	{
 		FLASH_PROJECT_PARA prjPara;
-		loadNvram();
+
 		int aeMode;
 		aeMode = AeMgr::getInstance().getAEMode();
-		prjPara = cust_getFlashProjectPara(aeMode, m_pNvram);
+		//prjPara = cust_getFlashProjectPara(aeMode, m_pNvram);
+		prjPara = getFlashProjectPara(m_sensorType, aeMode);
 		FlashAlg* pStrobeAlg;
 		pStrobeAlg = FlashAlg::getInstance();
 		//flash profile
@@ -1458,14 +1662,28 @@ int FlashMgr::doPfOneFrame(FlashExePara* para, FlashExeRep* rep)
 	if(m_pfFrameCount==0)
 	{
 		flashState=FLASH_STATE_START;
+		int curTime;
+		curTime = FlashUtil::getMs();
+		LogInfo("doPfOneFrame start ms=%d", curTime);
 	}
 	LogInfo("doPfOneFrame frame=%d flashState=%d preExeFrame=%d",m_pfFrameCount,flashState,preExeFrameCnt);
 	if(flashState==FLASH_STATE_START)
 	{
 		flashStatus = FLASH_STATUS_OFF;
 		LogInfo("doPfOneFrame state=start");
+		m_digRatio = g_uiDigRatio;
 		start();
-		if(isFlashOnCapture()==0)
+		if(g_eg_mfDuty!=-1 && g_eg_mfStep!=-1)
+		{
+		    g_eg_bUserMf=1;
+		    //rep->isEnd=1;
+		}
+		else
+		{
+		    g_eg_bUserMf=0;
+		}
+
+		if(m_bRunPreFlash==0)
 			rep->isEnd=1;
 		else
 		{
@@ -1539,6 +1757,8 @@ int FlashMgr::doPfOneFrame(FlashExePara* para, FlashExeRep* rep)
 	}
 
 	m_pfFrameCount++;
+	LogInfo("doPfOneFrame isEnd=%d",rep->isEnd);
+	LogInfo("doPfOneFrame -");
 	return 0;
 }
 
@@ -1559,11 +1779,23 @@ int FlashMgr::doMfOneFrame(void* aa_adr)
 
 int FlashMgr::endPrecapture()
 {
-	turnOffPrecapFlash();
+    int flashMode;
+    int flashStyle;
+    flashMode = getFlashMode();
+    flashStyle = getFlashModeStyle(m_sensorType, flashMode);
+    LogInfo("endPrecapture %d %d",flashMode,flashStyle);
+    if(flashStyle==(int)e_FLASH_STYLE_ON_ON || flashStyle==(int)e_FLASH_STYLE_ON_TORCH)
+	{
+	    turnOnTorch();
+	}
+	else
+	{
+		turnOffFlashDevice();
+	}
 
 	ClearAePlineEvSetting();
 	int ratioEn;
-	ratioEn = FlashUtil::getPropInt("z.flash_ratio_en",0);
+	ratioEn = FlashUtil::getPropInt("z.flash_ratio",0);
 	if(ratioEn==1)
 	{
 		cctPreflashEnd();
@@ -1573,59 +1805,90 @@ int FlashMgr::endPrecapture()
 	m_pfFrameCount=0;
 	return 0;
 
+
 }
 
 int FlashMgr::isNeedFiringFlash()
 {
-#if defined(DUMMY_FLASHLIGHT)
-#else
-	if(m_cct_isUserDutyStep==1)
+    LogInfo("isNeedFiringFlash()");
+    m_db.startTime = FlashUtil::getMs();
+
+    if(g_pStrobe->hasFlashHw()!=0)
+    {
+        if(m_cct_isUserDutyStep==1)
 		return 1;
-#endif
+    }
 
-	LogInfo("isNeedFiringFlash() line=%d",__LINE__);
-	m_db.startTime = FlashUtil::getMs();
+    int fmode;
+    int fstyle;
+    fmode = getFlashMode();
+    fstyle = getFlashModeStyle(m_sensorType, fmode);
+
     int bFlashOn;
+    int bRunPreFlash;
+    int ispFlashMode;
+    if(g_pStrobe->hasFlashHw()==0)
+    {
+        LogInfo("isNeedFiringFlash() No flash hw");
+        bFlashOn=0;
+        bRunPreFlash=0;
+        ispFlashMode=FLASHLIGHT_FORCE_OFF;
+    }
+    else if(g_eg_mfDuty!=-1 && g_eg_mfStep!=-1)
+    {
+        LogInfo("isNeedFiringFlash() eng");
+        bFlashOn=1;
+        bRunPreFlash=0;
+        ispFlashMode=FLASHLIGHT_FORCE_ON;
+
+        int bPropPfEn;
+        bPropPfEn  = FlashUtil::getPropInt("z.flash_eg_pf_en",-1);
+        if(bPropPfEn==1)
+            bRunPreFlash=1;
+    }
+    else if(fstyle==e_FLASH_STYLE_OFF_OFF)
+    {
+        LogInfo("isNeedFiringFlash() XX");
+        bFlashOn=0;
+        bRunPreFlash=0;
+        ispFlashMode=FLASHLIGHT_FORCE_OFF;
+    }
+    else if(fstyle==e_FLASH_STYLE_OFF_ON || fstyle==e_FLASH_STYLE_ON_ON)
+    {
+        LogInfo("isNeedFiringFlash() XO OO");
+        bFlashOn=1;
+        bRunPreFlash=1;
+        ispFlashMode=FLASHLIGHT_FORCE_ON;
+    }
+    else if(fstyle==e_FLASH_STYLE_ON_TORCH)
+    {
+        LogInfo("isNeedFiringFlash() OT");
+        bFlashOn=1;
+        bRunPreFlash=0;
+        ispFlashMode=FLASHLIGHT_FORCE_ON;
+    }
+    else //if(fstyle==e_FLASH_STYLE_OFF_AUTO)
+    {
+        if(AeMgr::getInstance().IsStrobeBVTrigger()==1)
+        {
+            ispFlashMode = FLASHLIGHT_AUTO;
+            bFlashOn=1;
+            bRunPreFlash=1;
+            LogInfo("isNeedFiringFlash() XA triger");
+        }
+        else
+        {
+            ispFlashMode = FLASHLIGHT_AUTO;
+            bFlashOn=0;
+            bRunPreFlash=0;
+            LogInfo("isNeedFiringFlash() XA NOT triger");
+        }
+    }
+    m_bRunPreFlash = bRunPreFlash;
+
     FLASH_INFO_T finfo;
-
-    if(m_flashMode==LIB3A_FLASH_MODE_FORCE_OFF)
-    {
-		LogInfo("isNeedFiringFlash() line=%d flash mode = off",__LINE__);
-    	bFlashOn=0;
-    	finfo.flashMode = FLASHLIGHT_FORCE_OFF;
-    	finfo.isFlash = 0;
-    }
-    else if(m_flashMode==LIB3A_FLASH_MODE_FORCE_ON)
-    {
-    	LogInfo("isNeedFiringFlash() line=%d flash mode = LIB3A_FLASH_MODE_FORCE_ON",__LINE__);
-    	bFlashOn=1;
-    	finfo.flashMode = FLASHLIGHT_FORCE_ON;
-    	finfo.isFlash = 1;
-    }
-    else //auto
-    {
-    	finfo.flashMode = FLASHLIGHT_AUTO;
-    	if(AeMgr::getInstance().IsStrobeBVTrigger()==1)
-    	{
-    		LogInfo("isNeedFiringFlash() line=%d auto, fire",__LINE__);
-	    	bFlashOn=1;
-    		finfo.isFlash = 1;
-    	}
-    	else
-    	{
-    		LogInfo("isNeedFiringFlash() line=%d auto, off",__LINE__);
-    		bFlashOn=0;
-    		finfo.isFlash = 0;
-    	}
-    }
-#if defined(DUMMY_FLASHLIGHT)
-
-	LogInfo("isNeedFiringFlash() line=%d off due to dummy",__LINE__);
-	bFlashOn=0;
-	finfo.flashMode = FLASHLIGHT_FORCE_OFF;
-    finfo.isFlash = 0;
-#endif
-
+    finfo.flashMode = ispFlashMode;
+    finfo.isFlash = bFlashOn;
 	IspTuningMgr::getInstance().setFlashInfo(finfo);
 
    	if(bFlashOn==0)
@@ -1639,9 +1902,7 @@ int FlashMgr::isNeedFiringFlash()
    		m_flashOnPrecapture=1;
    	}
    	return 1;
-
 }
-
 
 void debugCnt()
 {
@@ -1677,7 +1938,48 @@ void debugCnt()
 
 }
 
+void logProjectPara(FLASH_PROJECT_PARA* pp)
+{
+	FLASH_TUNING_PARA *pt;
+	FLASH_ENG_LEVEL *pe;
+	FLASH_COOL_TIMEOUT_PARA *pct;
 
+    LogInfo("projectPara ds %d %d",pp->dutyNum, pp->stepNum);
+
+	pt = &pp->tuningPara;
+	LogInfo("prjP tp %d %d %d %d %d %d %d %d %d",
+	    pt->yTar, pt->antiIsoLevel, pt->antiExpLevel, pt->antiStrobeLevel, pt->antiUnderLevel,
+	    pt->antiOverLevel, pt->foregroundLevel, pt->isRefAfDistance, pt->accuracyLevel  );
+
+	pe = &pp->engLevel;
+	LogInfo("prjP eng1 %d %d, %d %d, %d %d %d %d",
+	    pe->torchDuty, pe->torchStep, pe->afDuty, pe->afStep,
+	    pe->pfDuty, pe->pmfStep, pe->mfDutyMin, pe->mfDutyMax);
+
+	LogInfo("prjP engL %d %d %d %d, %d %d",
+	    pe->IChangeByVBatEn, pe->vBatL, pe->pfDutyL, pe->pmfStepL,
+	    pe->mfDutyMinL, pe->mfDutyMaxL);
+
+	LogInfo("prjP engB %d %d %d %d %d",
+	    pe->IChangeByBurstEn, pe->pfDutyB, pe->pmfStepB, pe->mfDutyMinB, pe->mfDutyMaxB);
+
+	pct = &pp->coolTimeOutPara;
+	LogInfo("prjP ct %d", pct->tabNum);
+	LogInfo("prjP ct_id %d %d %d %d %d %d %d %d %d %d",
+    	pct->tabId[0],	pct->tabId[1],	pct->tabId[2],	pct->tabId[3],	pct->tabId[4],
+    	pct->tabId[5],	pct->tabId[6],	pct->tabId[7],	pct->tabId[8],	pct->tabId[9]);
+
+    LogInfo("prjP ct_clx100 %d %d %d %d %d %d %d %d %d %d",
+    	(int)(pct->coolingTM[0]*100),(int)(pct->coolingTM[1]*100),(int)(pct->coolingTM[2]*100),(int)(pct->coolingTM[3]*100),(int)(pct->coolingTM[4]*100),
+    	(int)(pct->coolingTM[5]*100),(int)(pct->coolingTM[6]*100),(int)(pct->coolingTM[7]*100),(int)(pct->coolingTM[8]*100),(int)(pct->coolingTM[9]*100));
+
+    LogInfo("prjP ct_to %d %d %d %d %d %d %d %d %d %d",
+    	pct->timOutMs[0],	pct->timOutMs[1],	pct->timOutMs[2],	pct->timOutMs[3],	pct->timOutMs[4],
+    	pct->timOutMs[5],	pct->timOutMs[6],	pct->timOutMs[7],	pct->timOutMs[8],	pct->timOutMs[9]);
+
+    LogInfo("prjP oth %d %d %d", pp->maxCapExpTimeUs, pp->pfExpFollowPline, pp->maxPfAfe);
+
+}
 int FlashMgr::start()
 {
 	debugCnt();
@@ -1692,24 +1994,16 @@ int FlashMgr::start()
 	 	isFlash = isNeedFiringFlash();
 	}
 	AeMgr::getInstance().setStrobeMode(m_flashOnPrecapture);
-	if(isFlash==0)
+	if(m_bRunPreFlash==0)
 		return 0;
 
 	FLASH_PROJECT_PARA prjPara;
-	loadNvram();
-	/*
-	static int vv=0;
-	if(vv=0)
-	{
-		if(m_pNvram!=0)
-			delete []m_pNvram;
-		m_pNvram = new NVRAM_CAMERA_STROBE_STRUCT[1];
-		int sz;
-		getDefaultStrobeNVRam(m_sensorID, m_pNvram, &sz);
-	}*/
+
+
 	int aeMode;
 	aeMode = AeMgr::getInstance().getAEMode();
-	prjPara = cust_getFlashProjectPara(aeMode, m_pNvram);
+	prjPara = getFlashProjectPara(aeMode);
+	logProjectPara(&prjPara);
 
 
 	LogInfo("start() nvram_tar = %d %d %d %d aemode=%d",
@@ -1767,10 +2061,9 @@ int FlashMgr::run(FlashExePara* para, FlashExeRep* rep)
 {
 LogInfo("run() line=%d",__LINE__);
 	FLASH_PROJECT_PARA prjPara;
-	loadNvram();
 	int aeMode;
 	aeMode = AeMgr::getInstance().getAEMode();
-	prjPara = cust_getFlashProjectPara(aeMode, m_pNvram);
+	prjPara = getFlashProjectPara(aeMode);
 
 
 	FlashAlg* pStrobeAlg;
@@ -1795,7 +2088,9 @@ LogInfo("run() line=%d",__LINE__);
 	if(m_iteration>10 || isNext==0)
 	{
 		rep->isEnd=1;
+		LogInfo("Estimate+");
 		pStrobeAlg->Estimate(&g_expPara);
+		LogInfo("Estimate-");
 
 		int afe;
 		int isp;
@@ -1867,46 +2162,107 @@ int FlashMgr::setCamMode(int mode)
 	m_camMode = mode;
 	return 0;
 }
+
+
+
+
 int FlashMgr::setFlashMode(int mode)
 {
-	LogInfo("setFlashMode mode=%d",mode);
+	LogInfo("setFlashMode+ mode=%d",mode);
+	int e=0;
+	int err=0;
+
 	if(mode<LIB3A_FLASH_MODE_MIN || mode>LIB3A_FLASH_MODE_MAX)
 	{
+	    LogInfo("setFlashMode-");
 		return FL_ERR_FlashModeNotSupport;
+	}
+
+	int fmode;
+	int fstyle;
+	fmode = mode;
+	if(g_previewMode == e_NonePreview)
+	{
+        LogInfo("nonepreview");
+        if(mode==LIB3A_FLASH_MODE_FORCE_TORCH)
+	    {
+	        LogInfo("torch");
+            g_pStrobe = StrobeDrv::createInstance();
+            g_pStrobe->initTemp(m_sensorDev2);
+            turnOnTorch();
+            m_flashOnPrecapture=1;
+        }
+        else
+        {
+            LogInfo("torch");
+            g_pStrobe = StrobeDrv::createInstance();
+            g_pStrobe->initTemp(m_sensorDev2);
+            turnOffFlashDevice();
+            m_flashOnPrecapture=0;
+        }
+	}
+    else if(g_previewMode==e_CapturePreview)
+	{
+        fstyle = getFlashModeStyle(m_sensorType, fmode);
+        LogInfo("m,s=%d,%d",fmode,fstyle);
+        if(fstyle==e_FLASH_STYLE_ON_ON || fstyle==e_FLASH_STYLE_ON_TORCH)
+        {
+            LogInfo("OO");
+            turnOnTorch();
+            m_flashOnPrecapture=1;
 	}
 	else
 	{
-		int preMode;
-		if(m_flashMode==FLASHLIGHT_TORCH && mode!=m_flashMode) //prviouw mode is torch. and change to another mode.
-		{
-			g_pStrobe->setOnOff(0);
-		}
-		m_flashMode = mode;
-
-		if(mode==FLASHLIGHT_TORCH)
-		{
-			FLASH_PROJECT_PARA prjPara;
-			loadNvram();
-			int aeMode;
-			aeMode = AeMgr::getInstance().getAEMode();
-			prjPara = cust_getFlashProjectPara(aeMode, m_pNvram);
-			g_pStrobe = StrobeDrv::createInstance();
-			//@@if(current mode)
-			LogInfo("setFlashMode mode duty,step=%d %d",prjPara.engLevel.torchDuty, prjPara.engLevel.torchStep);
-			g_pStrobe->setDuty(prjPara.engLevel.torchDuty);
-			g_pStrobe->setStep(prjPara.engLevel.torchStep);
-			g_pStrobe->setTimeOutTime(0);
-			g_pStrobe->setOnOff(0);
-			g_pStrobe->setOnOff(1);
-		}
-		else if(mode==FLASHLIGHT_FORCE_OFF)
-		{
-			g_pStrobe = StrobeDrv::createInstance();
-			g_pStrobe->setTimeOutTime(1000);
-			g_pStrobe->setOnOff(0);
-		}
-		return 0;
+            LogInfo("X?");
+            turnOffFlashDevice();
+            m_flashOnPrecapture=0;
 	}
+    }
+    else if(g_previewMode==e_VideoPreview)
+	{
+        fstyle = getVideoFlashModeStyle(m_sensorType, fmode);
+        LogInfo("m,s=%d,%d",fmode,fstyle);
+	    if(fstyle==e_FLASH_STYLE_ON_ON || fstyle==e_FLASH_STYLE_ON_TORCH)
+        {
+            LogInfo("Video OO");
+	        turnOnTorch();
+            m_flashOnPrecapture=1;
+        }
+	    else
+        {
+            LogInfo("Video X?");
+            turnOffFlashDevice();
+            m_flashOnPrecapture=0;
+        }
+    }
+    else if(g_previewMode==e_VideoRecording)
+	{
+        fstyle = getVideoFlashModeStyle(m_sensorType, fmode);
+        LogInfo("m,s=%d,%d",fmode,fstyle);
+        if(fstyle==e_FLASH_STYLE_ON_ON || fstyle==e_FLASH_STYLE_ON_TORCH || fstyle==e_FLASH_STYLE_OFF_ON)
+        {
+            LogInfo("VideoR OO");
+			turnOnTorch();
+            m_flashOnPrecapture=1;
+		}
+        else if(fstyle==e_FLASH_STYLE_OFF_OFF)
+		{
+			LogInfo("VideoR XX");
+            turnOffFlashDevice();
+        }
+        else
+        {
+        	LogInfo("VideoR other no action");
+    	}
+	}
+	else
+	{
+    	LogError("preview mode is wrong");
+    }
+		m_flashMode = mode;
+	LogInfo("setFlashMode-");
+		return 0;
+
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 int FlashMgr::isFlashOnCapture()
@@ -1937,22 +2293,54 @@ int interpTimeOut_index(int ind, int tabNum, int* xTab, int* tTab)
 	y = FlashUtil::flash_calYFromXYTab(tabNum, xTab, tTab, ind);
 	return y;
 }
+#ifdef CCT_TEST
+    void testCctNv();
+#endif
 
-int FlashMgr::capCheckAndFireFlash_End()
-{
-	LogInfo("capCheckAndFireFlash_End line=%d  getMs=%d",__LINE__, FlashUtil::getMs());
-	if(m_cct_isUserDutyStep==1)
-		turnOffFlashDevice();
-	if(isBurstShotMode()!=1)
-	{
-	    //FLASH OFF
-	    turnOffFlashDevice();
-    }
-    LogInfo("capCheckAndFireFlash_End line=%d  thisFireStartTime & End: %d %d",__LINE__, m_db.thisFireStartTime,m_db.thisFireEndTime);
-	return 0;
-}
 int FlashMgr::capCheckAndFireFlash_Start()
 {
+#ifdef CCT_TEST
+    testCctNv();
+#endif
+
+    if(g_eg_bUserMf==1)
+    {
+        int tOut;
+		FLASH_PROJECT_PARA prjPara;
+		prjPara = getAutoProjectPara();
+		tOut = interpTimeOut_index(g_eg_mfDuty, prjPara.coolTimeOutPara.tabNum, prjPara.coolTimeOutPara.tabId, prjPara.coolTimeOutPara.timOutMs);
+        g_pStrobe = StrobeDrv::createInstance();
+        g_pStrobe->setOnOff(0);
+		if(m_db.thisTimeOutTime == ENUM_FLASH_TIME_NO_TIME_OUT)
+			g_pStrobe->setTimeOutTime(0);
+		else
+			g_pStrobe->setTimeOutTime(tOut);
+		g_pStrobe->setDuty(g_eg_mfDuty);
+		g_pStrobe->setStep(g_eg_mfStep);
+		g_pStrobe->setOnOff(0);
+		g_pStrobe->setOnOff(1);
+        return 0;
+    }
+
+
+
+     int flashMode;
+    int flashStyle;
+    flashMode = getFlashMode();
+    flashStyle = getFlashModeStyle(m_sensorType, flashMode);
+    LogInfo("capCheckAndFireFlash_Start2 %d %d",flashMode,flashStyle);
+    if(flashStyle==(int)e_FLASH_STYLE_OFF_OFF)
+	{
+	    turnOffFlashDevice();
+	    return 0;
+	}
+	else if(flashStyle==(int)e_FLASH_STYLE_ON_TORCH)
+	{
+	    turnOnTorch();
+	    return 0;
+	}
+
+
 	LogInfo("capCheckAndFireFlash_Start line=%d  getMs=%d",__LINE__, FlashUtil::getMs());
 	m_isCapFlashEndTimeValid=0;
 	int propOn;
@@ -1996,24 +2384,13 @@ int FlashMgr::capCheckAndFireFlash_Start()
 		int aeMode;
 		FLASH_PROJECT_PARA prjPara;
 		aeMode = AeMgr::getInstance().getAEMode();
-		prjPara = cust_getFlashProjectPara(aeMode, m_pNvram);
+		prjPara = getFlashProjectPara(m_sensorType, LIB3A_AE_MODE_AUTO);
 
-		if(prjPara.coolTimeOutPara.tabMode==ENUM_FLASH_ENG_INDEX_MODE)
-		{
+
 			timeOutTime = interpTimeOut_index(m_db.capDuty, prjPara.coolTimeOutPara.tabNum, prjPara.coolTimeOutPara.tabId, prjPara.coolTimeOutPara.timOutMs);
 			m_db.thisTimeOutTime = timeOutTime;
 			m_db.coolingTM = interpCoolTM_index(m_db.capDuty, prjPara.coolTimeOutPara.tabNum, prjPara.coolTimeOutPara.tabId, prjPara.coolTimeOutPara.coolingTM);
-		}
-		else if(prjPara.coolTimeOutPara.tabMode==ENUM_FLASH_ENG_PERCENTAGE_MODE)
-		{
-			int eng;
-			FlashAlg* pStrobeAlg;
-			pStrobeAlg = FlashAlg::getInstance();
-			eng = pStrobeAlg->calFlashEng(m_db.capDuty, m_db.capStep);
-			timeOutTime = interpTimeOut_index(eng/10, prjPara.coolTimeOutPara.tabNum, prjPara.coolTimeOutPara.tabId, prjPara.coolTimeOutPara.timOutMs);
-			m_db.thisTimeOutTime = timeOutTime;
-			m_db.coolingTM = interpCoolTM_index(eng, prjPara.coolTimeOutPara.tabNum, prjPara.coolTimeOutPara.tabId, prjPara.coolTimeOutPara.coolingTM);
-		}
+
 
 		int i;
 		for(i=0;i<prjPara.coolTimeOutPara.tabNum;i++)
@@ -2035,6 +2412,202 @@ int FlashMgr::capCheckAndFireFlash_Start()
 	}
 	return 0;
 
+}
+
+int FlashMgr::capCheckAndFireFlash_End()
+{
+	LogInfo("capCheckAndFireFlash_End line=%d  getMs=%d",__LINE__, FlashUtil::getMs());
+	if(g_eg_bUserMf==1)
+    {
+        g_pStrobe = StrobeDrv::createInstance();
+        g_pStrobe->setTimeOutTime(500);
+        g_pStrobe->setOnOff(0);
+        return 0;
+    }
+
+	int flashMode;
+    int flashStyle;
+    flashMode = getFlashMode();
+    flashStyle = getFlashModeStyle(m_sensorType, flashMode);
+    LogInfo("capCheckAndFireFlash_End %d %d",flashMode,flashStyle);
+    if(flashStyle==(int)e_FLASH_STYLE_OFF_OFF)
+	{
+	    turnOffFlashDevice();
+	    return 0;
+	}
+	else if(flashStyle==(int)e_FLASH_STYLE_ON_TORCH)
+	{
+	    turnOnTorch();
+	    return 0;
+	}
+
+
+	if(m_cct_isUserDutyStep==1)
+		turnOffFlashDevice();
+	if(isBurstShotMode()==1 )
+	{
+	}
+	else if(getFlashMode()==FLASHLIGHT_FORCE_ON && getFlashModeStyle(m_sensorType, FLASHLIGHT_FORCE_ON)==(int)e_FLASH_STYLE_ON_ON)
+	{
+		//flash on
+		FLASH_PROJECT_PARA prjPara;
+
+		int aeMode;
+		aeMode = AeMgr::getInstance().getAEMode();
+			//prjPara = cust_getFlashProjectPara(aeMode, m_pNvram);
+		prjPara = getFlashProjectPara(aeMode);
+		g_pStrobe = StrobeDrv::createInstance();
+			//@@if(current mode)
+		LogInfo("setFlashMode mode duty,step=%d %d",prjPara.engLevel.torchDuty, prjPara.engLevel.torchStep);
+		g_pStrobe->setDuty(prjPara.engLevel.torchDuty);
+		g_pStrobe->setStep(prjPara.engLevel.torchStep);
+		g_pStrobe->setTimeOutTime(0);
+		g_pStrobe->setOnOff(0);
+		g_pStrobe->setOnOff(1);
+
+	}
+	else
+	{
+	    //FLASH OFF
+	    turnOffFlashDevice();
+    }
+    LogInfo("capCheckAndFireFlash_End line=%d  thisFireStartTime & End: %d %d",__LINE__, m_db.thisFireStartTime,m_db.thisFireEndTime);
+	return 0;
+}
+
+int FlashMgr::videoPreviewStart()
+{
+    LogInfo("videoPreviewStart+");
+
+
+    int flashMode;
+    int flashStyle;
+    flashMode = getFlashMode();
+    flashStyle = getVideoFlashModeStyle(m_sensorType, flashMode);
+    LogInfo("videoPreviewStart %d %d",flashMode,flashStyle);
+
+    if(flashStyle==(int)e_FLASH_STYLE_ON_ON)
+	{
+	    turnOnTorch();
+	}
+	else
+	{
+	    LogInfo("turn off flash");
+		turnOffFlashDevice();
+	}
+	g_previewMode=e_VideoPreview;
+	LogInfo("videoPreviewStart-");
+    return 0;
+}
+
+int FlashMgr::videoRecordingStart()
+{
+    LogInfo("videoRecordingStart+");
+    int flashMode;
+    int flashStyle;
+    flashMode = getFlashMode();
+    flashStyle = getVideoFlashModeStyle(m_sensorType, flashMode);
+    LogInfo("mode,style: %d %d",flashMode,flashStyle);
+    if(flashStyle==(int)e_FLASH_STYLE_ON_ON || flashStyle==(int)e_FLASH_STYLE_OFF_ON)
+    {
+        LogInfo("on style");
+        turnOnTorch();
+        m_flashOnPrecapture=1;
+    }
+    else if(flashStyle==(int)e_FLASH_STYLE_OFF_AUTO)
+    {
+        LogInfo("auto style");
+        if(AeMgr::getInstance().IsStrobeBVTrigger()==1)
+        {
+            LogInfo("triger");
+            turnOnTorch();
+            m_flashOnPrecapture=1;
+        }
+        else
+        {
+            LogInfo("not triger");
+            m_flashOnPrecapture=0;
+        }
+    }
+    else
+	{
+	    m_flashOnPrecapture=0;
+		LogInfo("off style");
+	}
+	g_previewMode=e_VideoRecording;
+    LogInfo("videoRecordingStart-");
+    return 0;
+}
+
+int FlashMgr::videoRecordingEnd()
+{
+    LogInfo("videoRecordingEnd+");
+    int flashMode;
+    int flashStyle;
+    flashMode = getFlashMode();
+    flashStyle = getVideoFlashModeStyle(m_sensorType, flashMode);
+    LogInfo("mode,style: %d %d",flashMode,flashStyle);
+    if(flashStyle==(int)e_FLASH_STYLE_OFF_ON || flashStyle==(int)e_FLASH_STYLE_OFF_OFF || flashStyle==(int)e_FLASH_STYLE_OFF_AUTO)
+    {
+        LogInfo("off style");
+        turnOffFlashDevice();
+    }
+    else
+	{
+	    LogInfo("on style");
+
+	}
+
+    g_previewMode=e_VideoPreview;
+    LogInfo("videoRecordingEnd-");
+    return 0;
+}
+
+
+
+int FlashMgr::cameraPreviewStart()
+{
+	LogInfo("capturePreviewStart+");
+    int fmode;
+    int fstyle;
+    fmode = getFlashMode();
+    fstyle = getFlashModeStyle(m_sensorType, fmode);
+    if(fstyle==(int)e_FLASH_STYLE_ON_ON || fstyle==(int)e_FLASH_STYLE_ON_TORCH)
+	{
+		turnOnTorch();
+	}
+	else
+	{
+		turnOffFlashDevice();
+	}
+	g_previewMode=e_CapturePreview;
+	LogInfo("capturePreviewStart-");
+	return 0;
+}
+
+
+int FlashMgr::videoPreviewEnd()
+{
+    LogInfo("videoPreviewEnd+");
+    /*
+    int fmode;
+    int fstyle;
+    fmode = getFlashMode();
+    fstyle = getFlashModeStyle(m_sensorType, fmode);
+    if(fstyle==(int)e_FLASH_STYLE_ON_ON || fstyle==(int)e_FLASH_STYLE_ON_TORCH)
+	{
+		turnOnTorch();
+	}
+	else
+	{
+		turnOffFlashDevice();
+	}
+	g_previewMode=e_CapturePreview;
+	*/
+    g_previewMode=e_NonePreview;
+	turnOffFlashDevice();
+	LogInfo("videoPreviewEnd-");
+    return 0;
 }
 int FlashMgr::turnOffFlashDevice()
 {

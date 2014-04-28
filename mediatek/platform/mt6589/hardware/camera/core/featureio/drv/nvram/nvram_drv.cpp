@@ -185,7 +185,12 @@ NvramDrv::readNvram(
 		err = readNvramData(a_eSensorType, a_eNvramDataType, a_pNvramData);
         if (err != NVRAM_NO_ERROR) {
 		    NVRAM_DRV_ERR("readNvramData() error ==> readDefaultData()\n");
-            err = readDefaultData(a_u4SensorID, a_eNvramDataType, a_pNvramData);
+			int para1;
+		    if(a_eNvramDataType==CAMERA_NVRAM_DATA_STROBE)
+		    	para1=a_eSensorType;
+		    else
+		    	para1=a_u4SensorID;
+            err = readDefaultData(para1, a_eNvramDataType, a_pNvramData);
             if (err != NVRAM_NO_ERROR) {
 		        NVRAM_DRV_ERR("readDefaultData() error\n");
 	        }
@@ -193,7 +198,12 @@ NvramDrv::readNvram(
 	    }
 
 		if (checkDataVersion(a_eNvramDataType, a_pNvramData) != NVRAM_NO_ERROR) {
-			err = readDefaultData(a_u4SensorID, a_eNvramDataType, a_pNvramData);
+			int para1;
+		    if(a_eNvramDataType==CAMERA_NVRAM_DATA_STROBE)
+		    	para1=a_eSensorType;
+		    else
+		    	para1=a_u4SensorID;
+			err = readDefaultData(para1, a_eNvramDataType, a_pNvramData);
 			if (err != NVRAM_NO_ERROR) {
 		        NVRAM_DRV_ERR("readDefaultData() error\n");
 	        }
@@ -489,7 +499,7 @@ NvramDrv::readDefaultData(
 		int sz;
 		int ret;
 									//a_eSensorType
-		ret = getDefaultStrobeNVRam(1, a_pNvramData, &sz);
+		ret = getDefaultStrobeNVRam(a_u4SensorID, a_pNvramData, &sz);
 		break;
 	default:
 		break;

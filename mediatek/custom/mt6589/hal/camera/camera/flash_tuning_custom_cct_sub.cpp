@@ -49,34 +49,31 @@
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
-#define LOG_TAG "flash_tuning_custom_cct.cpp"
-
+#define LOG_TAG "flash_tuning_custom_cct_sub.cpp"
 #include "camera_custom_types.h"
 #include "string.h"
 #ifdef WIN32
 #else
 #include "camera_custom_nvram.h"
 #endif
-#include <cutils/xlog.h>
 #include "flash_feature.h"
 #include "flash_param.h"
 #include "flash_tuning_custom.h"
-#include <kd_camera_feature.h>
 #include <cutils/xlog.h>
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-int getDefaultStrobeNVRam_sub(void* data, int* ret_size);
-
-int getDefaultStrobeNVRam_main(void* data, int* ret_size)
+int getDefaultStrobeNVRam_sub(void* data, int* ret_size)
 {
 	//static NVRAM_CAMERA_STROBE_STRUCT strobeNVRam;
 	NVRAM_CAMERA_STROBE_STRUCT* p;
 	p = (NVRAM_CAMERA_STROBE_STRUCT*)data;
 
+
+
 	static short engTab[]=
     {
-        100,200,600,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,1,
+        2234,3513,4668,5795,6784,7701,8542,9445,10154,10814,11411,11942,12439,12835,13231,13497,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,1,
 		1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,2,
 		1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,3,
 		1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,4,
@@ -144,20 +141,4 @@ int getDefaultStrobeNVRam_main(void* data, int* ret_size)
 
 	*ret_size = sizeof(NVRAM_CAMERA_STROBE_STRUCT);
 	return 0;
-}
-
-
-int getDefaultStrobeNVRam(int sensorType, void* data, int* ret_size)
-{
-
-	if(sensorType==(int)DUAL_CAMERA_SUB_SENSOR)
-	{
-		XLOGD("getDefaultStrobeNVRam ln=%d sensorId=%d",__LINE__, sensorType);
-		return getDefaultStrobeNVRam_sub(data, ret_size);
-	}
-	else //DUAL_CAMERA_MAIN_SENSOR
-	{
-		XLOGD("getDefaultStrobeNVRam ln=%d sensorId=%d",__LINE__, sensorType);
-		return getDefaultStrobeNVRam_main(data, ret_size);
-	}
 }

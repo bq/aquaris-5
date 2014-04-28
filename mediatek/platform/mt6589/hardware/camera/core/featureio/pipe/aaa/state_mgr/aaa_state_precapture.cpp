@@ -299,7 +299,8 @@ StatePrecapture::
 sendIntent(intent2type<eIntent_CaptureStart>)
 {
     MY_LOG("sendIntent(intent2type<eIntent_CaptureStart>) line =%d",__LINE__);
-
+    MINT32 i4AEEnable, i4AWBEnable;
+    MUINT32 u4Length;
 
 
 
@@ -321,16 +322,20 @@ sendIntent(intent2type<eIntent_CaptureStart>)
 
     AwbMgr::getInstance().cameraCaptureInit();
 
-    // Get operation mode and sensor mode for CCT and EM
-    if ((IspTuningMgr::getInstance().getOperMode() == EOperMode_Normal) ||
-        (IspTuningMgr::getInstance().getSensorMode() == ESensorMode_Capture)) {
-
-        // AAO DMA / state enable again
-        MRESULT err = BufMgr::getInstance().DMAInit(camdma2type<ECamDMA_AAO>());
-        if (FAILED(err)) {
-            MY_ERR("BufMgr::getInstance().DMAInit(ECamDMA_AAO) fail\n");
-            return err;
-        }
+    // if the ae/awb don't enable, don't need to enable the AAO
+    AeMgr::getInstance().CCTOPAEGetEnableInfo(&i4AEEnable, &u4Length);
+    AwbMgr::getInstance().CCTOPAWBGetEnableInfo(&i4AWBEnable, &u4Length);
+    if((i4AWBEnable != MFALSE) && (i4AEEnable != MFALSE)) {
+        // Get operation mode and sensor mode for CCT and EM
+        if ((IspTuningMgr::getInstance().getOperMode() == EOperMode_Normal) ||
+            (IspTuningMgr::getInstance().getSensorMode() == ESensorMode_Capture)) {
+  
+            // AAO DMA / state enable again
+            MRESULT err = BufMgr::getInstance().DMAInit(camdma2type<ECamDMA_AAO>());
+            if (FAILED(err)) {
+                MY_ERR("BufMgr::getInstance().DMAInit(ECamDMA_AAO) fail\n");
+                return err;
+            }
 
         err = BufMgr::getInstance().AAStatEnable(MTRUE);
         if (FAILED(err)) {
@@ -347,12 +352,14 @@ sendIntent(intent2type<eIntent_CaptureStart>)
             return err;
         }
 
-        err = BufMgr::getInstance().AFStatEnable(MTRUE);
-        if (FAILED(err)) {
-            MY_ERR("BufMgr::getInstance().AFStatEnable(MTRUE) fail\n");
-            return err;
+            err = BufMgr::getInstance().AFStatEnable(MTRUE);
+            if (FAILED(err)) {
+                MY_ERR("BufMgr::getInstance().AFStatEnable(MTRUE) fail\n");
+                return err;
+            }
         }
-
+    }else {
+        MY_LOG("sendIntent(intent2type<eIntent_CaptureStart>) i4AWBEnable:%d i4AEEnable:%d",i4AWBEnable, i4AEEnable);
     }
 
     // State transition: eState_Precapture --> eState_Capture

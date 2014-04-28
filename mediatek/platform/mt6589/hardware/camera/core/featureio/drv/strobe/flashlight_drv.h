@@ -120,12 +120,15 @@ public:
        ********************************************************************************/
     virtual int init(unsigned long sensorDev);
 
+    virtual int initTemp(unsigned long sensorDev);
+
 
     /*******************************************************************************
        * Functionality :
        *
        ********************************************************************************/
     virtual int uninit();
+    int uninitNoLock();
 
 
     /*******************************************************************************
@@ -184,7 +187,7 @@ public:
        ********************************************************************************/
     virtual int sendCommand(unsigned int cmd, unsigned int pArg1, unsigned int *pArg2, unsigned int *pArg3);
 
-
+	virtual int isOn(int* a_isOn);
     virtual int setOnOff(int a_isOn);
     virtual int setStep(int step);
 	virtual int setDuty(int duty);
@@ -201,6 +204,7 @@ public:
 	virtual int setTimeOutTime(int ms);
 
 
+	virtual int hasFlashHw();
 
 protected:
 
@@ -221,12 +225,15 @@ private:
        ********************************************************************************/
     int getStrobeWDTValue(unsigned int *pValue);
 
-
+    int m_sensorDev;
     int m_fdSTROBE;
     int m_flashType;
     int m_strobeMode;
     volatile int mUsers;
     mutable Mutex mLock;
+
+    int m_isOn;
+    int m_bTempInit;
 };
 
 #endif

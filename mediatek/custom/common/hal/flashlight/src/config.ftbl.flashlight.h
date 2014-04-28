@@ -49,7 +49,7 @@ FTABLE_DEFINITION(CUSTOM_FLASHLIGHT)
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 FTABLE_SCENE_INDEP()
     //==========================================================================
-#if 1
+#ifndef MTK_SUB_STROBE_SUPPORT
     if  (1 == facing)
     {
         MY_LOGD("facing=yes");

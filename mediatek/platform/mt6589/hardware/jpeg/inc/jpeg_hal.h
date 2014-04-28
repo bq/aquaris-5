@@ -58,7 +58,7 @@ typedef unsigned int UINT32;
 typedef int INT32;
 #endif
  
-#define JPEG_MAX_ENC_SIZE (12*1024*1024)
+#define JPEG_MAX_ENC_SIZE (128*1024*1024)
 
 
 

@@ -292,6 +292,7 @@ struct StateCameraPreview : public IState
     virtual MRESULT  sendIntent(intent2type<eIntent_VsyncUpdate>);
     virtual MRESULT  sendIntent(intent2type<eIntent_AFUpdate>);
     virtual MRESULT  sendIntent(intent2type<eIntent_PrecaptureStart>);
+    virtual MRESULT  sendIntent(intent2type<eIntent_CaptureStart>); //for zsd
     virtual MRESULT  sendIntent(intent2type<eIntent_AFStart>);
     virtual MRESULT  sendIntent(intent2type<eIntent_AFEnd>);
 };
@@ -341,6 +342,7 @@ struct StateCapture : public IState
     virtual MRESULT  sendIntent(intent2type<eIntent_VsyncUpdate>);
     virtual MRESULT  sendIntent(intent2type<eIntent_AFUpdate>);
     virtual MRESULT  sendIntent(intent2type<eIntent_CameraPreviewStart>);
+    virtual MRESULT  sendIntent(intent2type<eIntent_CameraPreviewEnd>); // for ZSD capture
     virtual MRESULT  sendIntent(intent2type<eIntent_AFEnd>);
     virtual MRESULT  sendIntent(intent2type<eIntent_Uninit>);
     virtual MRESULT  sendIntent(intent2type<eIntent_CamcorderPreviewStart>); // for CTS only

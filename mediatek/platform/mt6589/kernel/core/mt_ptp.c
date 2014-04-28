@@ -754,14 +754,7 @@ static void PTP_Monitor_Mode(PTP_Init_T* PTP_Init_val)
     // clear all pending PTP interrupt & config PTPINTEN =================================================================
     ptp_write(PTP_PTPINTSTS, 0xffffffff);
     
-    if (ptp_level < 1 || ptp_level > 3) // non-turbo no PTPOD
-    {
-        ptp_write(PTP_PTPINTEN, 0x00FFA002);
-    }
-    else
-    {
-        ptp_write(PTP_PTPINTEN, 0x00FF0000);
-    }
+    ptp_write(PTP_PTPINTEN, 0x00FF0000);
 
     // enable PTP monitor mode =================================================================
     ptp_write(PTP_PTPEN, 0x00000002);
@@ -1151,6 +1144,15 @@ static int ptp_probe(struct platform_device *pdev)
         return 0;
     }
 
+    ptp_level = PTP_get_ptp_level();
+
+    if (ptp_level < 1 || ptp_level > 3) // non-turbo no PTPOD
+    {
+        clc_notice("~~~ CLC : non-turbo disable PTPOD");
+        PTP_Enable = 0;
+        return 0;
+    }
+
     // Set PTP IRQ =========================================
     init_PTP_interrupt();
 
@@ -1164,16 +1166,18 @@ static int ptp_probe(struct platform_device *pdev)
     freq_6 = (u8)(mt_cpufreq_max_frequency_by_DVS(6) / 12000);
     freq_7 = (u8)(mt_cpufreq_max_frequency_by_DVS(7) / 12000);
 
-    ptp_level = PTP_get_ptp_level();
-    
     PTP_INIT_01();    
 
     return 0;
 }
 
-
 static int ptp_resume(struct platform_device *pdev)
 {
+    if (ptp_level < 1 || ptp_level > 3) // non-turbo no PTPOD
+    {
+        return 0;
+    }
+
     PTP_INIT_02();    
     return 0;
 }

@@ -1242,7 +1242,11 @@ precap()
         mShotMode = eShotMode_ZsdShot;
     }
 
-    if (mShotMode != eShotMode_ZsdShot )
+    if (mShotMode == eShotMode_ZsdShot )
+    {
+        mp3AHal->sendCommand(ECmd_CaptureStart);
+    }
+    else
     {
         #ifdef __ENABLE_3A__
         //(1) notify sw

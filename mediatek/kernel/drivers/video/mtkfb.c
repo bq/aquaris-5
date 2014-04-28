@@ -188,9 +188,11 @@ extern void hdmi_update_buffer_switch(void);
 extern bool is_hdmi_active(void);
 extern void hdmi_update(void);
 extern void hdmi_source_buffer_switch(void);
+extern void	MTK_HDMI_Set_Security_Output(int enable);
 #endif
 #if defined (MTK_WFD_SUPPORT)
 extern void wfd_setorientation(int orientation);
+extern void	MTK_WFD_Set_Security_Output(int enable);
 #endif
 
 // ---------------------------------------------------------------------------
@@ -953,7 +955,7 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var, struct fb_info 
     UINT32 offset;
     UINT32 paStart;
     char *vaStart, *vaEnd;
-    int ret = 0;
+    int ret = 0, wait_ret = 0;
 
 	if(first_update){
 		first_update = false;
@@ -1138,7 +1140,7 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var, struct fb_info 
  //       DISP_WaitForLCDNotBusy();
 	//}
 	ret = mtkfb_update_screen(info);
-    wait_event_interruptible_timeout(reg_update_wq, PanDispSettingApplied, HZ/10);
+    wait_ret = wait_event_timeout(reg_update_wq, PanDispSettingApplied, HZ/10);
 	sem_flipping_cnt++;
     up(&sem_flipping);
     if(first_enable_esd)
@@ -1146,7 +1148,7 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var, struct fb_info 
 		esd_recovery_pause(FALSE);
 		first_enable_esd = false;
 	}
-    MMProfileLog(MTKFB_MMP_Events.PanDisplay, MMProfileFlagEnd);
+    MMProfileLogEx(MTKFB_MMP_Events.PanDisplay, MMProfileFlagEnd, wait_ret, 0);
 
     return ret;
 }
@@ -1640,6 +1642,26 @@ static int mtkfb_set_overlay_layer(struct fb_info *info, struct fb_overlay_layer
         goto LeaveOverlayMode;
     }
     cached_layer_config[id].vaddr = layerInfo->src_base_addr;
+    cached_layer_config[id].security = layerInfo->security;
+
+{
+#if defined(MTK_WFD_SUPPORT) || defined(MTK_HDMI_SUPPORT)
+		int tl = 0;
+		int cnt_security_layer = 0;
+		for(tl=0;tl<HW_OVERLAY_COUNT;tl++)
+		{
+			cnt_security_layer += cached_layer_config[tl].security;
+		}
+		MTKFB_LOG("Totally %d security layer is set now\n", cnt_security_layer);
+#endif
+#if defined (MTK_WFD_SUPPORT)
+	MTK_WFD_Set_Security_Output(!!cnt_security_layer);
+#endif
+
+#if defined(MTK_HDMI_SUPPORT)
+	//MTK_HDMI_Set_Security_Output(!!cnt_security_layer);
+#endif
+}
 #if defined(MTKFB_NO_M4U)
 	LCD_CHECK_RET(LCD_LayerSetAddress(id, (unsigned int)layerInfo->src_phy_addr));
 #else
@@ -3173,6 +3195,7 @@ void mtkfb_disable_non_fb_layer(void)
 {
     int id;
     unsigned int dirty = 0;
+    MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagPulse, 0x12345678, 0);
     for (id = 0; id < DDP_OVL_LAYER_MUN; id++)
     {
         if (cached_layer_config[id].layer_en == 0)
@@ -3192,6 +3215,35 @@ void mtkfb_disable_non_fb_layer(void)
         memset(mtkfb_fbi->screen_base, 0, DISP_GetVRamSize());
         mtkfb_pan_display_impl(&mtkfb_fbi->var, mtkfb_fbi);
     }
+}
+
+int m4u_reclaim_mva_callback_ovl(int moduleID, unsigned int va, unsigned int size, unsigned int mva)
+{
+    int id;
+    unsigned int dirty = 0;
+    MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagStart, mva, size);
+    for (id = 0; id < DDP_OVL_LAYER_MUN; id++)
+    {
+        if (cached_layer_config[id].layer_en == 0)
+            continue;
+
+        if (cached_layer_config[id].addr >= mva &&
+            cached_layer_config[id].addr < (mva+size))
+        {
+            DISP_LOG_PRINT(ANDROID_LOG_INFO, "LCD", "  disable(%d)\n", id);
+            cached_layer_config[id].layer_en = 0;
+            cached_layer_config[id].isDirty = true;
+            dirty = 1;
+        }
+    }
+    printk("Warning: m4u_reclaim_mva_callback_ovl. mva=0x%08X size=0x%X dirty=%d\n", mva, size, dirty);
+    if (dirty)
+    {
+        memset(mtkfb_fbi->screen_base, 0, DISP_GetVRamSize());
+        mtkfb_pan_display_impl(&mtkfb_fbi->var, mtkfb_fbi);
+    }
+    MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagEnd, dirty, 0);
+    return 0;
 }
 
 #if INIT_FB_AS_COLOR_BAR

@@ -269,7 +269,7 @@ int FlashMgr::egnSetParam(int id, int v, int ext1)
 int FlashMgr::egnSetPfIndex(int duty, int step)
 {
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int dutyN;
 	int stepN;
 	stepN = prjPara.stepNum;
@@ -295,7 +295,7 @@ int FlashMgr::egnSetPfIndex(int duty, int step)
 
 
 
-	prjPara = cust_getFlashProjectPara(LIB3A_AE_MODE_AUTO, m_pNvram);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	LogInfo("egnSetPfIndex() pmfEngMode=%d", prjPara.engLevel.pmfEngMode);
 	LogInfo("egnSetPfIndex() pfAveI=%d", prjPara.engLevel.pfAveI);
 	LogInfo("egnSetPfIndex() mfAveIMax=%d", prjPara.engLevel.mfAveIMax);
@@ -315,7 +315,7 @@ int FlashMgr::egnSetPfIndex(int duty, int step)
 int FlashMgr::egnSetMfIndex(int duty, int step)
 {
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int dutyN;
 	int stepN;
 	stepN = prjPara.stepNum;
@@ -339,7 +339,7 @@ int FlashMgr::egnSetMfIndex(int duty, int step)
 	egnSetParam(ACDK_FL_CCT_ID_IChangeByVBatEn, 0, 0);
 
 
-	prjPara = cust_getFlashProjectPara(LIB3A_AE_MODE_AUTO, m_pNvram);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	LogInfo("egnSetMfIndex() pmfEngMode=%d", prjPara.engLevel.pmfEngMode);
 	LogInfo("egnSetMfIndex() pfAveI=%d", prjPara.engLevel.pfAveI);
 	LogInfo("egnSetMfIndex() mfAveIMax=%d", prjPara.engLevel.mfAveIMax);
@@ -380,7 +380,7 @@ int FlashMgr::cctSetEngTabWithBackup(int exp, int afe, int isp, short* engTab, s
 {
 	LogInfo("cctSetEngTab line=%d", __LINE__);
 
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	m_pNvram->engTab.exp = exp;
 	m_pNvram->engTab.afe_gain = afe;
 	m_pNvram->engTab.isp_gain = isp;
@@ -389,7 +389,7 @@ int FlashMgr::cctSetEngTabWithBackup(int exp, int afe, int isp, short* engTab, s
 
 
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	prjPara.stepNum;
 	prjPara.dutyNum;
 
@@ -644,9 +644,9 @@ void FlashMgr::cctPreflashTest(FlashExePara* para, FlashExeRep* rep)
 	if(state==STATE_INIT)
 	{
 		LogInfo("cctPreflashTest state=STATE_INIT line=%d",__LINE__);
-		loadNvram();
+		m_pNvram = getNvramBuf();
 		FLASH_PROJECT_PARA prjPara;
-		prjPara = cust_getFlashProjectPara(LIB3A_AE_MODE_AUTO, m_pNvram);
+		prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 		dutyNum = prjPara.dutyNum;
 		stepNum = prjPara.stepNum;
 		if(prjPara.stepNum>1)
@@ -938,7 +938,7 @@ void FlashMgr::cctPreflashTest(FlashExePara* para, FlashExeRep* rep)
 		delete []dutyArr;
 		delete []stepArr;
 
-		loadNvram();
+		m_pNvram = getNvramBuf();
 		FILE* fp2;
 		fp2 = fopen("/sdcard/flash_nvdata.bin","wb");
 		fwrite(m_pNvram, 1, sizeof(NVRAM_CAMERA_STROBE_STRUCT), fp2);
@@ -1000,7 +1000,8 @@ int FlashMgr::cctReadNvram(void* in, int inSize, void* out, int outSize, MUINT32
 {
 	*realOutSize=0;
 	LogInfo("cctReadNvram line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
-	return loadNvram();
+	m_pNvram = getNvramBuf();
+	return 0;
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 //ACDK_CCT_OP_STROBE_WRITE_NVRAM,	//6
@@ -1008,7 +1009,8 @@ int FlashMgr::cctWriteNvram(void* in, int inSize, void* out, int outSize, MUINT3
 {
 	*realOutSize=0;
 	LogInfo("cctWriteNvram line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
-	return writeNvramMain(0);
+	writeNvram();
+	return 0;
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 //ACDK_CCT_OP_STROBE_READ_DEFAULT_NVRAM,	//7
@@ -1016,7 +1018,9 @@ int FlashMgr::cctReadDefaultNvram(void* in, int inSize, void* out, int outSize, 
 {
 	*realOutSize=0;
 	LogInfo("cctReadDefaultNvram line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
-	return loadDefaultNvram();
+	//return loadDefaultNvram();
+	m_pNvram = getNvramBuf();
+	return 0;
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 //ACDK_CCT_OP_STROBE_SET_PARAM,	//8
@@ -1035,7 +1039,7 @@ int FlashMgr::cctSetParam(void* in, int inSize, void* out, int outSize, MUINT32*
 	id=((int*)in)[0];
 	v1=((int*)in)[1];
 	v2=((int*)in)[2];
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	switch(id)
 	{
 	case ACDK_FL_CCT_ID_yTar:
@@ -1237,7 +1241,7 @@ int FlashMgr::cctGetParam(void* in, int inSize, void* out, int outSize, MUINT32*
 	int p1 = pIn[1];
 	int retV;
 	int tmp;
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	switch(id)
 	{
 	case ACDK_FL_CCT_ID_yTar:
@@ -1439,7 +1443,7 @@ int FlashMgr::cctGetNvdata(void* in, int inSize, void* out, int outSize, MUINT32
 
 	*realOutSize = sz;
 	LogInfo("cctGetNvdata line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	memcpy(out, m_pNvram, *realOutSize);
 	return 0;
 }
@@ -1450,7 +1454,7 @@ int FlashMgr::cctSetNvdata(void* in, int inSize, void* out, int outSize, MUINT32
 {
 	*realOutSize = 0;
 	LogInfo("cctSetNvdata line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	int sz;
 	sz = sizeof(NVRAM_CAMERA_STROBE_STRUCT);
 	if(inSize!=sz)
@@ -1479,9 +1483,9 @@ int FlashMgr::cctGetEngY(void* in, int inSize, void* out, int outSize, MUINT32* 
 	LogInfo("cctGetEngY line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
 	short* tab;
 	tab = (short*)out;
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int i;
 	for(i=0;i<prjPara.stepNum*prjPara.dutyNum;i++)
 	{
@@ -1505,9 +1509,9 @@ int FlashMgr::cctSetEngY(void* in, int inSize, void* out, int outSize, MUINT32* 
 	}
 	short* tab;
 	tab = (short*)in;
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int i;
 	for(i=0;i<prjPara.stepNum*prjPara.dutyNum;i++)
 	{
@@ -1533,9 +1537,9 @@ int FlashMgr::cctGetEngRg(void* in, int inSize, void* out, int outSize, MUINT32*
 	LogInfo("cctGetEngRg line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
 	short* tab;
 	tab = (short*)out;
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int i;
 	for(i=0;i<prjPara.stepNum*prjPara.dutyNum;i++)
 	{
@@ -1558,9 +1562,9 @@ int FlashMgr::cctSetEngRg(void* in, int inSize, void* out, int outSize, MUINT32*
 	}
 	short* tab;
 	tab = (short*)in;
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int i;
 	for(i=0;i<prjPara.stepNum*prjPara.dutyNum;i++)
 	{
@@ -1585,9 +1589,9 @@ int FlashMgr::cctGetEngBg(void* in, int inSize, void* out, int outSize, MUINT32*
 	LogInfo("cctGetEngBg line=%d inSize=%d outSize=%d realOutSize=%d", __LINE__, inSize, outSize, *realOutSize);
 	short* tab;
 	tab = (short*)out;
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int i;
 	for(i=0;i<prjPara.stepNum*prjPara.dutyNum;i++)
 	{
@@ -1610,9 +1614,9 @@ int FlashMgr::cctSetEngBg(void* in, int inSize, void* out, int outSize, MUINT32*
 	}
 	short* tab;
 	tab = (short*)in;
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+		prjPara =  getFlashProjectPara(LIB3A_AE_MODE_AUTO);
 	int i;
 	for(i=0;i<prjPara.stepNum*prjPara.dutyNum;i++)
 	{
@@ -1635,7 +1639,7 @@ int FlashMgr::FlashMgr::cctNvdataToFile(void* in, int inSize, void* out, int out
 		LogError("file not exist");
 		return FL_ERR_CCT_FILE_NOT_EXIST;
 	}
-	loadNvram();
+	m_pNvram = getNvramBuf();
 	int sz;
 	sz = sizeof(NVRAM_CAMERA_STROBE_STRUCT);
 	fwrite(m_pNvram, 1, sz, fp);
@@ -1657,7 +1661,7 @@ int FlashMgr::cctFileToNvdata(void* in, int inSize, void* out, int outSize, MUIN
 		LogError("file not exist");
 		return FL_ERR_CCT_FILE_NOT_EXIST;
 	}
-	loadNvram();
+m_pNvram = getNvramBuf();
 	int sz;
 	sz = sizeof(NVRAM_CAMERA_STROBE_STRUCT);
 	fread(m_pNvram, 1, sz, fp);

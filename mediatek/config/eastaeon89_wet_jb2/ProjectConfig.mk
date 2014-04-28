@@ -1011,7 +1011,7 @@ MTK_SIP_SUPPORT=no
 MTK_SMARTSWITCH_SUPPORT=no
 
 # if MTK_SMSREG_APP=yes,build SmsReg.apk
-MTK_SMSREG_APP=yes
+MTK_SMSREG_APP=no
 
 # A mechansim to filter malicious charging SMS.
 MTK_SMS_FILTER_SUPPORT=yes
@@ -1234,6 +1234,7 @@ MTK_FD_SUPPORT=yes
 
 # Enable or disable the 3G Switch feature
 MTK_GEMINI_3G_SWITCH=yes
+MTK_GEMINI_SMART_3G_SWITCH=1
 
 # For Platform: MT6573, MT6575 If it is equal to "modem_2g", means only support 2g modem. If it is equal to "modem_3g", means  support 2g and 3g modem
 MTK_MODEM_SUPPORT=modem_3g

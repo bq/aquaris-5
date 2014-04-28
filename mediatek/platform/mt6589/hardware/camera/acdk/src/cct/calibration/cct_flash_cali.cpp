@@ -1051,7 +1051,9 @@ LogInfo("flashCalibration line=%d",__LINE__);
 	int j;
 	FC_init(m_pAcdkBaseObj);
 	FLASH_PROJECT_PARA prjPara;
-	prjPara =  cust_getFlashProjectPara(0,0);
+	//prjPara =  cust_getFlashProjectPara(0,0);
+
+	prjPara = FlashMgr::getInstance()->getFlashProjectPara1(LIB3A_AE_MODE_AUTO);
 
 LogInfo("flashCalibration line=%d",__LINE__);
 

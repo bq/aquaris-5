@@ -163,6 +163,33 @@ int FlashlightDrv::getVBat(int* vbat)
 	}
 	return err;
 }
+
+int FlashlightDrv::isOn(int* a_isOn)
+{
+	DRV_DBG("isOn()\n");
+	int err = 0;
+	if (m_fdSTROBE < 0)
+	{
+	    DRV_DBG("isOn() m_fdSTROBE < 0\n");
+	    return StrobeDrv::STROBE_UNKNOWN_ERROR;
+	}
+	*a_isOn = m_isOn;
+
+    /*
+	if(a_isOn==1)
+		err = ioctl(m_fdSTROBE,FLASH_IOC_SET_ONOFF,1);
+	else if(a_isOn==0)
+		err = ioctl(m_fdSTROBE,FLASH_IOC_SET_ONOFF,0);
+	else
+		err = STROBE_ERR_PARA_INVALID;
+
+	if (err < 0)
+	{
+	    DRV_ERR("isOning() err=%d\n", err);
+	}*/
+	return err;
+
+}
 int FlashlightDrv::setOnOff(int a_isOn)
 {
 	DRV_DBG("setOnOff() isOn = %d\n",a_isOn);
@@ -185,6 +212,9 @@ int FlashlightDrv::setOnOff(int a_isOn)
 	{
 	    DRV_ERR("setOnOff() err=%d\n", err);
 	}
+
+	if(err==0)
+		m_isOn=a_isOn;
 	return err;
 }
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -313,6 +343,36 @@ int FlashlightDrv::mapDutyStep(int peakI, int aveI, int* duty, int* step)
 /*******************************************************************************
 *
 ********************************************************************************/
+int FlashlightDrv::hasFlashHw()
+{
+  DRV_DBG("hasFlashHw line=%d",__LINE__);
+  if (m_fdSTROBE < 0)
+  {
+      DRV_DBG(" [getFlashlightType] m_fdSTROBE < 0\n");
+      return 0;
+  }
+  if(e_CAMERA_MAIN_SENSOR==m_sensorDev)
+  {
+#ifdef DUMMY_FLASHLIGHT
+    return 0;
+#else
+    return 1;
+#endif
+  }
+  else if(e_CAMERA_SUB_SENSOR==m_sensorDev)
+  {
+#ifdef MTK_SUB_STROBE_SUPPORT
+    return 1;
+#else
+    return 0;
+#endif
+  }
+  else
+    return 0;
+
+
+}
+
 StrobeDrv::FLASHLIGHT_TYPE_ENUM FlashlightDrv::getFlashlightType() const
 {
 	DRV_DBG("getFlashlightType line=%d",__LINE__);
@@ -346,6 +406,8 @@ FlashlightDrv::FlashlightDrv()
     , mUsers(0)
 {
     DRV_DBG("FlashlightDrv()\n");
+    m_isOn=0;
+    m_bTempInit=0;
 }
 
 
@@ -368,9 +430,25 @@ int FlashlightDrv::init(unsigned long sensorDev)
     int err = 0;
     unsigned long flashlightIdx = 0; //default dummy driver
 
+
     //MHAL_LOG("[halSTROBEInit]: %s \n\n", __TIME__);
     DRV_DBG("[init] mUsers = %d\n", mUsers);
     Mutex::Autolock lock(mLock);
+    if(m_bTempInit==1)
+    {
+        DRV_DBG("[init] m_sensorDev = %d %d\n", m_sensorDev, sensorDev);
+        if(m_sensorDev!=sensorDev)
+        {
+        uninitNoLock();
+        m_bTempInit=0;
+    }
+        else
+        {
+            m_bTempInit=0;
+            return StrobeDrv::STROBE_NO_ERROR;
+        }
+
+    }
     if (mUsers == 0)
     {
         if (m_fdSTROBE == -1)
@@ -395,20 +473,75 @@ int FlashlightDrv::init(unsigned long sensorDev)
 
             //set flashlight driver
             DRV_DBG("[init] sensorDev = %ld\n", sensorDev);
-            //TODO: support sub flashlight
-            if (1 == sensorDev) //main sensor
-            {
-                flashlightIdx = 1; //custom driver
-            }
-            err = ioctl(m_fdSTROBE,FLASHLIGHTIOC_X_SET_DRIVER,flashlightIdx);
+
+            err = ioctl(m_fdSTROBE,FLASHLIGHTIOC_X_SET_DRIVER,sensorDev);
             if (err < 0)
             {
                 DRV_ERR("FLASHLIGHTIOC_X_SET_DRIVER error\n");
                 return err ;
             }
+            m_isOn=0;
         }
     }
+    m_sensorDev = sensorDev;
     android_atomic_inc(&mUsers);
+    return StrobeDrv::STROBE_NO_ERROR;
+}
+
+int FlashlightDrv::initTemp(unsigned long sensorDev)
+{
+	DRV_DBG("initTemp line=%d",__LINE__);
+    int err = 0;
+    unsigned long flashlightIdx = 0; //default dummy driver
+    if(sensorDev==0)
+            sensorDev=e_CAMERA_MAIN_SENSOR;
+
+    m_sensorDev = sensorDev;
+
+    //MHAL_LOG("[halSTROBEInit]: %s \n\n", __TIME__);
+    DRV_DBG("[initTemp] mUsers = %d\n", mUsers);
+    Mutex::Autolock lock(mLock);
+    if (mUsers > 0)
+    {
+    }
+    else if (mUsers == 0)
+    {
+
+        if (m_fdSTROBE == -1)
+        {
+        	 int ta;
+        	 int tb;
+        		ta = getMs();
+
+            m_fdSTROBE = open(STROBE_DEV_NAME, O_RDWR);
+
+            tb = getMs();
+
+
+
+            DRV_DBG("[init] m_fdSTROBE = %d t=%d\n", m_fdSTROBE,tb-ta);
+
+            if (m_fdSTROBE < 0)
+            {
+                DRV_ERR("error opening %s: %s", STROBE_DEV_NAME, strerror(errno));
+                 return StrobeDrv::STROBE_UNKNOWN_ERROR;
+            }
+
+            //set flashlight driver
+            DRV_DBG("[init] sensorDev = %ld\n", sensorDev);
+
+            err = ioctl(m_fdSTROBE,FLASHLIGHTIOC_X_SET_DRIVER,sensorDev);
+            if (err < 0)
+            {
+                DRV_ERR("FLASHLIGHTIOC_X_SET_DRIVER error\n");
+                return err ;
+            }
+            m_isOn=0;
+        }
+        android_atomic_inc(&mUsers);
+        m_bTempInit=1;
+    }
+
     return StrobeDrv::STROBE_NO_ERROR;
 }
 
@@ -418,15 +551,23 @@ int FlashlightDrv::init(unsigned long sensorDev)
 ********************************************************************************/
 int FlashlightDrv::uninit()
 {
-	DRV_DBG("uninit line=%d",__LINE__);
+	//DRV_DBG("uninit line=%d",__LINE__);
     //MHAL_LOG("[halSTROBEUninit] \n");
-    DRV_DBG("[uninit] mUsers = %d\n", mUsers);
+    //DRV_DBG("[uninit] mUsers = %d\n", mUsers);
 
     Mutex::Autolock lock(mLock);
+    return uninitNoLock();
+}
+
+int FlashlightDrv::uninitNoLock()
+{
+    DRV_DBG("uninitNoLock user=%d",mUsers);
+    //MHAL_LOG("[halSTROBEUninit] \n");
+
 
     if (mUsers == 0)
     {
-        DRV_DBG("[uninit] mUsers = %d\n", mUsers);
+        DRV_DBG("[uninitNoLock] mUsers = %d\n", mUsers);
     }
 
      if (mUsers == 1)
@@ -439,6 +580,7 @@ int FlashlightDrv::uninit()
     }
 
     android_atomic_dec(&mUsers);
+    m_bTempInit=0;
 
     return StrobeDrv::STROBE_NO_ERROR;
 }

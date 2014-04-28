@@ -124,6 +124,9 @@ sendIntent(intent2type<eIntent_Uninit>)
     // AF uninit
     AfMgr::getInstance().uninit();
 
+    // Flash uninit
+    FlashMgr::getInstance()->uninit();
+
     // State transition: eState_CameraPreview --> eState_Uninit
     transitState(eState_CameraPreview, eState_Uninit);
 
@@ -189,6 +192,9 @@ sendIntent(intent2type<eIntent_CameraPreviewEnd>)
 
     // AF uninit
     AfMgr::getInstance().uninit();
+
+    // Flash uninit
+    FlashMgr::getInstance()->uninit();
 
     // AAO DMA / state disable again
     err = BufMgr::getInstance().AAStatEnable(MFALSE);
@@ -325,6 +331,21 @@ sendIntent(intent2type<eIntent_PrecaptureStart>)
 
     return  S_3A_OK;
 }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//  eIntent_CaptureStart
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+MRESULT
+StateCameraPreview::
+sendIntent(intent2type<eIntent_CaptureStart>)
+{
+    MY_LOG("[StateCameraPreview::sendIntent]<eIntent_CaptureStart>");
+
+    transitState(eState_CameraPreview, eState_Capture);
+
+    return  S_3A_OK;
+}
+
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //  eIntent_AFStart

@@ -69,36 +69,9 @@
 //
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-int cust_isNeedAFLamp(int flashMode, int afLampMode, int isBvHigherTriger)
-{
-	if(flashMode==FLASHLIGHT_FORCE_OFF)
-		return 0;
-	if(flashMode==FLASHLIGHT_FORCE_ON)
-		return 1;
-	//if(afLampMode==AF_LAMP_OFF)
-	//	return 0;
-	//if(afLampMode==AF_LAMP_ON)
-	//	return 1;
-	if(isBvHigherTriger==1)
-		return 1;
-	else
-		return 0;
-	// #flash mode
-	// FLASHLIGHT_AUTO
-    // FLASHLIGHT_FORCE_ON,
-    // FLASHLIGHT_FORCE_OFF,
-    // FLASHLIGHT_REDEYE,
-    // FLASHLIGHT_TORCH,
-
-	// #AF lamp mode
-	// AF_LAMP_OFF
-    // AF_LAMP_ON,
-    // AF_LAMP_AUTO,
-    // AF_LAMP_FLASH,
-}
 
 
-void copyTuningPara(FLASH_TUNING_PARA* p, NVRAM_FLASH_TUNING_PARA* nv_p)
+static void copyTuningPara(FLASH_TUNING_PARA* p, NVRAM_FLASH_TUNING_PARA* nv_p)
 {
 	XLOGD("copyTuningPara ytar =%d %d", p->yTar ,nv_p->yTar);
 	p->yTar = nv_p->yTar;
@@ -114,11 +87,12 @@ void copyTuningPara(FLASH_TUNING_PARA* p, NVRAM_FLASH_TUNING_PARA* nv_p)
 
 
 
-FLASH_PROJECT_PARA& cust_getFlashProjectPara(int aeMode, NVRAM_CAMERA_STROBE_STRUCT* nvrame)
+
+FLASH_PROJECT_PARA& cust_getFlashProjectPara_sub(int aeMode, NVRAM_CAMERA_STROBE_STRUCT* nvrame)
 {
 	static FLASH_PROJECT_PARA para;
 
-	para.dutyNum = 3;
+	para.dutyNum = 16;
 	para.stepNum = 1;
 	//tuning
 
@@ -157,18 +131,18 @@ FLASH_PROJECT_PARA& cust_getFlashProjectPara(int aeMode, NVRAM_CAMERA_STROBE_STR
 	//index mode
 	//torch
 	para.engLevel.torchEngMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.engLevel.torchDuty = 0;
+	para.engLevel.torchDuty = 2;
 	para.engLevel.torchStep = 0;
 
 	//af
 	para.engLevel.afEngMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.engLevel.afDuty = 0;
+	para.engLevel.afDuty = 2;
 	para.engLevel.afStep = 0;
 
 	//pf, mf, normal
 	para.engLevel.pmfEngMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.engLevel.pfDuty = 1;
-	para.engLevel.mfDutyMax = 2;
+	para.engLevel.pfDuty = 2;
+	para.engLevel.mfDutyMax = 15;
 	para.engLevel.mfDutyMin = 0;
 	para.engLevel.pmfStep = 0;
 
@@ -182,25 +156,31 @@ FLASH_PROJECT_PARA& cust_getFlashProjectPara(int aeMode, NVRAM_CAMERA_STROBE_STR
 
 	//burst setting
 	para.engLevel.IChangeByBurstEn=1;
-	para.engLevel.pfDutyB = 1;
-	para.engLevel.mfDutyMaxB = 1;
+	para.engLevel.pfDutyB = 2;
+	para.engLevel.mfDutyMaxB = 3;
 	para.engLevel.mfDutyMinB = 0;
 	para.engLevel.pmfStepB = 0;
 
 	//--------------------
 	//cooling delay para
 	para.coolTimeOutPara.tabMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.coolTimeOutPara.tabNum = 3;
+	para.coolTimeOutPara.tabNum = 5;
 	para.coolTimeOutPara.tabId[0]=0;
-	para.coolTimeOutPara.tabId[1]=1;
-	para.coolTimeOutPara.tabId[2]=2;
+	para.coolTimeOutPara.tabId[1]=4;
+	para.coolTimeOutPara.tabId[2]=8;
+	para.coolTimeOutPara.tabId[3]=12;
+	para.coolTimeOutPara.tabId[4]=15;
 	para.coolTimeOutPara.coolingTM[0]=0;
 	para.coolTimeOutPara.coolingTM[1]=0;
-	para.coolTimeOutPara.coolingTM[2]=5;
+	para.coolTimeOutPara.coolingTM[2]=1;
+	para.coolTimeOutPara.coolingTM[3]=2;
+	para.coolTimeOutPara.coolingTM[4]=3;
 
 	para.coolTimeOutPara.timOutMs[0]=ENUM_FLASH_TIME_NO_TIME_OUT;
 	para.coolTimeOutPara.timOutMs[1]=ENUM_FLASH_TIME_NO_TIME_OUT;
 	para.coolTimeOutPara.timOutMs[2]=500;
+	para.coolTimeOutPara.timOutMs[3]=500;
+	para.coolTimeOutPara.timOutMs[4]=500;
 
 	/*
 	//---------------

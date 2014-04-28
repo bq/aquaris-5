@@ -575,15 +575,32 @@ MINT32 iEVIndex;
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 MRESULT AeMgr::setAEMeteringMode(MUINT32 u4NewAEMeteringMode)
 {
-    LIB3A_AE_METERING_MODE_T eNewAEMeteringMode = static_cast<LIB3A_AE_METERING_MODE_T>(u4NewAEMeteringMode);
+    AE_METERING_T eNewAEMeteringMode = static_cast<AE_METERING_T>(u4NewAEMeteringMode);
+    LIB3A_AE_METERING_MODE_T eAEMeteringMode;
 
-    if ((eNewAEMeteringMode <= LIB3A_AE_METERING_MODE_UNSUPPORTED) || (eNewAEMeteringMode >= LIB3A_AE_METERING_MODE_MAX)) {
+    if ((eNewAEMeteringMode < AE_METERING_BEGIN) || (eNewAEMeteringMode >= NUM_OF_AE_METER)) {
         MY_ERR("Unsupport AE Metering Mode: %d\n", eNewAEMeteringMode);
         return E_AE_UNSUPPORT_MODE;
     }
 
-    if (m_eAEMeterMode != eNewAEMeteringMode) {
-        m_eAEMeterMode = eNewAEMeteringMode;
+    switch(eNewAEMeteringMode) {
+        case AE_METERING_MODE_SOPT:
+            eAEMeteringMode = LIB3A_AE_METERING_MODE_SOPT;
+            break;
+        case AE_METERING_MODE_AVERAGE:
+            eAEMeteringMode = LIB3A_AE_METERING_MODE_AVERAGE;
+            break;
+        case AE_METERING_MODE_CENTER_WEIGHT:
+            eAEMeteringMode = LIB3A_AE_METERING_MODE_CENTER_WEIGHT;
+            break;
+        default:
+            MY_LOG("The AE metering mode enum value is incorrectly:%d\n", eNewAEMeteringMode);
+            eAEMeteringMode = LIB3A_AE_METERING_MODE_CENTER_WEIGHT;
+            break;
+    }
+
+    if (m_eAEMeterMode != eAEMeteringMode) {
+        m_eAEMeterMode = eAEMeteringMode;
         MY_LOG("m_eAEMeterMode: %d\n", m_eAEMeterMode);
         if(m_pIAeAlgo != NULL) {
             m_pIAeAlgo->setAEMeteringMode(m_eAEMeterMode);
@@ -1428,7 +1445,8 @@ MRESULT AeMgr::doBackAEInfo()
 strAEInput rAEInput;
 strAEOutput rAEOutput;
 
-    MY_LOG("doBackAEInfo\n");
+    if(m_bEnableAE) {
+        MY_LOG("doBackAEInfo\n");
 
     rAEInput.eAeState = AE_STATE_BACKUP_PREVIEW;
     rAEInput.pAESatisticBuffer = NULL;
@@ -1436,6 +1454,9 @@ strAEOutput rAEOutput;
         m_pIAeAlgo->handleAE(&rAEInput, &rAEOutput);
     } else {
         MY_LOG("The AE algo class is NULL (34)\n");
+        }
+    } else {
+        MY_LOG("[doBackAEInfo] AE don't enable Enable:%d\n", m_bEnableAE);
     }
     return S_AE_OK;
 }
@@ -1596,6 +1617,7 @@ MRESULT AeMgr::doRestoreAEInfo()
 strAEInput rAEInput;
 strAEOutput rAEOutput;
 
+    if(m_bEnableAE) {
     MY_LOG("doRestoreAEInfo+\n");
     rAEInput.eAeState = AE_STATE_RESTORE_PREVIEW;
     rAEInput.pAESatisticBuffer = NULL;
@@ -1608,7 +1630,7 @@ strAEOutput rAEOutput;
     copyAEInfo2mgr(&g_rAEOutput.rPreviewMode, &rAEOutput);
     prepareCapParams();
     MY_LOG("[getPreviewParams3] Exp. mode: %d Preview Shutter:%d Sensor gain:%d Isp gain:%d frame rate:%d flare:%d %d ISO:%d\n",
-                   g_rAEOutput.rPreviewMode.u4ExposureMode, g_rAEOutput.rPreviewMode.u4AfeGain,
+                   g_rAEOutput.rPreviewMode.u4ExposureMode, g_rAEOutput.rPreviewMode.u4Eposuretime, g_rAEOutput.rPreviewMode.u4AfeGain,
                    g_rAEOutput.rPreviewMode.u4IspGain, g_rAEOutput.rPreviewMode.u2FrameRate, g_rAEOutput.rPreviewMode.i2FlareGain, g_rAEOutput.rPreviewMode.i2FlareOffset, g_rAEOutput.rPreviewMode.u4RealISO);
 
     g_rExp = g_rAEOutput.rPreviewMode.u4Eposuretime;
@@ -1632,6 +1654,9 @@ strAEOutput rAEOutput;
      //m_i4WaitVDNum = 0;   // reset the Vd count
     //m_bRestoreAE = MTRUE; // restore AE
     MY_LOG("doRestoreAEInfo-\n");
+    }else {
+        MY_LOG("[doRestoreAEInfo] AE don't enable Enable:%d\n", m_bEnableAE);
+    }
     return S_AE_OK;
 }
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2017,7 +2042,13 @@ MRESULT AeMgr::getCaptureParams(MINT8 index, MINT32 i4EVidx, AE_MODE_CFG_T &a_rC
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 MRESULT AeMgr::updateCaptureParams(AE_MODE_CFG_T &a_rCaptureInfo)
 {
+    MUINT32 u4FinalGain;
+    MUINT32 u4PreviewBaseGain=1024; 
+    MUINT32 u4PreviewBaseISO=g_p3ANVRAM->rAENVRAM.rDevicesInfo.u4MiniISOGain; 
+
     mCaptureMode = a_rCaptureInfo;
+    u4FinalGain = (mCaptureMode.u4AfeGain*mCaptureMode.u4IspGain)>>10;
+    mCaptureMode.u4RealISO = u4PreviewBaseISO*u4FinalGain/u4PreviewBaseGain;    
     MY_LOG("[updateCaptureParams] Exp. mode = %d Capture Shutter:%d Sensor gain:%d Isp gain:%d frame rate:%d flare:%d %d ISO:%d\n",
         mCaptureMode.u4ExposureMode, mCaptureMode.u4Eposuretime,
         mCaptureMode.u4AfeGain, mCaptureMode.u4IspGain, mCaptureMode.u2FrameRate, mCaptureMode.i2FlareGain, mCaptureMode.i2FlareOffset, mCaptureMode.u4RealISO);

@@ -207,7 +207,7 @@ FTABLE_SCENE_INDEP()
     FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_VALUES(
         KEY_AS_(MtkCameraParameters::KEY_ANTIBANDING), 
         SCENE_AS_DEFAULT_SCENE(
-            ITEM_AS_DEFAULT_(MtkCameraParameters::ANTIBANDING_OFF), 
+            ITEM_AS_DEFAULT_(MtkCameraParameters::ANTIBANDING_AUTO), 
             ITEM_AS_VALUES_(
                 MtkCameraParameters::ANTIBANDING_OFF, 
                 MtkCameraParameters::ANTIBANDING_50HZ, 

@@ -185,6 +185,7 @@ typedef struct{
 		int		orientation;    // MDP's orientation, 0 means 0 degree, 1 means 90 degree, 2 means 180 degree, 3 means 270 degree
 		int     orientation_store;    // Store orientation setting when HDMI driver is_force_fullscreen
 		int     orientation_store_portrait;	    // Store orientation setting when HDMI driver is_force_portrait
+		int		is_security_output;
 }_t_hdmi_context;
 
 struct hdmi_video_buffer_list {
@@ -488,6 +489,20 @@ static long int get_current_time_us(void)
 static int ovl_dst_buffer_size = 0;
 static int ddp_dst_buffer_size = 0;		
 
+void	MTK_WFD_Set_Security_Output(int cnt)
+{
+	if(p)
+    {
+		p->is_security_output = cnt;
+        WFD_PUT_NEW_BUFFER();
+        wake_up_interruptible(&external_display_getbuffer_wq);
+    }
+	else
+    {
+		WFD_LOG("WFD not init yet\n");
+    }
+}
+
 static void hdmi_update_impl(void)
 {
 		//WFD_LOG("hdmi_update_impl\n");
@@ -502,6 +517,7 @@ static void hdmi_update_impl(void)
 		WFD_FUNC();
 		
 		if(wfd_pattern_output) return;
+		if(p->is_security_output) return; 
 
 		if(pixelSize == 0)
 		{
@@ -1295,10 +1311,16 @@ static long hdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 			get_buffer_id = ((hdmi_buffer_write_id+(hdmi_temp_buffer_number-1))%hdmi_temp_buffer_number);
 
-			if( p->is_wfd_suspend)
+			if( p->is_wfd_suspend || p->is_security_output)
 			{
-				memset((void*)(ddp_dst_va+p->hdmi_width*p->hdmi_height*3), 0x00,p->hdmi_width*p->hdmi_height);
-				memset((void*)(ddp_dst_va+p->hdmi_width*p->hdmi_height*3+p->hdmi_width*p->hdmi_height), 0x80, p->hdmi_width*p->hdmi_height);
+				int i = 0;
+				WFD_LOG("output black screen!\n");
+				for (i = 0; i < hdmi_temp_buffer_number; i++)
+				{
+					memset((void*)(ddp_dst_va+i*p->hdmi_width*p->hdmi_height*3), 0x00,p->hdmi_width*p->hdmi_height);
+					memset((void*)(ddp_dst_va+i*p->hdmi_width*p->hdmi_height*3+p->hdmi_width*p->hdmi_height), 0x80, p->hdmi_width*p->hdmi_height);
+				}
+
 				get_buffer_id = 0;
 			}
 

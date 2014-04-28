@@ -45,7 +45,7 @@ service ril-daemon /system/bin/rild
     socket rild-mtk-modem stream 660 radio system
     socket rild-atci stream 660 root radio
     user root
-    group radio cache inet misc audio sdcard_r sdcard_rw log ccci
+    group radio cache inet misc audio sdcard_r sdcard_rw log ccci system
     disabled
 
 service ril-daemon-md2 /system/bin/rildmd2
@@ -58,7 +58,7 @@ service ril-daemon-md2 /system/bin/rildmd2
     socket rild-mtk-modem-md2 stream 660 radio system
     socket rild-atci-md2 stream 660 root radio
     user root
-    group radio cache inet misc audio sdcard_r sdcard_rw log ccci
+    group radio cache inet misc audio sdcard_r sdcard_rw log ccci system
     disabled
 
 service md_minilog_util /system/bin/md_minilog_util

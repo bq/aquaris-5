@@ -88,6 +88,7 @@ TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICE
 #include <isp_tuning_mgr.h>
 #include <lsc_mgr.h>
 #include "CameraProfile.h"  // For CPTLog*()/AutoCPTLog class.
+#include <flash_feature.h>
 
 
 using namespace NS3A;
@@ -121,6 +122,9 @@ sendIntent(intent2type<eIntent_Uninit>)
 
     // AF uninit
     AfMgr::getInstance().uninit();
+
+   	// Flash uninit
+    FlashMgr::getInstance()->uninit();
 
     // State transition: eState_CamcorderPreview --> eState_Uninit
     transitState(eState_CamcorderPreview, eState_Uninit);
@@ -179,6 +183,8 @@ sendIntent(intent2type<eIntent_CamcorderPreviewEnd>)
 
     MY_LOG("[StateCamcorderPreview::sendIntent]<eIntent_CamcorderPreviewEnd>");
 
+    FlashMgr::getInstance()->videoPreviewEnd();
+
     // AE uninit
     AeMgr::getInstance().uninit();
 
@@ -187,6 +193,9 @@ sendIntent(intent2type<eIntent_CamcorderPreviewEnd>)
 
     // AF uninit
     AfMgr::getInstance().uninit();
+
+    // Flash uninit
+    FlashMgr::getInstance()->uninit();
 
     // AAO DMA / state disable again
     err = BufMgr::getInstance().AAStatEnable(MFALSE);
@@ -260,7 +269,7 @@ sendIntent(intent2type<eIntent_VsyncUpdate>)
     CPTLog(Event_Pipe_3A_AWB, CPTFlagEnd);     // Profiling End.
 
     // AE
-    
+
 	AWB_OUTPUT_T _a_rAWBOutput;
 	AwbMgr::getInstance().getAWBOutput(_a_rAWBOutput);
     CPTLog(Event_Pipe_3A_AE, CPTFlagStart);    // Profiling Start.
@@ -311,6 +320,33 @@ sendIntent(intent2type<eIntent_RecordingStart>)
     MY_LOG("[StateCamcorderPreview::sendIntent]<eIntent_RecordingStart>");
 
     // Init
+
+
+    XLOGD("flash mode=%d LIB3A_FLASH_MODE_AUTO=%d triger=%d",
+    	(int)FlashMgr::getInstance()->getFlashMode(),
+    	(int)LIB3A_FLASH_MODE_AUTO,
+    	(int)AeMgr::getInstance().IsStrobeBVTrigger());
+
+
+
+#ifdef MTK_VIDEO_AUTO_FLASH_SUPPORT
+
+	//if(AeMgr::getInstance().IsStrobeBVTrigger())
+	if(FlashMgr::getInstance()->getFlashMode()==LIB3A_FLASH_MODE_AUTO && AeMgr::getInstance().IsStrobeBVTrigger())
+	{
+		XLOGD("video flash on");
+		FlashMgr::getInstance()->setAFLampOnOff(1);
+	}
+	else
+	{
+		XLOGD("video flash off");
+	}
+
+#else
+
+#endif
+    FlashMgr::getInstance()->videoRecordingStart();
+
 
     // State transition: eState_CamcorderPreview --> eState_Recording
     transitState(eState_CamcorderPreview, eState_Recording);

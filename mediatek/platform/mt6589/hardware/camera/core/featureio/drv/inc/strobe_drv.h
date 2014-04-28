@@ -150,6 +150,8 @@ public:
        ********************************************************************************/
     virtual int init(unsigned long sensorDev)= 0;
 
+    virtual int initTemp(unsigned long sensorDev)= 0;
+
 
     /*******************************************************************************
        * Functionality : uninitialization
@@ -215,6 +217,7 @@ public:
     virtual int sendCommand(unsigned int cmd, unsigned int pArg1, unsigned int *pArg2, unsigned int *pArg3) = 0;
 
 
+	virtual int isOn(int* a_isOn) =0;
     virtual int setOnOff(int a_isOn) =0;
     virtual int setStep(int step)=0;
 	virtual int setDuty(int duty)=0;
@@ -230,6 +233,7 @@ public:
 	virtual int setTimeOutTime(int ms)=0;
 
 
+	virtual int hasFlashHw()=0;
 
 protected:
 

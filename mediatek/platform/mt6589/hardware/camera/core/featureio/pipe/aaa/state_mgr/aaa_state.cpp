@@ -280,6 +280,8 @@ sendIntent(intent2type<eIntent_CameraPreviewStart>)
         return err;
     }
 
+    FlashMgr::getInstance()->cameraPreviewStart();
+
 #if 0
     // AAO DMA buffer init
     err = BufMgr::getInstance().init();
@@ -363,6 +365,13 @@ sendIntent(intent2type<eIntent_CamcorderPreviewStart>)
         return err;
     }
 
+    // Flash init
+    err = FlashMgr::getInstance()->init(i4SensorDev);
+    if (FAILED(err)) {
+        MY_ERR("FlashMgr::getInstance()->init(i4SensorDev) fail\n");
+        return err;
+    }
+
 #if 0
     // AAO DMA buffer init
     err = BufMgr::getInstance().init();
@@ -400,6 +409,8 @@ sendIntent(intent2type<eIntent_CamcorderPreviewStart>)
 
     // Reset frame count to -2
     resetFrameCount();
+
+    FlashMgr::getInstance()->videoPreviewStart();
 
     // State transition: eState_Init --> eState_CamcorderPreview
     transitState(eState_Init, eState_CamcorderPreview);

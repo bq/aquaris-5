@@ -307,6 +307,7 @@ public:
     static FlashMgr* getInstance();
     int init(int senorID);
     int uninit();
+    int setSensorDev(int dev);
     int isNeedWaitCooling(int* ms);
     int start();
     int run(FlashExePara* para, FlashExeRep* rep);
@@ -328,6 +329,7 @@ public:
 
     int capCheckAndFireFlash_Start();
     int capCheckAndFireFlash_End();
+    int cameraPreviewStart();
 //    int capCloseFlash();
     int turnOffFlashDevice();
 
@@ -372,6 +374,31 @@ public:
 	//flash mgr keep memory of nvram data to operate
 
 
+	int writeNvram(int sensorId);
+	int readNvram(int sensorId);
+	NVRAM_CAMERA_STROBE_STRUCT* getNvramBuf(int sensorId);
+	int forceReadNvram(int sensorId);
+	NVRAM_CAMERA_STROBE_STRUCT* getNvramPointer(int sensorId);
+
+	int writeNvram();
+	NVRAM_CAMERA_STROBE_STRUCT* getNvramBuf();
+
+
+
+	FLASH_PROJECT_PARA& getFlashProjectPara(int sensorId, int AEMode);
+	FLASH_PROJECT_PARA& getFlashProjectPara(int AEMode);
+	FLASH_PROJECT_PARA& getFlashProjectPara1(int AEMode);
+	int getFlashModeStyle(int sensorType, int flashMode);
+
+	int videoPreviewStart();
+	int videoRecordingStart();
+	int videoRecordingEnd();
+	int videoPreviewEnd();
+
+
+	FLASH_PROJECT_PARA& getAutoProjectPara();
+
+
 
 
 
@@ -393,9 +420,11 @@ private:
 	int m_flashMode;
 	int m_afLampMode;
 	int m_flashOnPrecapture;
+	int m_bRunPreFlash;
 	float m_digRatio;
 
 	int m_sensorType;
+	int m_sensorDev2; //from setSensorDev (setParameter using. another is from init)
 	FlashMgrDebug m_db;
 	NVRAM_CAMERA_STROBE_STRUCT* m_pNvram;
 
@@ -414,6 +443,8 @@ private:
 
 	int m_isCapFlashEndTimeValid;
 	int m_isAFLampOn;
+	NVRAM_CAMERA_STROBE_STRUCT* m_pNvramMain;
+	NVRAM_CAMERA_STROBE_STRUCT* m_pNvramSub;
 
 
 

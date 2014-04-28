@@ -30,25 +30,39 @@ MUINT32 torchFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
 MUINT32 constantFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
 
 
+#ifdef MTK_SUB_STROBE_SUPPORT
+
+MUINT32 subStrobeInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
+
+#endif
+
 KD_FLASHLIGHT_INIT_FUNCTION_STRUCT kdFlashlightList[] =
 {
-    {KD_DEFAULT_FLASHLIGHT_ID, defaultFlashlightInit},
+    {defaultFlashlightInit},
 #if defined(DUMMY_FLASHLIGHT)
-	{KD_DUMMY_FLASHLIGHT_ID, dummyFlashlightInit},
+	{dummyFlashlightInit},
 #endif
 #if defined(PEAK_FLASHLIGHT)
-	{KD_PEAK_FLASHLIGHT_ID, peakFlashlightInit},
+	{peakFlashlightInit},
 #endif
 #if defined(TORCH_FLASHLIGHT)
-	{KD_TORCH_FLASHLIGHT_ID, torchFlashlightInit},
+	{torchFlashlightInit},
 #endif
 #if defined(CONSTANT_FLASHLIGHT)
-	{KD_CONSTANT_FLASHLIGHT_ID, constantFlashlightInit},
+	{constantFlashlightInit},
 #endif
 
 
+#ifdef MTK_SUB_STROBE_SUPPORT
+	{subStrobeInit},
+
+#else
+	{defaultFlashlightInit},
+
+#endif
+
 /*  ADD flashlight driver before this line */
-    {0,NULL}, //end of list
+    {NULL}, //end of list
 };
 //e_add new flashlight driver here
 /******************************************************************************
@@ -109,6 +123,21 @@ static FLASHLIGHT_FUNCTION_STRUCT *g_pFlashlightFunc = NULL;
 /*****************************************************************************
 
 *****************************************************************************/
+static int sensorIdToListId(int sensorId)
+{
+	int id;
+	if(sensorId==e_CAMERA_MAIN_SENSOR)
+		id=1;
+	else if(sensorId==e_CAMERA_SUB_SENSOR)
+		id=2;
+	else if(sensorId==e_CAMERA_MAIN_2_SENSOR)
+		id=3;
+	else
+		id=0;
+	return id;
+}
+
+
 MINT32 default_flashlight_open(void *pArg) {
     PK_DBG("[default_flashlight_open] E\n");
     return 0;
@@ -145,7 +174,7 @@ FLASHLIGHT_FUNCTION_STRUCT	defaultFlashlightFunc=
 	default_flashlight_ioctl,
 };
 
-UINT32 defaultFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc) { 
+UINT32 defaultFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc) {
     if (pfFunc!=NULL) {
         *pfFunc=&defaultFlashlightFunc;
     }
@@ -154,11 +183,13 @@ UINT32 defaultFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc) {
 /*******************************************************************************
 * kdSetDriver
 ********************************************************************************/
-int kdSetFlashlightDrv(unsigned int *pFlashlightIdx)
+int kdSetFlashlightDrv(unsigned int *pSensorId)
 {
-unsigned int flashlightIdx = *pFlashlightIdx;
-    PK_DBG("[kdSetFlashlightDrv] flashlightIdx: %d \n",flashlightIdx);
-    
+	unsigned int flashlightIdx = sensorIdToListId(*pSensorId);
+
+
+    PK_DBG("[kdSetFlashlightDrv] flashlightIdx: %d, seonsorId %d\n",flashlightIdx, (int)(*pSensorId));
+
     if (NULL != kdFlashlightList[flashlightIdx].flashlightInit) {
         kdFlashlightList[flashlightIdx].flashlightInit(&g_pFlashlightFunc);
         if (NULL == g_pFlashlightFunc) {
@@ -191,7 +222,7 @@ static int flashlight_ioctl(struct inode *inode, struct file *file, unsigned int
 {
     int i4RetValue = 0;
 
-    //PK_DBG("%x, %x \n",cmd,arg);
+    PK_DBG("XXflashlight_ioctl cmd,arg= %x, %x +\n",cmd,(unsigned int)arg);
 
     switch(cmd)
     {

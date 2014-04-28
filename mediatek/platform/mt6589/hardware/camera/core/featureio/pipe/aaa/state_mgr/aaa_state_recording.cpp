@@ -113,6 +113,9 @@ MRESULT StateRecording::exitPreview()
     // AF uninit
     AfMgr::getInstance().uninit();
 
+    // Flash uninit
+    FlashMgr::getInstance()->uninit();
+
     // AAO DMA / state disable again
     err = BufMgr::getInstance().AAStatEnable(MFALSE);
     if (FAILED(err)) {
@@ -177,6 +180,13 @@ sendIntent(intent2type<eIntent_RecordingEnd>)
 
     // State transition: eState_Recording --> eState_CamcorderPreview
     transitState(eState_Recording, eState_CamcorderPreview);
+
+    //if(FlashMgr::getInstance()->getFlashMode()==LIB3A_FLASH_MODE_AUTO)
+    //if(FlashMgr::getInstance()->getFlashMode()!=LIB3A_FLASH_MODE_FORCE_TORCH)
+    	//FlashMgr::getInstance()->setAFLampOnOff(0);
+
+    FlashMgr::getInstance()->videoRecordingEnd();
+
 
     return  S_3A_OK;
 }

@@ -72,6 +72,12 @@ typedef struct {
 
 #endif
 
+enum PVRSRV_MUTEX_LOCK_CLASS
+{
+	PVRSRV_LOCK_CLASS_BRIDGE,
+	PVRSRV_LOCK_CLASS_MMAP,
+};
+
 #if defined(CONFIG_PROVE_LOCKING)
 #define LinuxInitMutex(l) mutex_init((l))
 #else
@@ -79,6 +85,8 @@ extern IMG_VOID LinuxInitMutex(PVRSRV_LINUX_MUTEX *psPVRSRVMutex);
 #endif
 
 extern IMG_VOID LinuxLockMutex(PVRSRV_LINUX_MUTEX *psPVRSRVMutex);
+
+extern IMG_VOID LinuxLockMutexNested(PVRSRV_LINUX_MUTEX *psPVRSRVMutex, unsigned int uiLockClass);
 
 extern PVRSRV_ERROR LinuxLockMutexInterruptible(PVRSRV_LINUX_MUTEX *psPVRSRVMutex);
 

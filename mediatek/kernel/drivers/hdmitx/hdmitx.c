@@ -123,6 +123,8 @@ extern int disp_unlock_mutex(int id);
 static void hdmi_update_impl(void);
 
 static size_t hdmi_log_on = 1;
+static unsigned long hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
+
 static struct switch_dev hdmi_switch_data;
 HDMI_PARAMS _s_hdmi_params = {0};
 HDMI_PARAMS *hdmi_params = &_s_hdmi_params;
@@ -574,6 +576,7 @@ void hdmi_cable_fake_plug_in(void)
             hdmi_resume( );
             msleep(1000);
             switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+			hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
         }
     }
 }
@@ -1018,6 +1021,7 @@ static void hdmi_update_impl(void)
         pddp.dstHStride = p->hdmi_height;
         pddp.dstPlaneNum = 1;
 
+#if 0
         if(p->lcm_height > p->lcm_width)
         {
             pddp.orientation = 270;
@@ -1026,9 +1030,23 @@ static void hdmi_update_impl(void)
         {
             pddp.orientation = 0;
         }
-
-        pddp.dstW = ALIGN_TO(p->hdmi_width * scaling / 100, 4);
-        pddp.dstH = ALIGN_TO(p->hdmi_height * scaling / 100, 4);
+#else
+		pddp.orientation = p->orientation;
+#endif
+		if(((pddp.orientation == 0 || pddp.orientation == 180) && p->lcm_height > p->lcm_width) ||
+                         ((pddp.orientation == 90 || pddp.orientation == 270) && p->lcm_height < p->lcm_width))
+		{
+			if(p->lcm_height > p->lcm_width)
+			    pddp.dstW = ALIGN_TO(p->lcm_width * p->hdmi_height / p->lcm_height, 4);
+			else
+			    pddp.dstW = ALIGN_TO(p->lcm_height * p->hdmi_height / p->lcm_width, 4);
+			pddp.dstH = ALIGN_TO(p->hdmi_height,4);
+		}
+		else
+		{
+			pddp.dstW = ALIGN_TO(p->hdmi_width * scaling / 100, 4);
+			pddp.dstH = ALIGN_TO(p->hdmi_height * scaling / 100, 4);
+		}
 
         dstOffset = (p->hdmi_height - pddp.dstH) / 2 * p->hdmi_width * rmda1_bpp +
                     (p->hdmi_width - pddp.dstW) / 2 * rmda1_bpp;
@@ -1961,6 +1979,7 @@ static void hdmi_state_reset(void)
     if(hdmi_drv->get_state() == HDMI_STATE_ACTIVE)
     {
         switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+		hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
     }
     else
     {
@@ -1996,6 +2015,7 @@ void hdmi_state_callback(HDMI_STATE state)
                 msleep(1000);
             }
             switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE); 
+			hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
 
             break;
         }
@@ -2063,6 +2083,7 @@ void hdmi_state_callback(HDMI_STATE state)
             hdmi_resume();
             msleep(1000);
             switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+			hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
         }
         else
         {
@@ -2173,7 +2194,7 @@ void hdmi_state_callback(HDMI_STATE state)
 /*static*/ void hdmi_setorientation(int orientation)
 {
 	HDMI_FUNC();
-    RET_VOID_IF(!p->is_enabled);
+    ///RET_VOID_IF(!p->is_enabled);
 
 	if(down_interruptible(&hdmi_update_mutex))
 	{
@@ -2427,6 +2448,29 @@ static void dpi_setting_res(u8 arg)
 
 }
 
+void	MTK_HDMI_Set_Security_Output(int enable)
+{
+	RETIF(!p->is_enabled, 0);
+    RETIF(IS_HDMI_OFF(), 0);
+
+	if(enable)
+	{
+		if(hdmi_drv->get_state() == HDMI_STATE_ACTIVE)
+		{
+				hdmi_resume();
+				msleep(1000);
+				switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+		}
+	}
+	else
+	{
+		if(hdmi_drv->get_state() == HDMI_STATE_ACTIVE)
+		{
+			hdmi_suspend();
+			switch_set_state(&hdmi_switch_data, HDMI_STATE_NO_DEVICE);
+		}
+	}
+}
 
 static long hdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -2704,6 +2748,7 @@ static long hdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 hdmi_resume();
                 msleep(1000);
                 switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+				hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
             }
             else
             {
@@ -2712,6 +2757,7 @@ static long hdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                     hdmi_resume();
                     msleep(1000);
                     switch_set_state(&hdmi_switch_data, HDMI_STATE_ACTIVE);
+					hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
                 }
             }
             p->is_force_disable = false;
@@ -2759,6 +2805,12 @@ static long hdmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         case MTK_HDMI_VIDEO_CONFIG:
         {
             HDMI_LOG("video resolution configuration, arg=%ld\n", arg);
+            if(hdmi_reschange==arg) 
+            {
+              HDMI_LOG("hdmi_reschange=%ld\n", hdmi_reschange);
+              break;
+            }
+			hdmi_reschange = arg;
 
 #ifndef MTK_MT8193_HDMI_SUPPORT
             if (arg > 1)
@@ -3229,6 +3281,7 @@ static int __init hdmi_init(void)
     }
 
     p->output_mode = hdmi_params->output_mode;
+	p->orientation = 0;
     hdmi_drv->init();
     HDMI_LOG("Output mode is %s\n", (hdmi_params->output_mode==HDMI_OUTPUT_MODE_DPI_BYPASS)?"HDMI_OUTPUT_MODE_DPI_BYPASS":"HDMI_OUTPUT_MODE_LCD_MIRROR");
 

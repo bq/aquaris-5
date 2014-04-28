@@ -143,21 +143,6 @@ ifeq (yes,$(strip $(MTK_WIFI_HOTSPOT_SUPPORT)))
 endif
 
 ##############################################################
-# for camera feature
-
-ifeq (no,$(strip $(MTK_CAMERA_APP)))
-  ifeq (yes,$(strip $(MTK_CAMERA_VIDEO_ZOOM)))
-     $(call dep-err-ona-or-offb, MTK_CAMERA_APP, MTK_CAMERA_VIDEO_ZOOM)
-  endif
-endif
-
-ifeq (yes,$(strip $(MTK_CAMERA_APP)))
-  ifeq (,$(strip $(CUSTOM_HAL_CAMERA)))
-     $(call dep-err-seta-or-offb, CUSTOM_HAL_CAMERA,camera, MTK_CAMERA_APP)
-  endif
-endif
-
-##############################################################
 # for matv feature
 
 ifeq (yes,$(strip $(HAVE_MATV_FEATURE)))
@@ -198,6 +183,11 @@ ifeq (yes,$(strip $(MTK_AGPS_APP)))
      $(call dep-err-ona-or-offb, MTK_GPS_SUPPORT, MTK_AGPS_APP)
   endif
 endif
+ifneq (yes,$(strip $(MTK_AGPS_APP)))
+  ifeq (yes,$(strip $(MTK_AGPS_VF_REGION_SUPPORT)))
+     $(call dep-err-ona-or-offb, MTK_AGPS_APP, MTK_AGPS_VF_REGION_SUPPORT)
+  endif
+endif
 
 ##############################################################
 # for BT feature
@@ -219,6 +209,13 @@ endif
 ifeq (yes, $(strip $(MTK_GEMINI_3G_SWITCH)))
   ifneq (yes, $(strip $(GEMINI)))
     $(call dep-err-ona-or-offb, GEMINI, MTK_GEMINI_3G_SWITCH)
+  endif
+  ifeq (0, $(strip $(MTK_GEMINI_SMART_3G_SWITCH)))
+    $(call dep-err-seta-or-offb, MTK_GEMINI_SMART_3G_SWITCH,>=1,MTK_GEMINI_3G_SWITCH)
+  endif
+else
+  ifneq (0, $(strip $(MTK_GEMINI_SMART_3G_SWITCH)))
+    $(call dep-err-seta-or-onb, MTK_GEMINI_SMART_3G_SWITCH,0,MTK_GEMINI_3G_SWITCH)
   endif
 endif
 
@@ -291,19 +288,6 @@ endif
 
 ##############################################################
 # for IME
-
-ifeq (yes,$(MTK_INTERNAL))
-  ifeq (no,$(MTK_INTERNAL_LANG_SET))
-     $(call dep-err-ona-or-offb, MTK_INTERNAL_LANG_SET, MTK_INTERNAL)
-  endif
-endif
-
-ifeq (yes,$(MTK_INTERNAL_LANG_SET))
-  ifeq (no,$(MTK_INTERNAL))
-     $(call dep-err-ona-or-offb, MTK_INTERNAL, MTK_INTERNAL_LANG_SET)
-  endif
-endif
-
 
 ifneq (yes, $(strip $(MTK_IME_SUPPORT)))
   ifeq (yes, $(strip $(MTK_IME_FRENCH_SUPPORT)))
@@ -380,15 +364,6 @@ endif
 ifeq (no,$(strip $(MTK_FD_SUPPORT)))
   ifeq (yes,$(strip $(MTK_FD_FORCE_REL_SUPPORT)))
     $(call dep-err-ona-or-offb, MTK_FD_SUPPORT, MTK_FD_FORCE_REL_SUPPORT)
-  endif
-endif
-
-##############################################################
-# for SNS feature
-
-ifeq (yes,$(MTK_SNS_SINAWEIBO_APP))
-  ifeq (no,$(MTK_SNS_SUPPORT))
-     $(call dep-err-ona-or-offb, MTK_SNS_SUPPORT,MTK_SNS_SINAWEIBO_APP)
   endif
 endif
 
@@ -823,10 +798,18 @@ ifeq ($(strip $(MTK_S3D_SUPPORT)),yes)
   ifneq ($(strip $(MTK_STEREO3D_WALLPAPER_APP)),yes)
     $(call dep-err-ona-or-offb, MTK_STEREO3D_WALLPAPER_APP, MTK_S3D_SUPPORT)
   endif
+  ifdef MTK_3DWORLD_APP
+  ifneq ($(strip $(MTK_3DWORLD_APP)),yes)
+    $(call dep-err-ona-or-offb, MTK_3DWORLD_APP, MTK_S3D_SUPPORT)
+  endif
+  endif
 endif
 ifneq ($(strip $(MTK_S3D_SUPPORT)),yes)
   ifeq ($(strip $(MTK_STEREO3D_WALLPAPER_APP)),yes)
     $(call dep-err-ona-or-offb, MTK_S3D_SUPPORT, MTK_STEREO3D_WALLPAPER_APP)
+  endif
+  ifeq ($(strip $(MTK_3DWORLD_APP)),yes)
+    $(call dep-err-ona-or-offb, MTK_S3D_SUPPORT, MTK_3DWORLD_APP)
   endif
 endif
 ############################################################
@@ -853,9 +836,6 @@ ifneq ($(filter OP02%, $(OPTR_SPEC_SEG_DEF)),)
   endif
   ifneq ($(strip $(MTK_APKINSTALLER_APP)),yes)
     $(call dep-err-common, Please do not set OPTR_SPEC_SEG_DEF as OP02* or set MTK_APKINSTALLER_APP as yes)
-  endif
-  ifneq ($(strip $(MTK_SMSREG_APP)),yes)
-    $(call dep-err-common, Please do not set OPTR_SPEC_SEG_DEF as OP02* or set MTK_SMSREG_APP as yes)
   endif
 endif
 ############################################################
@@ -894,5 +874,39 @@ ifeq (yes, $(strip $(MTK_PRIVATE_SPACE_SHARE_SUPPORT)))
     $(call dep-err-ona-or-offb, MTK_PRIVATE_SPACE_SUPPORT, MTK_PRIVATE_SPACE_SHARE_SUPPORT)
   endif
 endif
-
-
+#############################################################
+ifeq (yes, $(strip $(MTK_SIM_HOT_SWAP_COMMON_SLOT)))
+  ifneq (yes, $(strip $(MTK_SIM_HOT_SWAP)))
+    $(call dep-err-ona-or-offb,MTK_SIM_HOT_SWAP,MTK_SIM_HOT_SWAP_COMMON_SLOT)
+  endif
+endif
+###################################################################3
+#  for ap & modem ICUSE dependency check
+ifeq ($(strip $(MTK_ICUSB_SUPPORT)), yes)
+  ifneq ($(strip $(MODEM_ICUSB_SUPPORT)),TRUE)
+     $(call dep-err-common, Please set ICUSB_SUPPORT as TRUE or turn off MTK_ICUSB_SUPPORT)
+  endif
+endif
+ifeq ($(strip $(MODEM_ICUSB_SUPPORT)),TRUE)
+  ifneq ($(strip $(MTK_ICUSB_SUPPORT)),yes)
+    $(call dep-err-common, Please set ICUSB_SUPPORT as FALSE or turn on MTK_ICUSB_SUPPORT)
+  endif
+endif
+#############################################################################3
+ifeq (yes, $(strip $(MTK_BESRECORD_2_0_SUPPORT)))
+  ifneq (yes, $(strip $(MTK_AUDIO_HD_REC_SUPPORT)))
+     $(call dep-err-ona-or-offb,MTK_AUDIO_HD_REC_SUPPORT,MTK_BESRECORD_2_0_SUPPORT)
+  endif
+endif
+###############################################################################
+ifeq (yes, $(strip $(MTK_NATIVE_3D_SUPPORT)))
+  ifneq (yes, $(strip $(MTK_S3D_SUPPORT)))
+   $(call dep-err-ona-or-offb,MTK_S3D_SUPPORT, MTK_NATIVE_3D_SUPPORT)
+  endif
+endif
+##################################################################
+ifeq (2,$(strip $(MTK_GEMINI_SMART_3G_SWITCH)))
+  ifneq (yes,$(strip $(MTK_RILD_READ_IMSI)))
+    $(call dep-err-common, MTK_RILD_READ_IMSI must set to yes when MTK_GEMINI_SMART_3G_SWITCH = 2)
+  endif
+endif
