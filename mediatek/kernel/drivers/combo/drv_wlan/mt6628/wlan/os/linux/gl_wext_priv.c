@@ -846,7 +846,7 @@ priv_set_int (
 
     case PRIV_CUSTOM_BWCS_CMD:
 
-        DBGLOG(REQ, INFO, ("pu4IntBuf[1] = %x, size of PTA_IPC_T = %d.\n", pu4IntBuf[1], sizeof(PARAM_PTA_IPC_T)));
+        DBGLOG(REQ, INFO, ("pu4IntBuf[1] = %lx, size of PTA_IPC_T = %d.\n", pu4IntBuf[1], sizeof(PARAM_PTA_IPC_T)));
 
         prPtaIpc = (P_PTA_IPC_T) aucOidBuf;
         prPtaIpc->u.aucBTPParams[0] = (UINT_8) (pu4IntBuf[1] >> 24);
@@ -881,17 +881,14 @@ priv_set_int (
 
     case PRIV_CMD_BAND_CONFIG:
         {
-            DBGLOG(INIT, INFO, ("CMD set_band=%u\n", pu4IntBuf[1]));
+            DBGLOG(INIT, INFO, ("CMD set_band=%lu\n", pu4IntBuf[1]));
         }
         break;
 
 #if CFG_ENABLE_WIFI_DIRECT
     case PRIV_CMD_P2P_MODE:
         {
-            extern BOOLEAN fgIsResetting;
-            extern BOOLEAN g_u4HaltFlag;
-
-	    PARAM_CUSTOM_P2P_SET_STRUC_T rSetP2P;
+            PARAM_CUSTOM_P2P_SET_STRUC_T rSetP2P;
             WLAN_STATUS rWlanStatus = WLAN_STATUS_SUCCESS;
 
             rSetP2P.u4Enable = pu4IntBuf[1];
@@ -900,9 +897,6 @@ priv_set_int (
             if(!rSetP2P.u4Enable) {
                 p2pNetUnregister(prGlueInfo, TRUE);
             }
-
- 		if ((!rSetP2P.u4Enable) && (g_u4HaltFlag == 0) && (fgIsResetting == FALSE))
-                p2pEalySuspendReg(prGlueInfo, rSetP2P.u4Enable); /* p2p remove */
 
             rWlanStatus = kalIoctl(prGlueInfo,
                                 wlanoidSetP2pMode,
@@ -913,8 +907,6 @@ priv_set_int (
                                 TRUE,
                                 FALSE,
                                 &u4BufLen);
-            if ((rSetP2P.u4Enable) && (g_u4HaltFlag == 0) && (fgIsResetting == FALSE))
-                p2pEalySuspendReg(prGlueInfo, rSetP2P.u4Enable); /* p2p on */
 
             if(rSetP2P.u4Enable) {
                 p2pNetRegister(prGlueInfo, TRUE);
@@ -1037,8 +1029,8 @@ priv_get_int (
         kalMemCopy(&prNdisReq->ndisOidContent[0], &pu4IntBuf[1], 8);
 
         prNdisReq->ndisOidCmd = OID_CUSTOM_MEM_DUMP;
-        prNdisReq->inNdisOidlength = 8;
-        prNdisReq->outNdisOidLength = 8;
+        prNdisReq->inNdisOidlength = sizeof(PARAM_CUSTOM_MEM_DUMP_STRUC_T);
+        prNdisReq->outNdisOidLength = sizeof(PARAM_CUSTOM_MEM_DUMP_STRUC_T);
 
         status = priv_get_ndis(prNetDev, prNdisReq, &u4BufLen);
         if (status == 0) {

@@ -30,7 +30,7 @@ BOOL factory_check_key_trigger(void)
 	
     while(get_timer(begin)<50)
     {    
-		if(mtk_detect_key(0))
+		if(mtk_detect_key(MT65XX_FACTORY_KEY))
 		{	
 			printf("%s Detect key\n",MODULE_NAME);
 			printf("%s Enable factory mode\n",MODULE_NAME);		

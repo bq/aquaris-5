@@ -29,7 +29,7 @@
 #define __DLFCN_H__
 
 #include <sys/cdefs.h>
-
+#include <stdint.h>
 __BEGIN_DECLS
 
 typedef struct {
@@ -48,6 +48,8 @@ extern int          dlclose(void*  handle);
 extern const char*  dlerror(void);
 extern void*        dlsym(void*  handle, const char*  symbol);
 extern int          dladdr(const void* addr, Dl_info *info);
+extern void dl_register_notify_function(int (*load_notify_function) (const char *name,uintptr_t address,uintptr_t size ),int (*unload_notify_function) (const char *name, uintptr_t address));
+extern void dl_unregister_notify_function(void);
 
 enum {
   RTLD_NOW  = 0,

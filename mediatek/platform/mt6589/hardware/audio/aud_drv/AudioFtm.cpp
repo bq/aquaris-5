@@ -113,34 +113,39 @@
 #include "audio_custom_exp.h"
 //#include "AudioMTKStreamOut.h"
 #include "AudioAnalogReg.h"
-#include <linux/fm.h>
+
+#include "AudioFMController.h"
+#include "AudioMATVController.h"
+
+#include "LoopbackManager.h"
+
 
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
 #define LOG_TAG  "AudioFtm"
 #ifndef ANDROID_DEFAULT_CODE
-    #include <cutils/xlog.h>
-    #ifdef ALOGE
-    #undef ALOGE
-    #endif
-    #ifdef ALOGW
-    #undef ALOGW
-    #endif ALOGI
-    #undef ALOGI
-    #ifdef ALOGD
-    #undef ALOGD
-    #endif
-    #ifdef ALOGV
-    #undef ALOGV
-    #endif
-    #define ALOGE XLOGE
-    #define ALOGW XLOGW
-    #define ALOGI XLOGI
-    #define ALOGD XLOGD
-    #define ALOGV XLOGV
+#include <cutils/xlog.h>
+#ifdef ALOGE
+#undef ALOGE
+#endif
+#ifdef ALOGW
+#undef ALOGW
+#endif ALOGI
+#undef ALOGI
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#ifdef ALOGV
+#undef ALOGV
+#endif
+#define ALOGE XLOGE
+#define ALOGW XLOGW
+#define ALOGI XLOGI
+#define ALOGD XLOGD
+#define ALOGV XLOGV
 #else
-    #include <utils/Log.h>
+#include <utils/Log.h>
 #endif
 
 //#define MTK_DIGITAL_MIC_SUPPORT
@@ -151,7 +156,8 @@
 
 static int OutputGainMap[] = {15, 12, 9, 6, 3, 0};
 
-enum {
+enum
+{
     FTM_OUTPUTGAIN_1 = 0, // lowest gain
     FTM_OUTPUTGAIN_2,
     FTM_OUTPUTGAIN_3,
@@ -160,7 +166,8 @@ enum {
 };
 
 
-unsigned char stone1k_48kHz[192] = {
+unsigned char stone1k_48kHz[192] =
+{
     0x00, 0x00, 0xFF, 0xFF, 0xB5, 0x10, 0xB5, 0x10, 0x21, 0x21, 0x21, 0x21,
     0xFC, 0x30, 0xFC, 0x30, 0x00, 0x40, 0x00, 0x40, 0xEB, 0x4D, 0xEB, 0x4D,
     0x81, 0x5A, 0x82, 0x5A, 0x8C, 0x65, 0x8C, 0x65, 0xD9, 0x6E, 0xD9, 0x6E,
@@ -179,7 +186,8 @@ unsigned char stone1k_48kHz[192] = {
     0x04, 0xCF, 0x04, 0xCF, 0xDF, 0xDE, 0xDF, 0xDE, 0x4B, 0xEF, 0x4B, 0xEF
 };
 
-unsigned char stone1k_m4dB_48kHz[192] = {
+unsigned char stone1k_m4dB_48kHz[192] =
+{
     0x00, 0x00, 0x00, 0x00, 0x8A, 0x0A, 0x8B, 0x0A, 0xE6, 0x14, 0xE7, 0x14,
     0xE7, 0x1E, 0xE7, 0x1E, 0x61, 0x28, 0x62, 0x28, 0x29, 0x31, 0x2B, 0x31,
     0x1A, 0x39, 0x1B, 0x39, 0x12, 0x40, 0x12, 0x40, 0xF1, 0x45, 0xF1, 0x45,
@@ -198,7 +206,8 @@ unsigned char stone1k_m4dB_48kHz[192] = {
     0x19, 0xE1, 0x18, 0xE1, 0x1A, 0xEB, 0x19, 0xEB, 0x75, 0xF5, 0x76, 0xF5
 };
 
-unsigned char stone1k_m8dB_48kHz[192] = {
+unsigned char stone1k_m8dB_48kHz[192] =
+{
     0x01, 0x00, 0xFF, 0xFF, 0xA7, 0x06, 0xA6, 0x06, 0x31, 0x0D, 0x31, 0x0D,
     0x80, 0x13, 0x80, 0x13, 0x7A, 0x19, 0x7A, 0x19, 0x05, 0x1F, 0x05, 0x1F,
     0x08, 0x24, 0x08, 0x24, 0x6D, 0x28, 0x6D, 0x28, 0x21, 0x2C, 0x22, 0x2C,
@@ -217,7 +226,8 @@ unsigned char stone1k_m8dB_48kHz[192] = {
     0x80, 0xEC, 0x81, 0xEC, 0xD0, 0xF2, 0xD0, 0xF2, 0x5A, 0xF9, 0x59, 0xF9
 };
 
-unsigned char stone2k_48kHz[96] = {
+unsigned char stone2k_48kHz[96] =
+{
     0x00, 0x00, 0x00, 0x00, 0x20, 0x21, 0x21, 0x21, 0x00, 0x40, 0xFF, 0x3F,
     0x82, 0x5A, 0x83, 0x5A, 0xD9, 0x6E, 0xD9, 0x6E, 0xA2, 0x7B, 0xA3, 0x7B,
     0xFE, 0x7F, 0xFE, 0x7F, 0xA2, 0x7B, 0xA2, 0x7B, 0xD9, 0x6E, 0xD9, 0x6E,
@@ -228,7 +238,8 @@ unsigned char stone2k_48kHz[96] = {
     0x7E, 0xA5, 0x7E, 0xA5, 0x00, 0xC0, 0x01, 0xC0, 0xE0, 0xDE, 0xDF, 0xDE
 };
 
-unsigned char stone2k_m4dB_48kHz[96] = {
+unsigned char stone2k_m4dB_48kHz[96] =
+{
     0x00, 0x00, 0x00, 0x00, 0xE8, 0x14, 0xE8, 0x14, 0x62, 0x28, 0x61, 0x28,
     0x1C, 0x39, 0x1B, 0x39, 0xF0, 0x45, 0xF1, 0x45, 0x03, 0x4E, 0x01, 0x4E,
     0xC2, 0x50, 0xC3, 0x50, 0x02, 0x4E, 0x02, 0x4E, 0xF1, 0x45, 0xF1, 0x45,
@@ -239,7 +250,8 @@ unsigned char stone2k_m4dB_48kHz[96] = {
     0xE5, 0xC6, 0xE5, 0xC6, 0x9F, 0xD7, 0x9E, 0xD7, 0x19, 0xEB, 0x19, 0xEB
 };
 
-unsigned char stone3k_48kHz[64] = {
+unsigned char stone3k_48kHz[64] =
+{
     0x00, 0x00, 0x00, 0x00, 0xFB, 0x30, 0xFB, 0x30, 0x82, 0x5A, 0x82, 0x5A,
     0x41, 0x76, 0x41, 0x76, 0xFF, 0x7F, 0xFF, 0x7F, 0x40, 0x76, 0x41, 0x76,
     0x82, 0x5A, 0x82, 0x5A, 0xFB, 0x30, 0xFC, 0x30, 0x00, 0x00, 0x00, 0x00,
@@ -248,7 +260,8 @@ unsigned char stone3k_48kHz[64] = {
     0x05, 0xCF, 0x04, 0xCF
 };
 
-unsigned char stone3k_m4dB_48kHz[64] = {
+unsigned char stone3k_m4dB_48kHz[64] =
+{
     0x00, 0x00, 0xFF, 0xFF, 0xE8, 0x1E, 0xE8, 0x1E, 0x1B, 0x39, 0x1B, 0x39,
     0x9D, 0x4A, 0x9D, 0x4A, 0xC3, 0x50, 0xC2, 0x50, 0x9D, 0x4A, 0x9D, 0x4A,
     0x1A, 0x39, 0x1B, 0x39, 0xE8, 0x1E, 0xE7, 0x1E, 0x00, 0x00, 0x01, 0x00,
@@ -257,21 +270,24 @@ unsigned char stone3k_m4dB_48kHz[64] = {
     0x18, 0xE1, 0x19, 0xE1
 };
 
-unsigned char stone4k_48kHz[48] = {
+unsigned char stone4k_48kHz[48] =
+{
     0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x40, 0xD9, 0x6E, 0xD9, 0x6E,
     0xFF, 0x7F, 0xFF, 0x7F, 0xD9, 0x6E, 0xD9, 0x6E, 0xFF, 0x3F, 0xFF, 0x3F,
     0x01, 0x00, 0xFF, 0xFF, 0x01, 0xC0, 0x01, 0xC0, 0x27, 0x91, 0x27, 0x91,
     0x00, 0x80, 0x01, 0x80, 0x27, 0x91, 0x27, 0x91, 0x00, 0xC0, 0x00, 0xC0
 };
 
-unsigned char stone4k_m4dB_48kHz[48] = {
+unsigned char stone4k_m4dB_48kHz[48] =
+{
     0x00, 0x00, 0x01, 0x00, 0x61, 0x28, 0x61, 0x28, 0xF0, 0x45, 0xF1, 0x45,
     0xC2, 0x50, 0xC2, 0x50, 0xF1, 0x45, 0xF1, 0x45, 0x62, 0x28, 0x62, 0x28,
     0x00, 0x00, 0xFF, 0xFF, 0x9F, 0xD7, 0x9F, 0xD7, 0x0F, 0xBA, 0x0F, 0xBA,
     0x3E, 0xAF, 0x3E, 0xAF, 0x0F, 0xBA, 0x10, 0xBA, 0x9F, 0xD7, 0x9F, 0xD7
 };
 
-unsigned char stone5k_48kHz[192] = {
+unsigned char stone5k_48kHz[192] =
+{
     0x00, 0x00, 0x00, 0x00, 0xEC, 0x4D, 0xEB, 0x4D, 0xA3, 0x7B, 0xA2, 0x7B,
     0x41, 0x76, 0x41, 0x76, 0xFF, 0x3F, 0xFF, 0x3F, 0x4C, 0xEF, 0x4B, 0xEF,
     0x7F, 0xA5, 0x7E, 0xA5, 0x19, 0x81, 0x19, 0x81, 0x27, 0x91, 0x27, 0x91,
@@ -290,7 +306,8 @@ unsigned char stone5k_48kHz[192] = {
     0xC0, 0x89, 0xC0, 0x89, 0x5D, 0x84, 0x5E, 0x84, 0x15, 0xB2, 0x15, 0xB2
 };
 
-unsigned char stone5k_m4dB_48kHz[192] = {
+unsigned char stone5k_m4dB_48kHz[192] =
+{
     0x00, 0x00, 0xFF, 0xFF, 0x2A, 0x31, 0x2A, 0x31, 0x02, 0x4E, 0x02, 0x4E,
     0x9E, 0x4A, 0x9D, 0x4A, 0x62, 0x28, 0x61, 0x28, 0x75, 0xF5, 0x76, 0xF5,
     0xE5, 0xC6, 0xE5, 0xC6, 0xEE, 0xAF, 0xEE, 0xAF, 0x10, 0xBA, 0x0F, 0xBA,
@@ -309,19 +326,22 @@ unsigned char stone5k_m4dB_48kHz[192] = {
     0x63, 0xB5, 0x63, 0xB5, 0xFF, 0xB1, 0xFE, 0xB1, 0xD6, 0xCE, 0xD7, 0xCE
 };
 
-unsigned char stone6k_48kHz[32] = {
+unsigned char stone6k_48kHz[32] =
+{
     0x00, 0x00, 0x00, 0x00, 0x82, 0x5A, 0x82, 0x5A, 0xFF, 0x7F, 0xFF, 0x7F,
     0x82, 0x5A, 0x82, 0x5A, 0x00, 0x00, 0x00, 0x00, 0x7E, 0xA5, 0x7E, 0xA5,
     0x02, 0x80, 0x01, 0x80, 0x7F, 0xA5, 0x7F, 0xA5
 };
 
-unsigned char stone6k_m4dB_48kHz[32] = {
+unsigned char stone6k_m4dB_48kHz[32] =
+{
     0xFF, 0xFF, 0x00, 0x00, 0x1B, 0x39, 0x1B, 0x39, 0xC3, 0x50, 0xC3, 0x50,
     0x1B, 0x39, 0x1C, 0x39, 0x00, 0x00, 0x00, 0x00, 0xE4, 0xC6, 0xE5, 0xC6,
     0x3D, 0xAF, 0x3E, 0xAF, 0xE4, 0xC6, 0xE4, 0xC6
 };
 
-unsigned char stone7k_48kHz[192] = {
+unsigned char stone7k_48kHz[192] =
+{
     0x00, 0x00, 0xFF, 0xFF, 0x8B, 0x65, 0x8B, 0x65, 0xA2, 0x7B, 0xA3, 0x7B,
     0xFB, 0x30, 0xFB, 0x30, 0x00, 0xC0, 0x00, 0xC0, 0x19, 0x81, 0x19, 0x81,
     0x7F, 0xA5, 0x7E, 0xA5, 0xB5, 0x10, 0xB5, 0x10, 0xD8, 0x6E, 0xD9, 0x6E,
@@ -340,7 +360,8 @@ unsigned char stone7k_48kHz[192] = {
     0x05, 0xCF, 0x04, 0xCF, 0x5E, 0x84, 0x5D, 0x84, 0x75, 0x9A, 0x74, 0x9A
 };
 
-unsigned char stone7k_m4dB_48kHz[192] = {
+unsigned char stone7k_m4dB_48kHz[192] =
+{
     0x00, 0x00, 0x00, 0x00, 0x13, 0x40, 0x12, 0x40, 0x02, 0x4E, 0x02, 0x4E,
     0xE9, 0x1E, 0xE8, 0x1E, 0x9E, 0xD7, 0x9F, 0xD7, 0xEE, 0xAF, 0xEF, 0xAF,
     0xE5, 0xC6, 0xE5, 0xC6, 0x8B, 0x0A, 0x8B, 0x0A, 0xF1, 0x45, 0xF1, 0x45,
@@ -359,17 +380,20 @@ unsigned char stone7k_m4dB_48kHz[192] = {
     0x18, 0xE1, 0x19, 0xE1, 0xFE, 0xB1, 0xFD, 0xB1, 0xEE, 0xBF, 0xED, 0xBF
 };
 
-unsigned char stone8k_48kHz[24] = {
+unsigned char stone8k_48kHz[24] =
+{
     0x00, 0x00, 0x01, 0x00, 0xDA, 0x6E, 0xD8, 0x6E, 0xD9, 0x6E, 0xDA, 0x6E,
     0x00, 0x00, 0x00, 0x00, 0x27, 0x91, 0x26, 0x91, 0x27, 0x91, 0x27, 0x91
 };
 
-unsigned char stone8k_m4dB_48kHz[24] = {
+unsigned char stone8k_m4dB_48kHz[24] =
+{
     0x00, 0x00, 0x01, 0x00, 0xF1, 0x45, 0xF1, 0x45, 0xF1, 0x45, 0xF1, 0x45,
     0xFF, 0xFF, 0x01, 0x00, 0x10, 0xBA, 0x0F, 0xBA, 0x0F, 0xBA, 0x0F, 0xBA
 };
 
-unsigned char stone9k_48kHz[64] = {
+unsigned char stone9k_48kHz[64] =
+{
     0x00, 0x00, 0x00, 0x00, 0x40, 0x76, 0x41, 0x76, 0x82, 0x5A, 0x82, 0x5A,
     0x04, 0xCF, 0x04, 0xCF, 0x00, 0x80, 0x01, 0x80, 0x04, 0xCF, 0x04, 0xCF,
     0x82, 0x5A, 0x82, 0x5A, 0x40, 0x76, 0x41, 0x76, 0x00, 0x00, 0xFF, 0xFF,
@@ -378,7 +402,8 @@ unsigned char stone9k_48kHz[64] = {
     0xC0, 0x89, 0xBF, 0x89
 };
 
-unsigned char stone9k_m4dB_48kHz[64] = {
+unsigned char stone9k_m4dB_48kHz[64] =
+{
     0x00, 0x00, 0x01, 0x00, 0x9D, 0x4A, 0x9D, 0x4A, 0x1B, 0x39, 0x1B, 0x39,
     0x18, 0xE1, 0x18, 0xE1, 0x3D, 0xAF, 0x3D, 0xAF, 0x19, 0xE1, 0x18, 0xE1,
     0x1B, 0x39, 0x1B, 0x39, 0x9C, 0x4A, 0x9D, 0x4A, 0x00, 0x00, 0x00, 0x00,
@@ -387,7 +412,8 @@ unsigned char stone9k_m4dB_48kHz[64] = {
     0x63, 0xB5, 0x63, 0xB5
 };
 
-unsigned char stone10k_48kHz[96] = {
+unsigned char stone10k_48kHz[96] =
+{
     0x00, 0x00, 0x00, 0x00, 0xA2, 0x7B, 0xA3, 0x7B, 0x00, 0x40, 0xFF, 0x3F,
     0x7E, 0xA5, 0x7E, 0xA5, 0x27, 0x91, 0x26, 0x91, 0x21, 0x21, 0x21, 0x21,
     0xFF, 0x7F, 0xFF, 0x7F, 0x21, 0x21, 0x20, 0x21, 0x27, 0x91, 0x27, 0x91,
@@ -398,7 +424,8 @@ unsigned char stone10k_48kHz[96] = {
     0x82, 0x5A, 0x82, 0x5A, 0x01, 0xC0, 0x01, 0xC0, 0x5E, 0x84, 0x5D, 0x84
 };
 
-unsigned char stone10k_m4dB_48kHz[96] = {
+unsigned char stone10k_m4dB_48kHz[96] =
+{
     0x00, 0x00, 0xFF, 0xFF, 0x02, 0x4E, 0x01, 0x4E, 0x61, 0x28, 0x61, 0x28,
     0xE5, 0xC6, 0xE5, 0xC6, 0x10, 0xBA, 0x0E, 0xBA, 0xE7, 0x14, 0xE7, 0x14,
     0xC2, 0x50, 0xC3, 0x50, 0xE7, 0x14, 0xE6, 0x14, 0x10, 0xBA, 0x0F, 0xBA,
@@ -409,7 +436,8 @@ unsigned char stone10k_m4dB_48kHz[96] = {
     0x1C, 0x39, 0x1A, 0x39, 0x9F, 0xD7, 0x9F, 0xD7, 0xFD, 0xB1, 0xFE, 0xB1
 };
 
-unsigned char stone11k_48kHz[192] = {
+unsigned char stone11k_48kHz[192] =
+{
     0x00, 0x00, 0xFF, 0xFF, 0xE7, 0x7E, 0xE6, 0x7E, 0x20, 0x21, 0x21, 0x21,
     0xBE, 0x89, 0xBF, 0x89, 0x01, 0xC0, 0x01, 0xC0, 0x8C, 0x65, 0x8C, 0x65,
     0x82, 0x5A, 0x81, 0x5A, 0x14, 0xB2, 0x14, 0xB2, 0x27, 0x91, 0x27, 0x91,
@@ -428,7 +456,8 @@ unsigned char stone11k_48kHz[192] = {
     0x40, 0x76, 0x41, 0x76, 0xDF, 0xDE, 0xDF, 0xDE, 0x19, 0x81, 0x19, 0x81
 };
 
-unsigned char stone11k_m4dB_48kHz[192] = {
+unsigned char stone11k_m4dB_48kHz[192] =
+{
     0x01, 0x00, 0x00, 0x00, 0x12, 0x50, 0x11, 0x50, 0xE7, 0x14, 0xE6, 0x14,
     0x63, 0xB5, 0x63, 0xB5, 0x9F, 0xD7, 0x9F, 0xD7, 0x12, 0x40, 0x12, 0x40,
     0x1B, 0x39, 0x1B, 0x39, 0xD6, 0xCE, 0xD6, 0xCE, 0x0F, 0xBA, 0x0F, 0xBA,
@@ -447,7 +476,8 @@ unsigned char stone11k_m4dB_48kHz[192] = {
     0x9D, 0x4A, 0x9D, 0x4A, 0x18, 0xEB, 0x1A, 0xEB, 0xEE, 0xAF, 0xEE, 0xAF
 };
 
-unsigned char stone12k_48kHz[64] = {
+unsigned char stone12k_48kHz[64] =
+{
     0x00, 0x00, 0x00, 0x00, 0xFF, 0x7F, 0xFF, 0x7F, 0xFF, 0xFF, 0x00, 0x00,
     0x01, 0x80, 0x01, 0x80, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0x7F, 0xFE, 0x7F,
     0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x01, 0x80, 0xFF, 0xFF, 0x00, 0x00,
@@ -456,7 +486,8 @@ unsigned char stone12k_48kHz[64] = {
     0x00, 0x80, 0x01, 0x80
 };
 
-unsigned char stone12k_m4dB_48kHz[64] = {
+unsigned char stone12k_m4dB_48kHz[64] =
+{
     0x00, 0x00, 0x00, 0x00, 0xC3, 0x50, 0xC2, 0x50, 0xFF, 0xFF, 0x00, 0x00,
     0x3D, 0xAF, 0x3D, 0xAF, 0x00, 0x00, 0x00, 0x00, 0xC3, 0x50, 0xC2, 0x50,
     0x01, 0x00, 0x00, 0x00, 0x3E, 0xAF, 0x3D, 0xAF, 0x00, 0x00, 0x00, 0x00,
@@ -465,7 +496,8 @@ unsigned char stone12k_m4dB_48kHz[64] = {
     0x3E, 0xAF, 0x3D, 0xAF
 };
 
-unsigned char stone13k_48kHz[192] = {
+unsigned char stone13k_48kHz[192] =
+{
     0x01, 0x00, 0x01, 0x00, 0xE6, 0x7E, 0xE7, 0x7E, 0xDF, 0xDE, 0xE0, 0xDE,
     0xBF, 0x89, 0xBF, 0x89, 0xFF, 0x3F, 0x00, 0x40, 0x8C, 0x65, 0x8C, 0x65,
     0x7E, 0xA5, 0x7E, 0xA5, 0x15, 0xB2, 0x14, 0xB2, 0xD8, 0x6E, 0xD9, 0x6E,
@@ -484,7 +516,8 @@ unsigned char stone13k_48kHz[192] = {
     0x40, 0x76, 0x41, 0x76, 0x21, 0x21, 0x21, 0x21, 0x19, 0x81, 0x19, 0x81
 };
 
-unsigned char stone13k_m4dB_48kHz[192] = {
+unsigned char stone13k_m4dB_48kHz[192] =
+{
     0x01, 0x00, 0x00, 0x00, 0x11, 0x50, 0x12, 0x50, 0x19, 0xEB, 0x19, 0xEB,
     0x64, 0xB5, 0x63, 0xB5, 0x62, 0x28, 0x61, 0x28, 0x12, 0x40, 0x12, 0x40,
     0xE5, 0xC6, 0xE5, 0xC6, 0xD5, 0xCE, 0xD6, 0xCE, 0xF1, 0x45, 0xF1, 0x45,
@@ -503,7 +536,8 @@ unsigned char stone13k_m4dB_48kHz[192] = {
     0x9C, 0x4A, 0x9D, 0x4A, 0xE7, 0x14, 0xE7, 0x14, 0xEE, 0xAF, 0xEF, 0xAF
 };
 
-unsigned char stone14k_48kHz[96] = {
+unsigned char stone14k_48kHz[96] =
+{
     0x01, 0x00, 0x00, 0x00, 0xA3, 0x7B, 0xA3, 0x7B, 0x01, 0xC0, 0x01, 0xC0,
     0x7E, 0xA5, 0x7E, 0xA5, 0xD9, 0x6E, 0xDA, 0x6E, 0x21, 0x21, 0x21, 0x21,
     0x00, 0x80, 0x01, 0x80, 0x21, 0x21, 0x21, 0x21, 0xD9, 0x6E, 0xDA, 0x6E,
@@ -514,7 +548,8 @@ unsigned char stone14k_48kHz[96] = {
     0x81, 0x5A, 0x82, 0x5A, 0x00, 0x40, 0x00, 0x40, 0x5D, 0x84, 0x5D, 0x84
 };
 
-unsigned char stone14k_m4dB_48kHz[96] = {
+unsigned char stone14k_m4dB_48kHz[96] =
+{
     0x00, 0x00, 0x00, 0x00, 0x02, 0x4E, 0x02, 0x4E, 0x9E, 0xD7, 0x9E, 0xD7,
     0xE5, 0xC6, 0xE5, 0xC6, 0xF0, 0x45, 0xF0, 0x45, 0xE7, 0x14, 0xE7, 0x14,
     0x3D, 0xAF, 0x3E, 0xAF, 0xE7, 0x14, 0xE6, 0x14, 0xF1, 0x45, 0xF1, 0x45,
@@ -525,7 +560,8 @@ unsigned char stone14k_m4dB_48kHz[96] = {
     0x1B, 0x39, 0x1B, 0x39, 0x62, 0x28, 0x61, 0x28, 0xFE, 0xB1, 0xFD, 0xB1
 };
 
-unsigned char stone15k_48kHz[64] = {
+unsigned char stone15k_48kHz[64] =
+{
     0x00, 0x00, 0x00, 0x00, 0x41, 0x76, 0x41, 0x76, 0x7E, 0xA5, 0x7E, 0xA5,
     0x05, 0xCF, 0x05, 0xCF, 0xFF, 0x7F, 0xFF, 0x7F, 0x05, 0xCF, 0x04, 0xCF,
     0x7E, 0xA5, 0x7E, 0xA5, 0x41, 0x76, 0x41, 0x76, 0x00, 0x00, 0x00, 0x00,
@@ -534,7 +570,8 @@ unsigned char stone15k_48kHz[64] = {
     0xBF, 0x89, 0xBF, 0x89
 };
 
-unsigned char stone15k_m4dB_48kHz[64] = {
+unsigned char stone15k_m4dB_48kHz[64] =
+{
     0xFF, 0xFF, 0x00, 0x00, 0x9D, 0x4A, 0x9D, 0x4A, 0xE4, 0xC6, 0xE4, 0xC6,
     0x18, 0xE1, 0x19, 0xE1, 0xC3, 0x50, 0xC3, 0x50, 0x18, 0xE1, 0x18, 0xE1,
     0xE6, 0xC6, 0xE4, 0xC6, 0x9D, 0x4A, 0x9C, 0x4A, 0x00, 0x00, 0x00, 0x00,
@@ -549,7 +586,6 @@ unsigned char stone15k_m4dB_48kHz[64] = {
 ******************************************************************************
 */
 
-static struct fm_i2s_setting Setting_FM;
 #define FTM_Audio_FMTx   0
 #define FTM_Audio_HDMI   1
 
@@ -563,26 +599,10 @@ namespace android
 
 AudioFtm *AudioFtm::UniqueAudioFtmInstance = 0;
 
-static void FM_I2S_Setting()
-{
-    int fd_FM = -1, ret_FM = 0;
-
-    fd_FM = open(FM_DEVICE_NAME, O_RDWR);
-    if (fd_FM < 0) {
-        ALOGE("Open 'dev/fm' Fail !fd_FM(%d)", fd_FM);
-    }
-    else {
-        ret_FM = ioctl(fd_FM, FM_IOCTL_I2S_SETTING, &Setting_FM);
-        if (ret_FM) {
-            ALOGE("set ioctl FM_IOCTL_I2S_SETTING Fail !ret_FM(%d)", ret_FM);
-        }
-    }
-    close(fd_FM);
-}
-
 AudioFtm *AudioFtm::getInstance()
 {
-    if (UniqueAudioFtmInstance == 0) {
+    if (UniqueAudioFtmInstance == 0)
+    {
         ALOGD("+UniqueAudioFtmInstance\n");
         UniqueAudioFtmInstance = new AudioFtm();
         ALOGD("-UniqueAudioFtmInstance\n");
@@ -607,6 +627,13 @@ AudioFtm::AudioFtm()
     mAudioAnalogInstance  = AudioAnalogControlFactory::CreateAudioAnalogControl();
     mAudioAnalogInstance->InitCheck();
 
+#ifdef AUDIO_MRG_LOOPBACK_TEST
+    mftmDaiBt = new AudioDigitalDAIBT();
+
+    mftmAudioDigitalControl = AudioDigitalControlFactory::CreateAudioDigitalControl();
+    mftmAudioDigitalControl->InitCheck();
+
+#endif
     //    mStreamInManager = AudioMTKStreamInManager::getInstance();    //ship marked
     mAudioResourceManager = AudioResourceManager::getInstance();
     mAudioAnalogReg = AudioAnalogReg ::getInstance();
@@ -630,6 +657,10 @@ AudioFtm::AudioFtm()
     mAudioAnalogInstance->AnalogSetMux(AudioAnalogType::DEVICE_IN_PREAMP_R, AudioAnalogType::MUX_IN_MIC1);
 #endif
 
+#ifdef AUDIO_MRG_LOOPBACK_TEST
+
+    m2ndI2SOut = new AudioDigtalI2S();
+#endif
     return;
 }
 
@@ -661,15 +692,18 @@ void AudioFtm::WavGen_AudioRead(char *pBuffer, unsigned int bytes)
     copysize = SizeAudioPattern - IdxAudioPattern;
     ALOGV("WavGen_AudioRead IdxAudioPattern=%d, SizeAudioPattern=%d, copysize=%d, bytes=%d,", IdxAudioPattern, SizeAudioPattern, copysize, bytes);
 
-    while (bytes) {
+    while (bytes)
+    {
         memcpy((void *)copybuffer, (void *)g_i2VDL_DATA + IdxAudioPattern, copysize);
         bytes -= copysize;
         copybuffer += copysize;
-        if (bytes >= SizeAudioPattern) {
+        if (bytes >= SizeAudioPattern)
+        {
             copysize = SizeAudioPattern;
             IdxAudioPattern = 0;
         }
-        else {
+        else
+        {
             copysize = bytes;
             IdxAudioPattern_Next = bytes;
         }
@@ -693,7 +727,9 @@ void AudioFtm::HDMI_thread_I2SOutput(void)
     int SizeByte, numread = 0, i;
     SizeByte = 12288;
     if (mAudioBuffer == NULL)
+    {
         mAudioBuffer = new char[SizeByte];
+    }
 
     //config register
     mSamplingRate = 44100;
@@ -703,8 +739,10 @@ void AudioFtm::HDMI_thread_I2SOutput(void)
     ALOGD("HDMI_thread_I2SOutput: SizeByte=%d, g_i2VDL_DATA addr=0x%x", SizeByte, g_i2VDL_DATA);
     ::ioctl(mFd, AUD_SET_HDMI_CLOCK, 1);
 
-    while (1) {
-        if (!mAudioSinWave_thread) {
+    while (1)
+    {
+        if (!mAudioSinWave_thread)
+        {
             ALOGD("HDMI_thread_I2SOutput, AUDDRV_RESET_BT_FM_GPIO");
             ::ioctl(mFd, AUD_SET_HDMI_CLOCK, 0);
             ALOGD("exit HDMI_thread_I2SOutput thread");
@@ -715,7 +753,8 @@ void AudioFtm::HDMI_thread_I2SOutput(void)
         WavGen_AudioWrite(mAudioBuffer, SizeByte);
     }
 
-    if (mAudioBuffer) {
+    if (mAudioBuffer)
+    {
         delete [] mAudioBuffer;
         mAudioBuffer = NULL;
     }
@@ -748,14 +787,19 @@ bool AudioFtm::WavGen_SWPattern(bool Enable, uint32 Freq, int type)
     uint32 Reg_Freq, Reg;
     ALOGD("WavGen_SW_SineWave, Enable=%d,  Freq = %d\n", Enable, Freq);
 
-    if (Enable) {
-        if (!mAudioSinWave_thread) {
-            if ((Freq <= FREQ_NONE) || (Freq > FREQ_15K_HZ)) {
+    if (Enable)
+    {
+        if (!mAudioSinWave_thread)
+        {
+            if ((Freq <= FREQ_NONE) || (Freq > FREQ_15K_HZ))
+            {
                 ALOGE("Invalid SineWave Frequency %d", Freq);
                 return false;
             }
-            else {
-                switch (Freq) {
+            else
+            {
+                switch (Freq)
+                {
                     case FREQ_1K_HZ:
                         SizeAudioPattern = 192;
                         g_i2VDL_DATA = &stone1k_m4dB_48kHz[0];
@@ -823,13 +867,16 @@ bool AudioFtm::WavGen_SWPattern(bool Enable, uint32 Freq, int type)
                 }
             }
 
-            if (type == FTM_Audio_FMTx) {
+            if (type == FTM_Audio_FMTx)
+            {
                 pthread_create(&m_WaveThread, NULL, &AudioFtm::FmTx_thread_create, (void *)this);
             }
-            else if (type == FTM_Audio_HDMI) {
+            else if (type == FTM_Audio_HDMI)
+            {
                 pthread_create(&m_WaveThread, NULL, &AudioFtm::HDMI_thread_create, (void *)this);
             }
-            else {
+            else
+            {
                 ALOGD("WavGen_SWPattern fail");
             }
 
@@ -837,9 +884,11 @@ bool AudioFtm::WavGen_SWPattern(bool Enable, uint32 Freq, int type)
         }
         return true;
     }
-    else {
+    else
+    {
         //WavGen_SWPattern
-        if (mAudioSinWave_thread) {
+        if (mAudioSinWave_thread)
+        {
             //leave thread
             ALOGD("WavGen_SWPattern, destroy m_WaveThread");
             mAudioSinWave_thread = false;
@@ -853,7 +902,8 @@ bool AudioFtm::WavGen_SWPattern(bool Enable, uint32 Freq, int type)
 void AudioFtm::Afe_Enable_SineWave(bool bEnable)
 {
     ALOGD("Afe_Enable_SineWave, bEnable:%d \n", bEnable);
-    if (bEnable) {
+    if (bEnable)
+    {
         mSineWaveStatus = 1;
         FTMI2SDacOutSet(48000);
         mAudioAnalogInstance->SetFrequency(AudioAnalogType::DEVICE_OUT_DAC, 48000);
@@ -862,7 +912,8 @@ void AudioFtm::Afe_Enable_SineWave(bool bEnable)
         mAudioDigitalInstance->SetMemIfEnable(AudioDigitalType::I2S_OUT_DAC, true);
         mAudioDigitalInstance->SetAfeEnable(true);
     }
-    else {
+    else
+    {
         mAudioDigitalInstance->EnableSideToneHw(AudioDigitalType::O03 , false, false);
         mAudioDigitalInstance->SetI2SDacEnable(false);
         mAudioDigitalInstance->SetMemIfEnable(AudioDigitalType::I2S_OUT_DAC, false);
@@ -886,7 +937,8 @@ void AudioFtm::FTMI2SDacOutSet(uint32 SampleRate)
 void AudioFtm::FTMPMICLoopbackTest(bool bEnable)
 {
     ALOGD("FTMPMICLoopbackTest bEnable = %d", bEnable);
-    if (bEnable) {
+    if (bEnable)
+    {
         mAudioAnalogReg->SetAnalogReg(0x0106, 0x0003, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x4026, 0x0000, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x4038, 0x0006, 0xffff);
@@ -928,7 +980,8 @@ void AudioFtm::FTMPMICLoopbackTest(bool bEnable)
         mAudioAnalogReg->SetAnalogReg(0x0700, 0x000f, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x0702, 0x0886, 0xffff);
     }
-    else {
+    else
+    {
         mAudioAnalogReg->SetAnalogReg(AFUNC_AUD_CON2, 0x0000, 0xffff); // sdm power on
         mAudioAnalogReg->SetAnalogReg(0x0702, 0x0000, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x0700, 0x0000, 0xffff);
@@ -939,7 +992,8 @@ void AudioFtm::FTMPMICLoopbackTest(bool bEnable)
 void AudioFtm::FTMPMICEarpieceLoopbackTest(bool bEnable)
 {
     ALOGD("FTMPMICEarpieceLoopbackTest bEnable = %d", bEnable);
-    if (bEnable) {
+    if (bEnable)
+    {
         mAudioAnalogReg->SetAnalogReg(0x0106, 0x0003, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x4026, 0x0000, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x4038, 0x0006, 0xffff);
@@ -977,7 +1031,8 @@ void AudioFtm::FTMPMICEarpieceLoopbackTest(bool bEnable)
         mAudioAnalogReg->SetAnalogReg(0x0700, 0x0009, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x0702, 0x0011, 0xffff);
     }
-    else {
+    else
+    {
         mAudioAnalogReg->SetAnalogReg(AFUNC_AUD_CON2, 0x0000, 0xffff); // sdm power on
         mAudioAnalogReg->SetAnalogReg(0x0702, 0x0000, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x0700, 0x0000, 0xffff);
@@ -988,7 +1043,8 @@ void AudioFtm::FTMPMICEarpieceLoopbackTest(bool bEnable)
 void AudioFtm::FTMPMICDualModeLoopbackTest(bool bEnable)
 {
     ALOGD("FTMPMICDualModeLoopbackTest bEnable = %d", bEnable);
-    if (bEnable) {
+    if (bEnable)
+    {
         mAudioAnalogReg->SetAnalogReg(0x0106, 0x0607, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x4026, 0x0000, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x4038, 0x0006, 0xffff);
@@ -1038,7 +1094,8 @@ void AudioFtm::FTMPMICDualModeLoopbackTest(bool bEnable)
         mAudioAnalogReg->SetAnalogReg(0x0616, 0x0F00, 0xffff);
 
     }
-    else {
+    else
+    {
         mAudioAnalogReg->SetAnalogReg(AFUNC_AUD_CON2, 0x0000, 0xffff); // sdm power on
         mAudioAnalogReg->SetAnalogReg(0x0600, 0x0000, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x0616, 0x0000, 0xffff);
@@ -1112,14 +1169,16 @@ void AudioFtm::Audio_Set_Earpiece_Off()
 
 int AudioFtm::RecieverTest(char receiver_test)
 {
-    if (receiver_test) {
+    if (receiver_test)
+    {
         ALOGD("RecieverTest echoflag=%d", receiver_test);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, true);
         Afe_Enable_SineWave(true);
         Audio_Set_Earpiece_On();
     }
-    else {
+    else
+    {
         Afe_Enable_SineWave(false);
         Audio_Set_Earpiece_Off();
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, false);
@@ -1129,13 +1188,15 @@ int AudioFtm::RecieverTest(char receiver_test)
     return true;
 }
 
-int AudioFtm::RequestClock(){
+int AudioFtm::RequestClock()
+{
     mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
     mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, true);
     return true;
 }
 
-int AudioFtm::ReleaseClock(){
+int AudioFtm::ReleaseClock()
+{
     mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, false);
     mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, false);
     return true;
@@ -1146,22 +1207,27 @@ int AudioFtm::LouderSPKTest(char left_channel, char right_channel)
 {
     ALOGD("LouderSPKTest left_channel=%d, right_channel=%d", left_channel, right_channel);
     int Speaker_Channel = 0;
-    if (left_channel == 0 && right_channel == 0) {
-        ReleaseClock();        
+    if (left_channel == 0 && right_channel == 0)
+    {
+        ReleaseClock();
         Afe_Enable_SineWave(false);
         Audio_Set_Speaker_Off(Channel_Stereo);
     }
-    else {
+    else
+    {
         //Request Analog clock before access analog hw
-        RequestClock();        
+        RequestClock();
         Afe_Enable_SineWave(true);
-        if (left_channel == 1 && right_channel == 1) {
+        if (left_channel == 1 && right_channel == 1)
+        {
             Audio_Set_Speaker_On(Channel_Stereo);
         }
-        else if (right_channel == 1) {
+        else if (right_channel == 1)
+        {
             Audio_Set_Speaker_On(Channel_Right);
         }
-        else if (left_channel == 1) {
+        else if (left_channel == 1)
+        {
             Audio_Set_Speaker_On(Channel_Left);
         }
     }
@@ -1174,13 +1240,15 @@ int AudioFtm::EarphoneTest(char bEnable)
     ALOGD("EarphoneTest bEnable=%d", bEnable);
 
     //Audio_Set_Speaker_Off(Channel_Stereo);
-    if (bEnable) {
+    if (bEnable)
+    {
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, true);
         Afe_Enable_SineWave(true);
         Audio_Set_HeadPhone_On(Channel_Stereo);
     }
-    else {
+    else
+    {
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, false);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, false);
         Audio_Set_HeadPhone_Off(Channel_Stereo);
@@ -1190,10 +1258,17 @@ int AudioFtm::EarphoneTest(char bEnable)
 
 }
 
+int AudioFtm::EarphoneTestLR(char bLR)
+{
+    mAudioDigitalInstance->SetSinetoneOutputLR(bLR);
+    return true;
+}
+
 // this is for analog FM
 int AudioFtm::FMLoopbackTest(char bEnable)
 {
-    if (bEnable == true) {
+    if (bEnable == true)
+    {
         // clock require
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, true);
@@ -1230,7 +1305,8 @@ int AudioFtm::FMLoopbackTest(char bEnable)
         mAudioAnalogReg->SetAnalogReg(0x0702, 0x0226, 0xffff);
 
     }
-    else {
+    else
+    {
         // clock release
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, false);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, false);
@@ -1248,7 +1324,8 @@ int AudioFtm::FMLoopbackTest(char bEnable)
 int AudioFtm::Pmic_I2s_out(char echoflag)
 {
     ALOGD("Pmic_I2s_out echoflag=%d", echoflag);
-    if (echoflag == true) {
+    if (echoflag == true)
+    {
 
         ALOGD("Pmic_I2s_out uplin adc=%d", echoflag);
         mAudioAnalogReg->SetAnalogReg(0x4010, 0x0000, 0xffff);
@@ -1269,7 +1346,8 @@ int AudioFtm::Pmic_I2s_out(char echoflag)
         mAudioAnalogReg->SetAnalogReg(0x072C, 0x0180, 0xffff);
         mAudioAnalogReg->SetAnalogReg(0x0736, 0x0022, 0xffff);
     }
-    else {
+    else
+    {
         mAudioAnalogReg->SetAnalogReg(0x4010, 0x0000, 0xffff);
         //mAudioAnalogReg->SetAnalogReg(0x0102,0x0001,0xffff);
 
@@ -1298,25 +1376,139 @@ int AudioFtm::Pmic_I2s_out(char echoflag)
 // this is for digital FM
 int AudioFtm::Audio_FM_I2S_Play(char bEnable)
 {
-    AudioDigtalI2S mFmI2SOut;
-    if (bEnable == true) {
+    AudioFMController *pAudioFMController = AudioFMController::GetInstance();
+    const float kMaxFmVolume = 1.0;
+
+    if (bEnable == true)
+    {
+        // force assigned earphone
+        mAudioResourceManager->setDlOutputDevice(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
+
+        // enable
+        pAudioFMController->SetFmVolume(0);
+        pAudioFMController->SetFmEnable(true);
+        pAudioFMController->SetFmVolume(kMaxFmVolume);
+    }
+    else
+    {
+        // disable
+        pAudioFMController->SetFmVolume(0);
+        pAudioFMController->SetFmEnable(false);
+    }
+
+    return true;
+}
+
+// this is for digital mATV
+int AudioFtm::Audio_MATV_I2S_Play(char bEnable)
+{
+    AudioMATVController *pAudioMATVController = AudioMATVController::GetInstance();
+
+    if (bEnable == true)
+    {
+        // force assigned speaker
+        mAudioResourceManager->setDlOutputDevice(AUDIO_DEVICE_OUT_SPEAKER);
+
+        // enable
+        pAudioMATVController->SetMatvEnable(true, MATV_DIGITAL);
+    }
+    else
+    {
+        // disable
+        pAudioMATVController->SetMatvEnable(false, MATV_DIGITAL);
+    }
+
+    return true;
+}
+
+#ifdef AUDIO_MRG_LOOPBACK_TEST
+
+
+int AudioFtm::Set2ndI2SOutFtmAttribute(char bEnable)
+{
+    ALOGD("Set2ndI2SOutAttribute");
+    if (bEnable == true)
+    {
+
+        m2ndI2SOut->mLR_SWAP = AudioDigtalI2S::NO_SWAP;
+        m2ndI2SOut->mI2S_SLAVE = AudioDigtalI2S::MASTER_MODE;
+        m2ndI2SOut->mINV_LRCK = AudioDigtalI2S::NO_INVERSE;
+        m2ndI2SOut->mI2S_FMT = AudioDigtalI2S::I2S;
+        m2ndI2SOut->mI2S_WLEN = AudioDigtalI2S::WLEN_16BITS;
+        m2ndI2SOut->mI2S_SAMPLERATE = 9;
+        mAudioDigitalInstance->Set2ndI2SOut(m2ndI2SOut);
+
+        mAudioDigitalInstance->Set2ndI2SEnable(true);
+    }
+    else
+    {
+        mAudioDigitalInstance->Set2ndI2SEnable(false);
+    }
+
+    return true;
+}
+
+
+
+int AudioFtm::SetDAIBTFtmAttribute()
+{
+
+    ALOGD("SetDAIBTFtmAttribute");
+
+    // fix me , ned to base on actual situation
+#if defined(MTK_MERGE_INTERFACE_SUPPORT)
+    mftmDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_MGRIF;
+#else
+    mftmDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_BT;
+#endif
+    mftmDaiBt->mDAI_BT_MODE = AudioDigitalDAIBT::Mode8K;
+    mftmDaiBt->mDAI_DEL = AudioDigitalDAIBT::HighWord;
+    mftmDaiBt->mBT_LEN  = 0;
+    mftmDaiBt->mDATA_RDY = true;
+    mftmDaiBt->mBT_SYNC = AudioDigitalDAIBT::Short_Sync;
+    mftmDaiBt->mBT_ON = true;
+    mftmDaiBt->mDAIBT_ON = false;
+    mftmAudioDigitalControl->SetDAIBBT(mftmDaiBt);
+
+    return true;
+}
+
+
+int AudioFtm::Audio_MRG_I2S_Loop(char bEnable)
+{
+    if (bEnable == true)
+    {
         // clock require
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, true);
+
+        //mAudioDigitalInstance->SetFmChip(true); //Set FM chip I2S sampling rate and GPIO
+
         //todo:: here to do MergeInterface loopback
-        mAudioDigitalInstance->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I15, AudioDigitalType::O03);
-        mAudioDigitalInstance->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I16, AudioDigitalType::O04);
         mAudioDigitalInstance->SetMrgI2SEnable(true, 44100);
+
         FTMI2SDacOutSet(44100);
         mAudioDigitalInstance->SetI2SDacEnable(true);
-        // todo:: turn on analog part
+        mAudioDigitalInstance->SetMemIfSampleRate(4, 44100);  //MEM_I2S
+
+        mAudioDigitalInstance->SetMrgI2SLoopBack(true);
+
+        Set2ndI2SOutFtmAttribute(true);
 
     }
-    else {
-        mAudioDigitalInstance->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I15, AudioDigitalType::O03);
-        mAudioDigitalInstance->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I16, AudioDigitalType::O04);
+    else
+    {
+
+        Set2ndI2SOutFtmAttribute(false);
+
+        mAudioDigitalInstance->SetMrgI2SLoopBack(false);
+
         mAudioDigitalInstance->SetMrgI2SEnable(false, 44100);
+
         mAudioDigitalInstance->SetI2SDacEnable(false);
+
+        //mAudioDigitalInstance->SetFmChip(false); //Set FM chip I2S sampling rate and GPIO
+
         // clock release
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, false);
         mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, false);
@@ -1325,16 +1517,107 @@ int AudioFtm::Audio_FM_I2S_Play(char bEnable)
 }
 
 
+int AudioFtm::Audio_MRG_SineTone_Enable(char bEnable)
+{
+    if (bEnable == true)
+    {
+        // clock require
+
+
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, true);
+
+        //mAudioDigitalInstance->SetFmChip(true); //Set FM chip I2S sampling rate and GPIO
+
+        //todo:: here to do Merge Interface sgen
+        mAudioDigitalInstance->SetMrgI2SEnable(true, 44100);
+
+        FTMI2SDacOutSet(44100);
+        mAudioDigitalInstance->SetI2SDacEnable(true);
+
+        mAudioDigitalInstance->SetMemIfSampleRate(4, 44100);  //MEM_I2S
+
+        mAudioDigitalInstance->SetMrgSineGen(true);
+
+        Set2ndI2SOutFtmAttribute(true);
+
+    }
+    else
+    {
+
+        Set2ndI2SOutFtmAttribute(false);
+
+        mAudioDigitalInstance->SetMrgSineGen(false);
+
+        mAudioDigitalInstance->SetMrgI2SEnable(false, 44100);
+
+        mAudioDigitalInstance->SetI2SDacEnable(false);
+
+        //mAudioDigitalInstance->SetFmChip(false); //Set FM chip I2S sampling rate and GPIO
+
+
+        // clock release
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, false);
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, false);
+    }
+    return true;
+}
+
+
+int AudioFtm::Audio_MRG_BTTone_Enable(char bEnable)
+{
+
+    ALOGD("Audio_MRG_BTTone_Enable  %d", bEnable);
+
+    if (bEnable == true)
+    {
+        // clock require
+
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, true);
+
+        //todo:: here to do Merge Interface sgen
+        mAudioDigitalInstance->SetMrgI2SEnable(true, 44100);
+
+        SetDAIBTFtmAttribute();
+
+        mftmAudioDigitalControl->SetDAIBTEnable(true);
+
+        mAudioDigitalInstance->SetMrgBTSineGen(true);
+
+    }
+    else
+    {
+
+        mAudioDigitalInstance->SetMrgBTSineGen(false);
+
+        mftmAudioDigitalControl->SetDAIBTEnable(false);
+
+        mAudioDigitalInstance->SetMrgI2SEnable(false, 44100);
+
+        // clock release
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, false);
+        mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_ANA, false);
+    }
+    return true;
+}
+
+
+#endif
 int AudioFtm::Audio_READ_SPK_OC_STA(void)
 {
     uint32 regValue = mAudioAnalogReg->GetAnalogReg(SPK_CON6);
 
 #ifdef USING_CLASSD_AMP
     if (regValue & 0x8000)
+    {
         return true;
+    }
 #else
     if (regValue & 0x4000)
+    {
         return true;
+    }
 #endif
     return false;
 }
@@ -1346,5 +1629,177 @@ int AudioFtm::LouderSPKOCTest(char left_channel, char right_channel)
     // true => OC ,  false ==> no OC
     return Audio_READ_SPK_OC_STA();
 }
+
+int AudioFtm::HDMI_SineGenPlayback(bool bEnable, int dSamplingRate)
+{
+    ALOGD("HDMI_SineGenPlayback, bEnable:%d\n", bEnable);
+
+    if (bEnable)
+    {
+        RequestClock();
+        AudioDigtalI2S master_2nd_i2s_out_attribute;
+        memset((void *)&master_2nd_i2s_out_attribute, 0, sizeof(master_2nd_i2s_out_attribute));
+        master_2nd_i2s_out_attribute.mI2S_SAMPLERATE = dSamplingRate;
+        master_2nd_i2s_out_attribute.mINV_LRCK = AudioDigtalI2S::NO_INVERSE;
+        master_2nd_i2s_out_attribute.mI2S_FMT  = AudioDigtalI2S::I2S;
+#if defined(HDMI_2NDI2S_32BIT)
+        master_2nd_i2s_out_attribute.mI2S_WLEN = AudioDigtalI2S::WLEN_32BITS;
+#else
+        master_2nd_i2s_out_attribute.mI2S_WLEN = AudioDigtalI2S::WLEN_16BITS;
+#endif
+        mAudioDigitalInstance->Set2ndI2SOut(&master_2nd_i2s_out_attribute);
+        mAudioDigitalInstance->Set2ndI2SEnable(true);
+        mAudioDigitalInstance->EnableSideToneHw(AudioDigitalType::O00, false, true);
+        mAudioDigitalInstance->SetAfeEnable(true);
+    }
+    else
+    {
+        ReleaseClock();
+        mAudioDigitalInstance->EnableSideToneHw(AudioDigitalType::O00, false, false);
+        mAudioDigitalInstance->Set2ndI2SEnable(false);
+        mAudioDigitalInstance->SetAfeEnable(false);
+    }
+
+    return true;
+}
+
+/// Loopback
+int AudioFtm::PhoneMic_Receiver_Loopback(char echoflag)
+{
+    if (echoflag == MIC1_ON)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_MAIN_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_RECEIVER);
+    }
+    else if (echoflag == MIC2_ON)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_REF_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_RECEIVER);
+    }
+    else
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOff();
+    }
+    return true;
+}
+
+int AudioFtm::PhoneMic_EarphoneLR_Loopback(char echoflag)
+{
+    if (echoflag == MIC1_ON)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_MAIN_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_EARPHONE);
+    }
+    else if (echoflag == MIC2_ON)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_REF_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_EARPHONE);
+    }
+    else
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOff();
+    }
+    return true;
+}
+
+int AudioFtm::PhoneMic_SpkLR_Loopback(char echoflag)
+{
+    if (echoflag == MIC1_ON)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_MAIN_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_SPEAKER);
+    }
+    else if (echoflag == MIC2_ON)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_REF_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_SPEAKER);
+    }
+    else
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOff();
+    }
+    return true;
+}
+
+int AudioFtm::HeadsetMic_EarphoneLR_Loopback(char bEnable, char bHeadsetMic)
+{
+    if (bEnable)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_HEADSET_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_EARPHONE);
+    }
+    else
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOff();
+    }
+    return true;
+}
+
+
+int AudioFtm::HeadsetMic_SpkLR_Loopback(char echoflag)
+{
+    if (echoflag)
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOn(AP_HEADSET_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_SPEAKER);
+    }
+    else
+    {
+        LoopbackManager::GetInstance()->SetLoopbackOff();
+    }
+    return true;
+}
+
+int AudioFtm::PhoneMic_Receiver_Acoustic_Loopback(int Acoustic_Type, int *Acoustic_Status_Flag, int bHeadset_Output)
+{
+    ALOGD("PhoneMic_Receiver_Acoustic_Loopback Acoustic_Type=%d, headset_available=%d", Acoustic_Type, bHeadset_Output);
+    /*  Acoustic loopback
+    *   0: Dual mic (w/o DMNR)acoustic loopback off
+    *   1: Dual mic (w/o DMNR)acoustic loopback
+    *   2: Dual mic (w/  DMNR)acoustic loopback off
+    *   3: Dual mic (w/  DMNR)acoustic loopback
+    */
+
+    static LoopbackManager *pLoopbackManager = LoopbackManager::GetInstance();
+    loopback_output_device_t loopback_output_device;
+    if (bHeadset_Output == true)
+    {
+        loopback_output_device = LOOPBACK_OUTPUT_EARPHONE;
+    }
+    else
+    {
+        loopback_output_device = LOOPBACK_OUTPUT_RECEIVER; // default use receiver here
+    }
+
+
+
+    bool retval = true;
+    static int acoustic_status = 0;
+    switch (Acoustic_Type)
+    {
+        case ACOUSTIC_STATUS:
+            *Acoustic_Status_Flag = acoustic_status;
+            break;
+        case DUAL_MIC_WITHOUT_DMNR_ACS_OFF:
+            // close single mic acoustic loopback
+            pLoopbackManager->SetLoopbackOff();
+            acoustic_status = DUAL_MIC_WITHOUT_DMNR_ACS_OFF;
+            break;
+        case DUAL_MIC_WITHOUT_DMNR_ACS_ON:
+            // open dual mic acoustic loopback (w/o DMNR)
+            pLoopbackManager->SetLoopbackOn(MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR, loopback_output_device);
+            acoustic_status = DUAL_MIC_WITHOUT_DMNR_ACS_ON;
+            break;
+        case DUAL_MIC_WITH_DMNR_ACS_OFF:
+            // close dual mic acoustic loopback
+            pLoopbackManager->SetLoopbackOff();
+            acoustic_status = DUAL_MIC_WITH_DMNR_ACS_OFF;
+            break;
+        case DUAL_MIC_WITH_DMNR_ACS_ON:
+            // open dual mic acoustic loopback (w/ DMNR)
+            pLoopbackManager->SetLoopbackOn(MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR, loopback_output_device);
+            acoustic_status = DUAL_MIC_WITH_DMNR_ACS_ON;
+            break;
+        default:
+            break;
+    }
+
+    ALOGD("PhoneMic_Receiver_Acoustic_Loopback out -");
+
+    return retval;
+}
+
 
 }

@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 /*
 **
 ** Copyright 2008, The Android Open Source Project
@@ -94,43 +59,43 @@ int getDefaultStrobeNVRam_sub(void* data, int* ret_size)
 	//tuning para
 	p->tuningPara[0].yTar = 188;
 	p->tuningPara[0].antiIsoLevel = -5;
-	p->tuningPara[0].antiExpLevel = -5;
+	p->tuningPara[0].antiExpLevel = -8;
 	p->tuningPara[0].antiStrobeLevel = -10;
-	p->tuningPara[0].antiUnderLevel = -2;
-	p->tuningPara[0].antiOverLevel = 2;
-	p->tuningPara[0].foregroundLevel = 1;
+	p->tuningPara[0].antiUnderLevel = 0;
+	p->tuningPara[0].antiOverLevel = 3;
+	p->tuningPara[0].foregroundLevel = 3;
 	p->tuningPara[0].isRefAfDistance = 0;
-	p->tuningPara[0].accuracyLevel = -10;
+	p->tuningPara[0].accuracyLevel = 10;
 
 	p->tuningPara[1].yTar = 188;
 	p->tuningPara[1].antiIsoLevel = -5;
-	p->tuningPara[1].antiExpLevel = -5;
+	p->tuningPara[1].antiExpLevel = -8;
 	p->tuningPara[1].antiStrobeLevel = -10;
-	p->tuningPara[1].antiUnderLevel = -2;
-	p->tuningPara[1].antiOverLevel = 2;
-	p->tuningPara[1].foregroundLevel = 1;
+	p->tuningPara[1].antiUnderLevel = 0;
+	p->tuningPara[1].antiOverLevel = 3;
+	p->tuningPara[1].foregroundLevel = 3;
 	p->tuningPara[1].isRefAfDistance = 0;
-	p->tuningPara[1].accuracyLevel = -10;
+	p->tuningPara[1].accuracyLevel = 10;
 
 	p->tuningPara[2].yTar = 188;
 	p->tuningPara[2].antiIsoLevel = -5;
-	p->tuningPara[2].antiExpLevel = -5;
+	p->tuningPara[2].antiExpLevel = -8;
 	p->tuningPara[2].antiStrobeLevel = -10;
-	p->tuningPara[2].antiUnderLevel = -2;
-	p->tuningPara[2].antiOverLevel = 2;
-	p->tuningPara[2].foregroundLevel = 1;
+	p->tuningPara[2].antiUnderLevel = 0;
+	p->tuningPara[2].antiOverLevel = 3;
+	p->tuningPara[2].foregroundLevel = 3;
 	p->tuningPara[2].isRefAfDistance = 0;
-	p->tuningPara[2].accuracyLevel = -10;
+	p->tuningPara[2].accuracyLevel = 10;
 
 	p->tuningPara[3].yTar = 188;
 	p->tuningPara[3].antiIsoLevel = -5;
-	p->tuningPara[3].antiExpLevel = -5;
+	p->tuningPara[3].antiExpLevel = -8;
 	p->tuningPara[3].antiStrobeLevel = -10;
-	p->tuningPara[3].antiUnderLevel = -2;
-	p->tuningPara[3].antiOverLevel = 2;
-	p->tuningPara[3].foregroundLevel = 1;
+	p->tuningPara[3].antiUnderLevel = 0;
+	p->tuningPara[3].antiOverLevel = 3;
+	p->tuningPara[3].foregroundLevel = 3;
 	p->tuningPara[3].isRefAfDistance = 0;
-	p->tuningPara[3].accuracyLevel = -10;
+	p->tuningPara[3].accuracyLevel = 10;
 	//is eng level used (or by firmware)
 	p->isTorchEngUpdate =0;
 	p->isNormaEnglUpdate =0;

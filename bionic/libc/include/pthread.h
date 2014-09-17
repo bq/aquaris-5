@@ -151,7 +151,7 @@ int pthread_equal(pthread_t one, pthread_t two);
 
 int pthread_getschedparam(pthread_t thid, int * policy,
                           struct sched_param * param);
-int pthread_setschedparam(pthread_t thid, int poilcy,
+int pthread_setschedparam(pthread_t thid, int policy,
                           struct sched_param const * param);
 
 int pthread_mutexattr_init(pthread_mutexattr_t *attr);
@@ -310,13 +310,4 @@ extern void  __pthread_cleanup_pop(__pthread_cleanup_t*  c,
 } /* extern "C" */
 #endif
 
-/************ TO FIX ************/
-
-#define LONG_LONG_MAX __LONG_LONG_MAX__
-#define LONG_LONG_MIN (-__LONG_LONG_MAX__ - 1)
-/*******************************
- * Define we need pthread_atfork or not.
- * (Since in bionic libc, pthread_atfork() may cause deadlock in fork) 
- *******************************/
-#define SUPPORT_PTHREAD_ATFORK 1
 #endif /* _PTHREAD_H_ */

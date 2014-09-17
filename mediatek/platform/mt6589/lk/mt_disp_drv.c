@@ -150,14 +150,13 @@ void mt_disp_update(UINT32 x, UINT32 y, UINT32 width, UINT32 height)
     if(fb_isdirty)
     {
         fb_isdirty = 0;
-		MASKREG32(0x14011000,0x1,0x1);
-		MASKREG32(0x14011004,0x1,0x0);
-		
+        MASKREG32(0x14011000, 0x1, 0x1); //Enable DISP MUTEX0
+	    MASKREG32(0x14011004, 0x1, 0x0);
         LCD_CHECK_RET(LCD_LayerSetAddress(FB_LAYER - 1, (UINT32)fb_addr + fb_offset_logo * fb_size));
         printk("[wwy] hardware address = %x, fb_offset_logo = %d\n",(UINT32)fb_addr + fb_offset_logo * fb_size,fb_offset_logo);
         DISP_CHECK_RET(DISP_UpdateScreen(x, y, width, height));
         //wait reg update to set fb_offset_logo
-//        DISP_WaitRegUpdate();
+        DISP_WaitRegUpdate();
         fb_offset_logo = fb_offset_logo ? 0 : 3;
 
     }

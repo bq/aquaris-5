@@ -51,7 +51,7 @@
 #include "../camera/kd_camera_hw.h"
 
 #define LENS_I2C_BUSNUM 1
-static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("A5142AF", 0x6C)};
+static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("A5142AF", 0x1C)};
 
 #define A5142AF_DRVNAME "A5142AF"
 #define A5142AF_VCM_WRITE_ID           0x6C
@@ -78,9 +78,9 @@ static unsigned long g_u4A5142AF_MACRO = 1023;
 static unsigned long g_u4TargetPosition = 0;
 static unsigned long g_u4CurrPosition   = 0;
 
-extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
-extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
-extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
+//extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
+//extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
+//extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
 
 extern void A5142MIPI_write_cmos_sensor(kal_uint32 addr, kal_uint32 para);
 extern kal_uint16 A5142MIPI_read_cmos_sensor(kal_uint32 addr);
@@ -478,7 +478,7 @@ static struct platform_driver g_stA5142AF_Driver = {
 static int __init A5142AF_i2C_init(void)
 {
 	A5142AFDB("A5142AF_i2C_init\n");
- //i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
+ i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
     if(platform_driver_register(&g_stA5142AF_Driver)){
         A5142AFDB("failed to register A5142AF driver\n");
         return -ENODEV;

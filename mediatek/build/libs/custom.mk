@@ -1,38 +1,3 @@
-# Copyright Statement:
-#
-# This software/firmware and related documentation ("MediaTek Software") are
-# protected under relevant copyright laws. The information contained herein
-# is confidential and proprietary to MediaTek Inc. and/or its licensors.
-# Without the prior written permission of MediaTek inc. and/or its licensors,
-# any reproduction, modification, use or disclosure of MediaTek Software,
-# and information contained herein, in whole or in part, shall be strictly prohibited.
-#
-# MediaTek Inc. (C) 2010. All rights reserved.
-#
-# BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
-# THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
-# RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
-# AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
-# NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
-# SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
-# SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
-# THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
-# THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
-# CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
-# SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
-# STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
-# CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
-# AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
-# OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
-# MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
-#
-# The following software/firmware and/or related documentation ("MediaTek Software")
-# have been modified by MediaTek Inc. All revisions are subject to any receiver's
-# applicable license agreements with MediaTek Inc.
-
-
 # custom.mk - add supports for custom folder generation
 
 #internal functions supporting custom folder generation
@@ -43,11 +8,12 @@ $(2).delete:
 	@rm -rf $(2)
 endef
 
+# Only show message in custgen
 define .mtk.custom.generate-rule
 $(1): $(2)
 $(2): $(3)
-	@echo "[CUSTOM] copy $(3)"
-	@echo "           to $(2)"
+	@$(if $(filter 0,$(MAKELEVEL)),,echo "[CUSTOM] copy $(3)")
+	@$(if $(filter 0,$(MAKELEVEL)),,echo "           to $(2)")
 	@mkdir -p $(dir $(2))
 	@cp -f $(3) $(2)
 endef
@@ -72,13 +38,19 @@ $(strip \
   )) \
 )
 endef
-#  $(if $(filter $($(_custom.n)),$(_custom.v)),
-#    $1 $(firstword $(_custom.d))/$(_custom.f),
-#    $(if $(filter inc src,$(lastword $(_custom.d))),$1 $1,\
-#      $(if $($(_custom.n)),,$1 $1) \
-#  )) \
 
 define .mtk.custom.generate-folder-list
+$(strip $(eval _mtk_project_ :=$(subst ],,$(subst [, ,$(FULL_PROJECT)))) \
+$(eval _flvlist_     := $(strip $(subst +, ,$(word 2,$(_mtk_project_))))) \
+$(eval _prjlist_     := $(call .mtk.custom.split-project,$(subst .,/,$(word 1,$(_mtk_project_))))) \
+$(eval _fplist_     := $(foreach p,$(_prjlist_),$(foreach f,$(_flvlist_),$(p)[$(f)]))) \
+$(foreach d,$(_fplist_),\
+    $(if $(call wildcard2,$(addprefix $(MTK_ROOT_CUSTOM)/,$(d))),$(error $(d):Flavor project can not be used under $(MTK_ROOT_CUSTOM)),)) \
+$(eval _cust_list_   := $(if $(CUSTOMER),$(CUSTOMER))) \
+$(_prjlist_) $(_cust_list_) $(call lc,$(MTK_PLATFORM)) common)
+endef
+
+define .mtk.config.generate-folder-list
 $(strip $(eval _mtk_project_ :=$(subst ],,$(subst [, ,$(FULL_PROJECT)))) \
 $(eval _flvlist_     := $(strip $(subst +, ,$(word 2,$(_mtk_project_))))) \
 $(eval _prjlist_     := $(call .mtk.custom.split-project,$(subst .,/,$(word 1,$(_mtk_project_))))) \
@@ -130,11 +102,21 @@ $(if $(MTK_ROOT_CUSTOM),$(strip \
     $(if $(filter $(addprefix $(MTK_ROOT_CUSTOM_OUT)/,$(_custflist_)),$(_g_)),, \
       $(eval _custfgen  += $(_g_)) $(eval _custflist_ += $(f)) $(eval _custfmap_  += $(_g_):$(f)) \
   )),) \
+  $(if $(call wildcard2,$(MTK_ROOT_OUT)/DRVGEN), \
+    $(eval _files := $(filter-out $(_custflist_), \
+      $(patsubst $(MTK_ROOT_OUT)/DRVGEN/%,%,$(shell find -L $(MTK_ROOT_OUT)/DRVGEN -type d -name ".svn" -prune -o \( ! -name .\* \) -type f -print)))) \
+    $(foreach f,$(_files), \
+      $(eval _custfmap_ += $(MTK_ROOT_CUSTOM_OUT)/kernel/dct/$(f):$(MTK_ROOT_OUT)/DRVGEN/$(f)) \
+    ) \
+  ,) \
+  $(if $(call wildcard2,$(MTK_ROOT_OUT)/PTGEN/lk/partition.c), \
+    $(eval _custfmap_ += $(MTK_ROOT_CUSTOM_OUT)/lk/partition.c:$(MTK_ROOT_OUT)/PTGEN/lk/partition.c)\
+  ) \
   $(if $(call wildcard2,$(MTK_ROOT_CUSTOM_OUT)),\
-    $(foreach f,$(filter-out $(_custfgen) $(foreach f,$(_custfmap_),$(word 1,$(subst :, ,$f))),\
+    $(foreach f,$(filter-out $(_custfgen) $(foreach f,$(_custfmap_),$(word 1,$(subst :, ,$f))) $(MTK_ROOT_CUSTOM_OUT)/lk/logo/boot_logo,\
       $(shell find $(if $(2),$(addprefix $(MTK_ROOT_CUSTOM_OUT)/,$(2)),$(MTK_ROOT_CUSTOM_OUT)) \
         -type d -name ".svn" -prune -o \
-        ! \( -name '*.[oas]' -o -name '*.ko' -o -name '.*' -o -name '*.mod.c' -o -name '*.gcno' \
+        ! \( -name '*.[oasP]' -o -name '*.ko' -o -name '.*' -o -name '*.mod.c' -o -name '*.gcno' \
           -o -name 'modules.order' \) -type f -print 2> /dev/null)),\
       $(eval $(call .mtk.custom.delete-rule,$(1),$(f)))) \
   ,) \
@@ -157,17 +139,19 @@ endef
 #   they will be include in reversed MTK_CUSTOM_FOLDER order, e.g.,
 #     common/ProjectConfig.mk mtxxxx/ProjectConfig.mk prj/ProjectConfig.mk prj[flv]/ProjectConfig.mk
 # pre-do include and export Project configurations for initializing some basic variables (MTK_PLATFORM)
-MTK_CUSTOM_FOLDERS  := $(call .mtk.custom.generate-folder-list)
+MTK_CONFIG_FOLDERS  := $(call .mtk.config.generate-folder-list)
 MTK_PROJECT_CONFIGS := $(call wildcard2,$(foreach c,$(call reverse,$(addsuffix /ProjectConfig.mk,\
-    $(addprefix ../../config/,$(MTK_CUSTOM_FOLDERS)))),$(call relative-path,$(c))))
+    $(addprefix ../../config/,$(MTK_CONFIG_FOLDERS)))),$(call relative-path,$(c))))
 $(foreach p,$(MTK_PROJECT_CONFIGS),$(eval include $p))
 
 # update custom folder with platform
-# include and export Project configurations after updating MTK_CUSTOM_FOLDERS
-MTK_CUSTOM_FOLDERS  := $(call .mtk.custom.generate-folder-list)
+# include and export Project configurations after updating MTK_CONFIG_FOLDERS
+MTK_CONFIG_FOLDERS  := $(call .mtk.config.generate-folder-list)
 MTK_PROJECT_CONFIGS := $(call wildcard2,$(foreach c,$(call reverse,$(addsuffix /ProjectConfig.mk,\
-    $(addprefix ../../config/,$(MTK_CUSTOM_FOLDERS)))),$(call relative-path,$(c))))
+    $(addprefix ../../config/,$(MTK_CONFIG_FOLDERS)))),$(call relative-path,$(c))))
 $(foreach p,$(MTK_PROJECT_CONFIGS),$(eval include $p))
+
+MTK_CUSTOM_FOLDERS  := $(call .mtk.custom.generate-folder-list)
 # export all project defined variables
 # it is necessary to have MTK_PROJECT here, to prevent empty project file
 export_var :=
@@ -180,4 +164,4 @@ $(eval export $(export_var))
 # MTK_CUSTOM_FOLDER   : decomposed project name list. for example, for rp.v2[lca+multitouch] it will be
 #                       rp.v2[lca] rp.v2[multitouch] rp[lca] rp[multitouch] rp.v2 rp mtxxxx common
 # MTK_PROJECT_CONFIGS : pathmap of all used configurations
-export MTK_CUSTOM_FOLDERS MTK_PROJECT_CONFIGS
+export MTK_CUSTOM_FOLDERS MTK_CONFIG_FOLDERS MTK_PROJECT_CONFIGS

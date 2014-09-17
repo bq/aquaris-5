@@ -54,7 +54,7 @@
 #define FREEIF(p)   do { if(p) free(p); p = NULL; } while(0)
 
 static const char DRIVER_MODULE_NAME[]  = WIFI_DRV_MOD_NAME;
-static const char DRIVER_MODULE_TAG[]   = WIFI_DRV_MOD_NAME " ";
+static const char DRIVER_MODULE_TAG[]   = WIFI_DRV_MOD_NAME;
 static const char DRIVER_MODULE_ARG[]   = WIFI_DRV_MOD_ARG;
 static const char DRIVER_MODULE_PATH[]  = WIFI_DRV_MOD_PATH;
 static const char MODULE_FILE[]         = "/proc/modules";
@@ -252,6 +252,10 @@ static int wifi_rmmod(const char *modname)
 
 static int wifi_is_loaded(void) 
 {
+/*ALPS01365086: [Case Fail][KK] SP meta tool show " Open Wifi fail, Read MCR fail" while open SP meta- Wi-Fi tool*/
+#if 1
+    return 1;
+#else
     FILE *proc;
     char line[sizeof(DRIVER_MODULE_TAG)+10];
 
@@ -267,6 +271,7 @@ static int wifi_is_loaded(void)
     }
     fclose(proc);
     return 0;
+#endif
 }
 
 void META_WIFI_Register(WIFI_CNF_CB callback)
@@ -282,7 +287,7 @@ int META_WIFI_init(void)
     	ERR("wifi is already initilized.\n");
     	return true;
     }
-#if 0
+
     if (!wifi_is_loaded()){
         ERR("[META_WIFI] loading wifi driver ... ...\n");    	
         if (wifi_insmod(DRIVER_MODULE_PATH, DRIVER_MODULE_ARG) < 0) {
@@ -290,7 +295,7 @@ int META_WIFI_init(void)
             goto error;
         }
     }
-#endif    
+
     usleep(200000); 
 		
     wifi_set_power(1);

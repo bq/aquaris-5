@@ -373,8 +373,6 @@ static int LIS33DH_SetDataResolution(struct lis33dh_i2c_data *obj)
 	}
 }
 /*----------------------------------------------------------------------------*/
-#define I2C_AUTO_INCREMENT 0x80
-
 static int LIS33DH_ReadData(struct i2c_client *client, s16 data[LIS33DH_AXES_NUM])
 {
 	struct lis33dh_i2c_data *priv = i2c_get_clientdata(client);        
@@ -389,64 +387,48 @@ static int LIS33DH_ReadData(struct i2c_client *client, s16 data[LIS33DH_AXES_NUM
 	
 	else
 	{
-#if 1		
-		if(hwmsen_read_block(client, (I2C_AUTO_INCREMENT | LIS33DH_REG_OUT_X), buf, 0x06))
-		{
-			GSE_ERR("read  G sensor data register error: %d\n", err);
-			return -1;
-		}
-		else
-		{
-			GSE_ERR("read  G sensor data register sucssful\n");
-		}
-
-		data[LIS33DH_AXIS_X] = (s16)((buf[0]+(buf[1]<<8))>>4);
-		data[LIS33DH_AXIS_Y] =  (s16)((s16)(buf[2] +( buf[3]<<8))>>4);
-		data[LIS33DH_AXIS_Z] =(s16)((buf[4]+(buf[5]<<8))>>4);
-#else		
-		
-		if(hwmsen_read_block(client, LIS33DH_REG_OUT_X, buf, 0x01))
+		if(hwmsen_read_block(client, LIS33DH_REG_OUT_X | 0x80, buf, 0x06))
 	    {
 		   GSE_ERR("read  G sensor data register err!\n");
 		     return -1;
 	    }
-		if(hwmsen_read_block(client, LIS33DH_REG_OUT_X+1, &buf[1], 0x01))
+	//	if(hwmsen_read_block(client, LIS33DH_REG_OUT_X+1, &buf[1], 0x01))
 	    {
-		   GSE_ERR("read  G sensor data register err!\n");
-		     return -1;
+	//	   GSE_ERR("read  G sensor data register err!\n");
+	//	     return -1;
 	    }
 		
 	    data[LIS33DH_AXIS_X] = (s16)((buf[0]+(buf[1]<<8))>>4);
-	if(hwmsen_read_block(client, LIS33DH_REG_OUT_Y, &buf[2], 0x01))
+	//if(hwmsen_read_block(client, LIS33DH_REG_OUT_Y, &buf[2], 0x01))
 	    {
-		   GSE_ERR("read  G sensor data register err!\n");
-		     return -1;
+	//	   GSE_ERR("read  G sensor data register err!\n");
+	//	     return -1;
 	    }
-	if(hwmsen_read_block(client, LIS33DH_REG_OUT_Y+1, &buf[3], 0x01))
+	//if(hwmsen_read_block(client, LIS33DH_REG_OUT_Y+1, &buf[3], 0x01))
 	    {
-		   GSE_ERR("read  G sensor data register err!\n");
-		     return -1;
+	//	   GSE_ERR("read  G sensor data register err!\n");
+	//	     return -1;
 	    }
 		
 	    data[LIS33DH_AXIS_Y] =  (s16)((s16)(buf[2] +( buf[3]<<8))>>4);
 		
-	if(hwmsen_read_block(client, LIS33DH_REG_OUT_Z, &buf[4], 0x01))
+	//if(hwmsen_read_block(client, LIS33DH_REG_OUT_Z, &buf[4], 0x01))
 	    {
-		   GSE_ERR("read  G sensor data register err!\n");
-		     return -1;
+	//	   GSE_ERR("read  G sensor data register err!\n");
+	//	     return -1;
 	    }
 
-	if(hwmsen_read_block(client, LIS33DH_REG_OUT_Z+1, &buf[5], 0x01))
+	//if(hwmsen_read_block(client, LIS33DH_REG_OUT_Z+1, &buf[5], 0x01))
 	    {
-		   GSE_ERR("read  G sensor data register err!\n");
-		     return -1;
+	//	   GSE_ERR("read  G sensor data register err!\n");
+	//	     return -1;
 	    }
 		
 	    data[LIS33DH_AXIS_Z] =(s16)((buf[4]+(buf[5]<<8))>>4);
 
 	//GSE_LOG("[%08X %08X %08X %08x %08x %08x]\n",buf[0],buf[1],buf[2],buf[3],buf[4],buf[5]);
 
-#endif	
+	
 		data[LIS33DH_AXIS_X] &= 0xfff;
 		data[LIS33DH_AXIS_Y] &= 0xfff;
 		data[LIS33DH_AXIS_Z] &= 0xfff;
@@ -737,7 +719,7 @@ static int LIS33DH_SetDataFormat(struct i2c_client *client, u8 dataformat)
 	databuf[0] &= ~0x30;
 	databuf[0] |=dataformat;
 
-	databuf[1] = databuf[0];
+	databuf[1] = databuf[0] | 0x88;
 	databuf[0] = LIS33DH_REG_CTL_REG4;
 	
 
@@ -837,6 +819,7 @@ static int LIS33DH_Init(struct i2c_client *client, int reset_cali)
 		return res;
 	}
 	
+
 	res = LIS33DH_SetBWRate(client, LIS33DH_BW_25HZ);
 	if(res != LIS33DH_SUCCESS )
 	{
@@ -1296,7 +1279,6 @@ static int lis33dh_gsensor_operate(void* self, uint32_t command, void* buff_in, 
 			}
 			else
 			{
-
 				
 				err = LIS33DH_SetBWRate(priv->client, LIS33DH_BW_25HZ);
 				if(err != LIS33DH_SUCCESS )

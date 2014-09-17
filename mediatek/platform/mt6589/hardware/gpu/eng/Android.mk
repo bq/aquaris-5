@@ -1,10 +1,6 @@
 LOCAL_PATH := $(my-dir)
 
-ifneq ($(MTK_TABLET_HARDWARE), )
-MTCHIP = $(shell echo $(MTK_TABLET_HARDWARE) | tr A-Z a-z )
-else
 MTCHIP = $(shell echo $(MTK_PLATFORM) | tr A-Z a-z )
-endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := pvrsrvctl
@@ -45,6 +41,8 @@ LOCAL_MODULE_CLASS := MODULE
 LOCAL_MODULE_PATH := $(TARGET_OUT)/vendor/lib/hw
 LOCAL_SRC_FILES := gralloc.mt6589.so
 include $(BUILD_PREBUILT)
+
+include $(MTK_ROOT)/tablet/symlink.mk
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libusc.so

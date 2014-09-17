@@ -48,8 +48,6 @@ extern "C" {
 #define MMC_BLOCK_SIZE                  (1 << MMC_BLOCK_BITS)
 #define MMC_MAX_BLOCK_SIZE              (1 << MMC_BLOCK_BITS)
 
-#define SDIO_MAX_FUNCS                  (7)
-
 #define SD_CMD_BIT                      (1 << 7)
 #define SD_CMD_APP_BIT                  (1 << 8)
 #define SD_CMD_AUTO_BIT                 (1 << 9)
@@ -124,30 +122,30 @@ extern "C" {
 #define SD_ATOCMD_STOP_TRANSMISSION     (12 | SD_CMD_AUTO_BIT)
 #define SD_ATOCMD_SET_BLOCK_COUNT       (23 | SD_CMD_AUTO_BIT)
 
-#define MMC_VDD_145_150	0x00000001	/* VDD voltage 1.45 - 1.50 */
-#define MMC_VDD_150_155	0x00000002	/* VDD voltage 1.50 - 1.55 */
-#define MMC_VDD_155_160	0x00000004	/* VDD voltage 1.55 - 1.60 */
-#define MMC_VDD_160_165	0x00000008	/* VDD voltage 1.60 - 1.65 */
-#define MMC_VDD_165_170	0x00000010	/* VDD voltage 1.65 - 1.70 */
-#define MMC_VDD_17_18	0x00000020	/* VDD voltage 1.7 - 1.8 */
-#define MMC_VDD_18_19	0x00000040	/* VDD voltage 1.8 - 1.9 */
-#define MMC_VDD_19_20	0x00000080	/* VDD voltage 1.9 - 2.0 */
-#define MMC_VDD_20_21	0x00000100	/* VDD voltage 2.0 ~ 2.1 */
-#define MMC_VDD_21_22	0x00000200	/* VDD voltage 2.1 ~ 2.2 */
-#define MMC_VDD_22_23	0x00000400	/* VDD voltage 2.2 ~ 2.3 */
-#define MMC_VDD_23_24	0x00000800	/* VDD voltage 2.3 ~ 2.4 */
-#define MMC_VDD_24_25	0x00001000	/* VDD voltage 2.4 ~ 2.5 */
-#define MMC_VDD_25_26	0x00002000	/* VDD voltage 2.5 ~ 2.6 */
-#define MMC_VDD_26_27	0x00004000	/* VDD voltage 2.6 ~ 2.7 */
-#define MMC_VDD_27_28	0x00008000	/* VDD voltage 2.7 ~ 2.8 */
-#define MMC_VDD_28_29	0x00010000	/* VDD voltage 2.8 ~ 2.9 */
-#define MMC_VDD_29_30	0x00020000	/* VDD voltage 2.9 ~ 3.0 */
-#define MMC_VDD_30_31	0x00040000	/* VDD voltage 3.0 ~ 3.1 */
-#define MMC_VDD_31_32	0x00080000	/* VDD voltage 3.1 ~ 3.2 */
-#define MMC_VDD_32_33	0x00100000	/* VDD voltage 3.2 ~ 3.3 */
-#define MMC_VDD_33_34	0x00200000	/* VDD voltage 3.3 ~ 3.4 */
-#define MMC_VDD_34_35	0x00400000	/* VDD voltage 3.4 ~ 3.5 */
-#define MMC_VDD_35_36	0x00800000	/* VDD voltage 3.5 ~ 3.6 */
+#define MSDC_VDD_35_36	0x00800000	/* VDD voltage 3.5 ~ 3.6 */
+#define MSDC_VDD_34_35	0x00400000	/* VDD voltage 3.4 ~ 3.5 */
+#define MSDC_VDD_33_34	0x00200000	/* VDD voltage 3.3 ~ 3.4 */
+#define MSDC_VDD_32_33	0x00100000	/* VDD voltage 3.2 ~ 3.3 */
+#define MSDC_VDD_31_32	0x00080000	/* VDD voltage 3.1 ~ 3.2 */
+#define MSDC_VDD_30_31	0x00040000	/* VDD voltage 3.0 ~ 3.1 */
+#define MSDC_VDD_29_30	0x00020000	/* VDD voltage 2.9 ~ 3.0 */
+#define MSDC_VDD_28_29	0x00010000	/* VDD voltage 2.8 ~ 2.9 */
+#define MSDC_VDD_27_28	0x00008000	/* VDD voltage 2.7 ~ 2.8 */
+#define MSDC_VDD_26_27	0x00004000	/* VDD voltage 2.6 ~ 2.7 */
+#define MSDC_VDD_25_26	0x00002000	/* VDD voltage 2.5 ~ 2.6 */
+#define MSDC_VDD_24_25	0x00001000	/* VDD voltage 2.4 ~ 2.5 */
+#define MSDC_VDD_23_24	0x00000800	/* VDD voltage 2.3 ~ 2.4 */
+#define MSDC_VDD_22_23	0x00000400	/* VDD voltage 2.2 ~ 2.3 */
+#define MSDC_VDD_21_22	0x00000200	/* VDD voltage 2.1 ~ 2.2 */
+#define MSDC_VDD_20_21	0x00000100	/* VDD voltage 2.0 ~ 2.1 */
+#define MSDC_VDD_19_20	0x00000080	/* VDD voltage 1.9 - 2.0 */
+#define MSDC_VDD_18_19	0x00000040	/* VDD voltage 1.8 - 1.9 */
+#define MSDC_VDD_17_18	0x00000020	/* VDD voltage 1.7 - 1.8 */
+#define MSDC_VDD_165_170	0x00000010	/* VDD voltage 1.65 - 1.70 */
+#define MSDC_VDD_160_165	0x00000008	/* VDD voltage 1.60 - 1.65 */
+#define MSDC_VDD_155_160	0x00000004	/* VDD voltage 1.55 - 1.60 */
+#define MSDC_VDD_150_155	0x00000002	/* VDD voltage 1.50 - 1.55 */
+#define MSDC_VDD_145_150	0x00000001	/* VDD voltage 1.45 - 1.50 */
 #define MMC_CARD_BUSY	0x80000000	/* Card Power up status bit */
 
 #define MMC_ERR_NONE          0
@@ -185,56 +183,56 @@ extern "C" {
 #define MMC_STATE_UHS1          (1<<5)      /* card is in ultra high speed mode */
 #define MMC_STATE_DDR           (1<<6)      /* card is in ddr mode */
 
-#define R1_OUT_OF_RANGE         (1UL << 31) /* er, c */
-#define R1_ADDRESS_ERROR        (1 << 30)   /* erx, c */
-#define R1_BLOCK_LEN_ERROR      (1 << 29)   /* er, c */
-#define R1_ERASE_SEQ_ERROR      (1 << 28)   /* er, c */
-#define R1_ERASE_PARAM          (1 << 27)   /* ex, c */
-#define R1_WP_VIOLATION         (1 << 26)   /* erx, c */
-#define R1_CARD_IS_LOCKED       (1 << 25)   /* sx, a */
-#define R1_LOCK_UNLOCK_FAILED   (1 << 24)   /* erx, c */
-#define R1_COM_CRC_ERROR        (1 << 23)   /* er, b */
-#define R1_ILLEGAL_COMMAND      (1 << 22)   /* er, b */
-#define R1_CARD_ECC_FAILED      (1 << 21)   /* ex, c */
-#define R1_CC_ERROR             (1 << 20)   /* erx, c */
-#define R1_ERROR                (1 << 19)   /* erx, c */
-#define R1_UNDERRUN             (1 << 18)   /* ex, c */
-#define R1_OVERRUN              (1 << 17)   /* ex, c */
-#define R1_CID_CSD_OVERWRITE    (1 << 16)   /* erx, c, CID/CSD overwrite */
-#define R1_WP_ERASE_SKIP        (1 << 15)   /* sx, c */
-#define R1_CARD_ECC_DISABLED    (1 << 14)   /* sx, a */
-#define R1_ERASE_RESET          (1 << 13)   /* sr, c */
-#define R1_STATUS(x)            (x & 0xFFFFE000)
-#define R1_CURRENT_STATE(x)     ((x & 0x00001E00) >> 9) /* sx, b (4 bits) */
-#define R1_READY_FOR_DATA       (1 << 8)    /* sx, a */
-#define R1_SWITCH_ERROR         (1 << 7)    /* ex, b */
-#define R1_URGENT_BKOPS         (1 << 6)    /* sr, a */
-#define R1_APP_CMD              (1 << 5)    /* sr, c */
+#define STA_OUT_OF_RANGE         (1UL << 31) /* er, c */
+#define STA_ADDRESS_ERROR        (1 << 30)   /* erx, c */
+#define STA_BLOCK_LEN_ERROR      (1 << 29)   /* er, c */
+#define STA_ERASE_SEQ_ERROR      (1 << 28)   /* er, c */
+#define STA_ERASE_PARAM          (1 << 27)   /* ex, c */
+#define STA_WP_VIOLATION         (1 << 26)   /* erx, c */
+#define STA_CARD_IS_LOCKED       (1 << 25)   /* sx, a */
+#define STA_LOCK_UNLOCK_FAILED   (1 << 24)   /* erx, c */
+#define STA_COM_CRC_ERROR        (1 << 23)   /* er, b */
+#define STA_ILLEGAL_COMMAND      (1 << 22)   /* er, b */
+#define STA_CARD_ECC_FAILED      (1 << 21)   /* ex, c */
+#define STA_CC_ERROR             (1 << 20)   /* erx, c */
+#define STA_ERROR                (1 << 19)   /* erx, c */
+#define STA_UNDERRUN             (1 << 18)   /* ex, c */
+#define STA_OVERRUN              (1 << 17)   /* ex, c */
+#define STA_CID_CSD_OVERWRITE    (1 << 16)   /* erx, c, CID/CSD overwrite */
+#define STA_WP_ERASE_SKIP        (1 << 15)   /* sx, c */
+#define STA_CARD_ECC_DISABLED    (1 << 14)   /* sx, a */
+#define STA_ERASE_RESET          (1 << 13)   /* sr, c */
+#define STA_STATUS(x)            (x & 0xFFFFE000)
+#define STA_CURRENT_STATE(x)     ((x & 0x00001E00) >> 9) /* sx, b (4 bits) */
+#define STA_READY_FOR_DATA       (1 << 8)    /* sx, a */
+#define STA_SWITCH_ERROR         (1 << 7)    /* ex, b */
+#define STA_URGENT_BKOPS         (1 << 6)    /* sr, a */
+#define STA_APP_CMD              (1 << 5)    /* sr, c */
 
 /*
  * Card Command Classes (CCC)
  */
-#define CCC_BASIC               (1<<0)  /* (0) Basic protocol functions */
+#define MMC_CCC_BASIC               (1<<0)  /* (0) Basic protocol functions */
                                         /* (CMD0,1,2,3,4,7,9,10,12,13,15) */
-#define CCC_STREAM_READ         (1<<1)  /* (1) Stream read commands */
+#define MMC_CCC_STREAM_READ         (1<<1)  /* (1) Stream read commands */
                                         /* (CMD11) */
-#define CCC_BLOCK_READ          (1<<2)  /* (2) Block read commands */
+#define MMC_CCC_BLOCK_READ          (1<<2)  /* (2) Block read commands */
                                         /* (CMD16,17,18) */
-#define CCC_STREAM_WRITE        (1<<3)  /* (3) Stream write commands */
+#define MMC_CCC_STREAM_WRITE        (1<<3)  /* (3) Stream write commands */
                                         /* (CMD20) */
-#define CCC_BLOCK_WRITE         (1<<4)  /* (4) Block write commands */
+#define MMC_CCC_BLOCK_WRITE         (1<<4)  /* (4) Block write commands */
                                         /* (CMD16,24,25,26,27) */
-#define CCC_ERASE               (1<<5)  /* (5) Ability to erase blocks */
+#define MMC_CCC_ERASE               (1<<5)  /* (5) Ability to erase blocks */
                                         /* (CMD32,33,34,35,36,37,38,39) */
-#define CCC_WRITE_PROT          (1<<6)  /* (6) Able to write protect blocks */
+#define MMC_CCC_WRITE_PROT          (1<<6)  /* (6) Able to write protect blocks */
                                         /* (CMD28,29,30) */
-#define CCC_LOCK_CARD           (1<<7)  /* (7) Able to lock down card */
+#define MMC_CCC_LOCK_CARD           (1<<7)  /* (7) Able to lock down card */
                                         /* (CMD16,CMD42) */
-#define CCC_APP_SPEC            (1<<8)  /* (8) Application specific */
+#define MMC_CCC_APP_SPEC            (1<<8)  /* (8) Application specific */
                                         /* (CMD55,56,57,ACMD*) */
-#define CCC_IO_MODE             (1<<9)  /* (9) I/O mode */
+#define MMC_CCC_IO_MODE             (1<<9)  /* (9) I/O mode */
                                         /* (CMD5,39,40,52,53) */
-#define CCC_SWITCH              (1<<10) /* (10) High speed switch */
+#define MMC_CCC_SWITCH              (1<<10) /* (10) High speed switch */
                                         /* (CMD6,34,35,36,37,50) */
                                         /* (11) Reserved */
                                         /* (CMD?) */
@@ -664,60 +662,7 @@ struct sd_switch_caps {
     unsigned int    max_cur;
 };
 
-struct sdio_cccr {
-    unsigned int    sdio_vsn;
-    unsigned int    sd_vsn;
-    unsigned int    multi_block:1,
-                    low_speed:1,
-                    wide_bus:1,
-                    high_power:1,
-                    high_speed:1,
-                    intr_multi_block:1;
-};
-
-/* SDIO function CIS tuple (unknown to the core) */
-struct sdio_func_tuple {
-    struct sdio_func_tuple *next;
-    unsigned char code;
-    unsigned char size;
-    unsigned char data[1];
-};
-
-struct sdio_func;
-typedef void (sdio_irq_handler_t)(struct sdio_func *);
 typedef void (*hw_irq_handler_t)(void);
-
-/* SDIO function devices */
-struct sdio_func {
-    struct mmc_card *card;          /* the card this device belongs to */
-    sdio_irq_handler_t *irq_handler;/* IRQ callback */
-    unsigned int     num;           /* function number */
-
-    unsigned char    class;         /* standard interface class */
-    unsigned short   vendor;        /* vendor id */
-    unsigned short   device;        /* device id */
-
-    unsigned int     max_blksize;   /* maximum block size */
-    unsigned int     cur_blksize;   /* current block size */
-
-    unsigned int     enable_timeout;/* max enable timeout in msec */
-
-    unsigned int     state;         /* function state */
-
-    u8               tmpbuf[4];     /* DMA:able scratch buffer */
-
-    unsigned int     num_info;      /* number of info strings */
-    const char     **info;          /* info strings */
-
-    struct sdio_func_tuple *tuples;
-};
-
-struct sdio_cis {
-    unsigned short      vendor;
-    unsigned short      device;
-    unsigned short      blksize;
-    unsigned int        max_dtr;
-};
 
 #define MMC_CAP_4_BIT_DATA      (1 << 0) /* Can the host do 4 bit transfers */
 #define MMC_CAP_MULTIWRITE      (1 << 1) /* Can accurately report bytes sent to card on error */
@@ -774,7 +719,6 @@ struct mmc_card {
     unsigned int            uhs_mode;
     unsigned int            rca;        /* relative card address of device */
     unsigned int            type;       /* card type */
-    unsigned int            sdio_funcs; /* number of SDIO functions */
     unsigned short          state;      /* (our) card state */
     unsigned short          ready;      /* card is ready or not */
     u32                     raw_cid[4]; /* raw card CID */
@@ -786,14 +730,6 @@ struct mmc_card {
     struct mmc_ext_csd      ext_csd;    /* mmc v4 extended card specific */
     struct sd_scr           scr;        /* extra SD information */
     struct sd_switch_caps   sw_caps;    /* switch (CMD6) caps */
-#ifdef FEATURE_MMC_SDIO
-    struct sdio_cccr        cccr;       /* common card info */
-    struct sdio_cis         cis;        /* common tuple info */
-    struct sdio_func       *io_func[SDIO_MAX_FUNCS]; /* SDIO functions (devices) */
-    struct sdio_func_tuple *tuples;     /* unknown common tuples */
-    unsigned int            num_info;   /* number of info strings */
-    const char            **info;       /* info strings */
-#endif
 };
 
 struct mmc_command {

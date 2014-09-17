@@ -200,14 +200,14 @@ S32 pwrap_write( U32  adr, U32  wdata )
 //--------------------------------------------------------
 S32 pwrap_wacs2( U32  write, U32  adr, U32  wdata, U32 *rdata )
 {
-  U64 wrap_access_time=0x0;
-  U32 res=0;
+  //U64 wrap_access_time=0x0;
+  //U32 res=0;
   U32 reg_rdata=0;
   U32 wacs_write=0;
   U32 wacs_adr=0;
   U32 wacs_cmd=0;
   U32 return_value=0;
-  unsigned long flags=0;
+  //unsigned long flags=0;
   //struct pmic_wrap_obj *pwrap_obj = g_pmic_wrap_obj;
   //if (!pwrap_obj)
   //      PWRAPERR("NULL pointer\n");
@@ -252,7 +252,13 @@ S32 pwrap_wacs2( U32  write, U32  adr, U32  wdata, U32 *rdata )
   }
 FAIL:
   //spin_unlock_irqrestore(&pwrap_obj->spin_lock,flags);
-  wrap_access_time=_pwrap_get_current_time();
+  if(return_value!=0)
+  {
+    PWRAPERR("pwrap_wacs2 fail,return_value=%d\n",return_value);
+    PWRAPERR("timeout:BUG_ON here\n");
+    //BUG_ON(1);
+  }
+  //wrap_access_time=_pwrap_get_current_time();
   //pwrap_trace(wrap_access_time,return_value,write, adr, wdata,rdata);
   return return_value;
 }
@@ -367,7 +373,7 @@ static S32 _pwrap_init_cipher( void )
 {
   U32 arb_en_backup=0;
   U32 rdata=0;
-  U32 cipher_rdy=0;
+  //U32 cipher_rdy=0;
   U32 return_value=0;
   //struct pmic_wrap_obj *pwrap_obj = g_pmic_wrap_obj;
   U32 start_time_ns=0, timeout_ns=0;
@@ -531,7 +537,7 @@ static S32 _pwrap_init_sidly( void )
 //--------------------------------------------------------
 static S32 _pwrap_reset_spislv( void )
 {
-  U32 rdata=0;
+  //U32 rdata=0;
   U32 ret=0;
   U32 return_value=0;
   //struct pmic_wrap_obj *pwrap_obj = g_pmic_wrap_obj;
@@ -579,7 +585,7 @@ static S32 _pwrap_init_reg_clock( U32 regck_sel )
   pwrap_read_nochk(PMIC_TOP_CKCON2,&rdata);
 
   if( regck_sel == 1 )
-    wdata = rdata & ~(0x3<<10) | (0x1<<10);
+    wdata = (rdata & ~(0x3<<10)) | (0x1<<10);
   else
     wdata = rdata & ~(0x3<<10);
 
@@ -617,7 +623,7 @@ S32 pwrap_init ( void )
 {
   S32 sub_return=0;
   S32 sub_return1=0;
-  S32 ret=0;
+  //S32 ret=0;
   U32 rdata=0x0;
   //U32 timeout=0;
   PWRAPFUC();

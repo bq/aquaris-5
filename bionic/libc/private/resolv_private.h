@@ -54,13 +54,15 @@
 #ifndef _RESOLV_PRIVATE_H_
 #define	_RESOLV_PRIVATE_H_
 
+#include <sys/cdefs.h>
+
 #include <resolv.h>
 #include "resolv_static.h"
+#include <net/if.h>
 
-#include "logd.h"
+#include "libc_logging.h"
 #define debug_log(format, ...)  \
-    __libc_android_log_print(ANDROID_LOG_DEBUG, "libc-netbsd", (format), ##__VA_ARGS__ )
-
+    __libc_format_log(ANDROID_LOG_DEBUG, "libc-netbsd", (format), ##__VA_ARGS__ )
 /*
  * Revision information.  This is the release date in YYYYMMDD format.
  * It can change every day so the right thing to do with it is use it
@@ -127,7 +129,7 @@ struct res_sym {
 /*
  * Global defines and variables for resolver stub.
  */
-#define	MAXNS			3	/* max # name servers we'll track */
+#define	MAXNS			5	/* max # name servers we'll track */
 #define	MAXDFLSRCH		3	/* # default domain levels to try */
 #define	MAXDNSRCH		6	/* max # domains in search path */
 #define	LOCALDOMAINPARTS	2	/* min levels in name that is "local" */
@@ -143,6 +145,7 @@ struct res_sym {
 struct __res_state_ext;
 
 struct __res_state {
+	char	iface[IF_NAMESIZE+1];
 	int	retrans;	 	/* retransmission time interval */
 	int	retry;			/* number of times to retransmit */
 #ifdef sun
@@ -175,6 +178,7 @@ struct __res_state {
 	res_send_qhook qhook;		/* query hook */
 	res_send_rhook rhook;		/* response hook */
 	int	res_h_errno;		/* last one set for this context */
+	int _mark;          /* If non-0 SET_MARK to _mark on all request sockets */
 	int	_vcsock;		/* PRIVATE: for res_send VC i/o */
 	u_int	_flags;			/* PRIVATE: see below */
 	u_int	_pad;			/* make _u 64 bit aligned */
@@ -345,12 +349,9 @@ extern const struct res_sym __p_type_syms[];
 extern const struct res_sym __p_rcode_syms[];
 #endif /* SHARED_LIBBIND */
 
-#ifndef ADNROID_CHANGES
-#define b64_ntop		__b64_ntop
-#define b64_pton		__b64_pton
-#endif
-
+#ifndef ANDROID_CHANGES
 #define dn_comp			__dn_comp
+#endif
 #define dn_count_labels		__dn_count_labels
 #define dn_skipname		__dn_skipname
 #define fp_resstat		__fp_resstat
@@ -445,9 +446,6 @@ const u_char *	p_fqname(const u_char *, const u_char *, FILE *);
 const char *	p_option(u_long);
 char *		p_secstodate(u_long);
 int		dn_count_labels(const char *);
-int		dn_comp(const char *, u_char *, int, u_char **, u_char **);
-int		dn_expand(const u_char *, const u_char *, const u_char *,
-			       char *, int);
 u_int		res_randomid(void);
 int		res_nameinquery(const char *, int, int, const u_char *,
 				     const u_char *);
@@ -495,7 +493,8 @@ void		res_setservers(res_state,
 int		res_getservers(res_state,
 				    union res_sockaddr_union *, int);
 
-int res_get_dns_changed();
+void res_setiface();
+void res_setmark();
 u_int  res_randomid(void);
 
 __END_DECLS

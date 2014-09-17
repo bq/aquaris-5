@@ -92,6 +92,7 @@
 
 #include "WM2Linux.h"
 #include "meta.h"
+#include "FT_Public.h"
 
 #define  MAX_TST_TX_BUFFER_LENGTH            (4096*8)
 
@@ -102,9 +103,13 @@ extern "C" {
 
 //the standard stream interface of ft module's
 int   FTT_Init( int dwContext);
+int FT_Module_Init(int device_note);
 void FT_DispatchMessage(void *pLocalBuf, void *pPeerBuf, int local_len, int peer_len);
 int    FTT_Deinit( int hDeviceContext );
 void FTMuxPrimitiveData(META_RX_DATA *pMuxBuf);
+int FT_GetDumpLogState();
+int FT_GetModemType(int * active_modem_id, int * modem_type);
+int FT_GetModemCapability(MODEM_CAPABILITY_LIST * modem_capa);
 
 #ifdef __cplusplus
 }

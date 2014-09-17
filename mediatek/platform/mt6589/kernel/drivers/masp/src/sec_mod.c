@@ -1,44 +1,10 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- *
- * MediaTek Inc. (C) 2011. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 /******************************************************************************
  *  INCLUDE LINUX HEADER
  ******************************************************************************/
 #include <linux/kernel.h> 
 #include <linux/module.h> 
 #include <linux/init.h> 
+#include <linux/moduleparam.h>
 #include <linux/slab.h> 
 #include <linux/unistd.h> 
 #include <linux/sched.h> 
@@ -70,6 +36,7 @@
  ******************************************************************************/
 #include <mach/sec_osal.h>
 #include "sec_mod.h"
+#include "sec_boot_core.h"
 
 #define SEC_DEV_NAME                "sec"
 #define SEC_MAJOR                   182
@@ -89,27 +56,6 @@ extern struct semaphore             hacc_sem;
  **************************************************************************/
 static struct sec_mod sec           = {0};
 static struct cdev                  sec_dev;
-
-#if 0
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36))
-    DECLARE_MUTEX(hacc_sem);           
-    DECLARE_MUTEX(mtd_sem);           
-    DECLARE_MUTEX(rid_sem);             
-    DECLARE_MUTEX(sec_mm_sem);         
-    DECLARE_MUTEX(osal_fp_sem);                      
-#else // (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36))        
-    DEFINE_SEMAPHORE(hacc_sem);
-    DEFINE_SEMAPHORE(mtd_sem);
-    DEFINE_SEMAPHORE(rid_sem);    
-    DEFINE_SEMAPHORE(sec_mm_sem);   
-    DEFINE_SEMAPHORE(osal_fp_sem);            
-#endif
-EXPORT_SYMBOL(hacc_sem);
-EXPORT_SYMBOL(mtd_sem);
-EXPORT_SYMBOL(rid_sem);
-EXPORT_SYMBOL(sec_mm_sem);   
-EXPORT_SYMBOL(osal_fp_sem);   
-#endif
 
 /**************************************************************************
  *  EXTERNAL FUNCTION
@@ -175,6 +121,36 @@ static int sec_proc_rid(char *page, char **start, off_t off, int count, int *eof
 }
 
 /**************************************************************************
+ *  SEC MODULE PARAMETER
+ **************************************************************************/ 
+static uint recovery_done = 0;
+module_param(recovery_done, uint, S_IRUSR|S_IWUSR/*|S_IWGRP*/|S_IRGRP|S_IROTH); /* rw-r--r-- */
+MODULE_PARM_DESC(recovery_done, "A recovery sync parameter under sysfs (0=complete, 1=on-going, 2=error)");
+static uint lks = 2;//if sec is not enabled, this param will not be updated
+module_param(lks, uint, S_IRUSR/*|S_IWUSR|S_IWGRP*/|S_IRGRP|S_IROTH); /* r--r--r-- */
+MODULE_PARM_DESC(lks, "A device lks parameter under sysfs (0=NL, 1=L, 2=NA)");
+
+void sec_update_lks(unsigned char tr, unsigned char dn)
+{
+    if(sec_schip_enabled())//SC
+    {
+        lks = 1;
+    }
+    else if(!sec_boot_enabled())//NSC
+    {
+        lks = 0;
+    }
+    else if(0 == tr && 2 == dn)//SWSEC
+    {
+        lks = 0;
+    }
+    else//SWSEC
+    {
+        lks = 1;
+    }
+}
+
+/**************************************************************************
  *  SEC DRIVER INIT
  **************************************************************************/ 
 static int sec_init(void)
@@ -206,7 +182,7 @@ static int sec_init(void)
 
     create_proc_read_entry("rid", S_IRUGO, NULL, sec_proc_rid, NULL);
 
-    sec_core_init();
+    //sec_core_init();
 
 exit:
     if (ret != 0) 
@@ -231,8 +207,56 @@ static void sec_exit(void)
     sec_core_exit();
 }
 
-module_init(sec_init);
-module_exit(sec_exit);
+/**************************************************************************
+ *  MASP PLATFORM DRIVER WRAPPER, FOR BUILD-IN SEQUENCE
+ **************************************************************************/ 
+int masp_probe(struct platform_device * dev)
+{
+    int ret = 0;
+    ret = sec_init();
+    return ret;
+}
+
+int  masp_remove(struct platform_device * dev)
+{
+    sec_exit();
+    return 0;
+}
+
+
+static struct platform_driver masp_driver = {
+		.probe	= masp_probe,
+		.remove  	= masp_remove,
+		.driver  = {
+			.name  = "masp",
+			.owner = THIS_MODULE,
+		},
+};
+
+static int __init masp_init(void)
+{
+    int ret;
+
+    ret = platform_driver_register(&masp_driver);
+
+    if (ret) 
+    {        	
+        printk(KERN_ERR "[%s] Reg platform driver failed (%d)\n", SEC_DEV_NAME, ret);
+    }
+
+    return ret;
+}
+
+
+static void __exit masp_exit(void)
+{
+    platform_driver_unregister(&masp_driver);
+}
+
+
+//module_init(sec_init);
+module_init(masp_init);
+module_exit(masp_exit);
 
 /**************************************************************************
  *  EXPORT FUNCTION

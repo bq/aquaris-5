@@ -33,6 +33,10 @@
 #ifndef MALLOC_DEBUG_COMMON_H
 #define MALLOC_DEBUG_COMMON_H
 
+#include <stdlib.h>
+
+#include "libc_logging.h"
+
 #define HASHTABLE_SIZE      1543
 #define BACKTRACE_SIZE      32
 /* flag definitions, currently sharing storage with "size" */
@@ -40,6 +44,11 @@
 #define SIZE_FLAG_MASK          (SIZE_FLAG_ZYGOTE_CHILD)
 
 #define MAX_SIZE_T           (~(size_t)0)
+
+// This must match the alignment used by dlmalloc.
+#ifndef MALLOC_ALIGNMENT
+#define MALLOC_ALIGNMENT ((size_t)(2 * sizeof(void *)))
+#endif
 
 // =============================================================================
 // Structures
@@ -53,7 +62,7 @@ struct HashEntry {
     // fields above "size" are NOT sent to the host
     size_t size;
     size_t allocations;
-    intptr_t backtrace[0];
+    uintptr_t backtrace[0];
 };
 
 struct HashTable {
@@ -67,12 +76,14 @@ typedef void (*MallocDebugFree)(void*);
 typedef void* (*MallocDebugCalloc)(size_t, size_t);
 typedef void* (*MallocDebugRealloc)(void*, size_t);
 typedef void* (*MallocDebugMemalign)(size_t, size_t);
+typedef size_t (*MallocDebugMallocUsableSize)(const void*);
 struct MallocDebug {
   MallocDebugMalloc malloc;
   MallocDebugFree free;
   MallocDebugCalloc calloc;
   MallocDebugRealloc realloc;
   MallocDebugMemalign memalign;
+  MallocDebugMallocUsableSize malloc_usable_size;
 };
 
 /* Malloc debugging initialization and finalization routines.
@@ -95,24 +106,10 @@ typedef void (*MallocDebugFini)();
 // =============================================================================
 
 #define debug_log(format, ...)  \
-    __libc_android_log_print(ANDROID_LOG_DEBUG, "malloc_leak_check", (format), ##__VA_ARGS__ )
+    __libc_format_log(ANDROID_LOG_DEBUG, "malloc_leak_check", (format), ##__VA_ARGS__ )
 #define error_log(format, ...)  \
-    __libc_android_log_print(ANDROID_LOG_ERROR, "malloc_leak_check", (format), ##__VA_ARGS__ )
+    __libc_format_log(ANDROID_LOG_ERROR, "malloc_leak_check", (format), ##__VA_ARGS__ )
 #define info_log(format, ...)  \
-    __libc_android_log_print(ANDROID_LOG_INFO, "malloc_leak_check", (format), ##__VA_ARGS__ )
-
-class ScopedPthreadMutexLocker {
- public:
-  explicit ScopedPthreadMutexLocker(pthread_mutex_t* mu) : mu_(mu) {
-    pthread_mutex_lock(mu_);
-  }
-
-  ~ScopedPthreadMutexLocker() {
-    pthread_mutex_unlock(mu_);
-  }
-
- private:
-  pthread_mutex_t* mu_;
-};
+    __libc_format_log(ANDROID_LOG_INFO, "malloc_leak_check", (format), ##__VA_ARGS__ )
 
 #endif  // MALLOC_DEBUG_COMMON_H

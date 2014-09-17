@@ -1,5 +1,7 @@
 #ifndef __PMIC_WRAP_REGS_H__
 #define __PMIC_WRAP_REGS_H__
+#include <debug.h>
+#include <printf.h>
 #include <platform/mt_typedefs.h>
 #include <platform/mt_reg_base.h>
 #include <platform/mt_gpt.h>
@@ -37,10 +39,10 @@ static S32 _pwrap_wacs2_nochk( U32 write, U32 adr, U32 wdata, U32 *rdata );
 /******************************************************************************
 pmic_wrap register define
 ******************************************************************************/
-#define PMIC_WRAP_BASE            (0x1000F000)
-#define PERI_PWRAP_BRIDGE_BASE    (0x11017000)
+//#define PMIC_WRAP_BASE            (0x1000F000) //redefined
+//#define PERI_PWRAP_BRIDGE_BASE    (0x11017000) //redefined
 #define TOPRGU_BASE                 0x10000000
-#define INFRA_SYS_CFG_BASE        (0x10001000)
+//#define INFRA_SYS_CFG_BASE        (0x10001000) //redefined
 #define PERICFG_BASE              (0x10003000)
 #define AP_RGU_BASE              (0x10000000)
 #define INFRACFG_BASE               0x10001000

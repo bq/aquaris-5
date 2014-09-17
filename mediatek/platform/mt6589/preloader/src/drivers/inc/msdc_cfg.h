@@ -60,7 +60,6 @@
 //#define MSDC2_BASE              (0xC1250000)
 //#define MSDC3_BASE              (0xC1240000)
 
-//#define FEATURE_MMC_SDIO
 //#define FEATURE_MMC_UHS1
 //#define FEATURE_MMC_BOOT_MODE
 //#define FEATURE_MMC_WR_TUNING

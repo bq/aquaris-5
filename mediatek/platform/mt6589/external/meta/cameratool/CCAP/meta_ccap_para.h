@@ -44,14 +44,14 @@
 //#include "MSDK_ISP_exp.h"
 #include "FT_Public.h"
 //#include "MSDK_Sensor_exp.h"
-#include "AcdkIF.h"
 
-#include "AcdkErrCode.h"
-#include "AcdkCommon.h"
+#include "cct_ErrCode.h"
+#include <mtkcam/acdk/MdkIF.h>
+#include <mtkcam/acdk/CctIF.h>
 
 #include "camera_custom_nvram.h" // replace "msdk_nvram_camera_exp.h"
 #include "meta_common.h"
-#include "cct_feature.h"
+#include <mtkcam/acdk/cct_feature.h>
 
 
 

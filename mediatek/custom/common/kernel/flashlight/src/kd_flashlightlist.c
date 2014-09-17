@@ -30,11 +30,10 @@ MUINT32 torchFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
 MUINT32 constantFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
 
 
-#ifdef MTK_SUB_STROBE_SUPPORT
-
+int strobe_getPartId(int sensorDev);
 MUINT32 subStrobeInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
-
-#endif
+MUINT32 subStrobeInit_2ndPart_2(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
+MUINT32 mainStrobeInit_2ndPart_2(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
 
 KD_FLASHLIGHT_INIT_FUNCTION_STRUCT kdFlashlightList[] =
 {
@@ -53,14 +52,7 @@ KD_FLASHLIGHT_INIT_FUNCTION_STRUCT kdFlashlightList[] =
 #endif
 
 
-#ifdef MTK_SUB_STROBE_SUPPORT
 	{subStrobeInit},
-
-#else
-	{defaultFlashlightInit},
-
-#endif
-
 /*  ADD flashlight driver before this line */
     {NULL}, //end of list
 };
@@ -120,23 +112,12 @@ KD_FLASHLIGHT_INIT_FUNCTION_STRUCT kdFlashlightList[] =
 
 *****************************************************************************/
 static FLASHLIGHT_FUNCTION_STRUCT *g_pFlashlightFunc = NULL;
+static int g_strobePartIdMain=1;
+static int g_strobePartIdSub=1;
+static int g_strobePartIdMainSecond=1;
 /*****************************************************************************
 
 *****************************************************************************/
-static int sensorIdToListId(int sensorId)
-{
-	int id;
-	if(sensorId==e_CAMERA_MAIN_SENSOR)
-		id=1;
-	else if(sensorId==e_CAMERA_SUB_SENSOR)
-		id=2;
-	else if(sensorId==e_CAMERA_MAIN_2_SENSOR)
-		id=3;
-	else
-		id=0;
-	return id;
-}
-
 
 MINT32 default_flashlight_open(void *pArg) {
     PK_DBG("[default_flashlight_open] E\n");
@@ -185,9 +166,47 @@ UINT32 defaultFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc) {
 ********************************************************************************/
 int kdSetFlashlightDrv(unsigned int *pSensorId)
 {
-	unsigned int flashlightIdx = sensorIdToListId(*pSensorId);
+	int partId;
+	if(*pSensorId==e_CAMERA_MAIN_SENSOR)
+		partId = g_strobePartIdMain;
+	else if(*pSensorId==e_CAMERA_SUB_SENSOR)
+		partId = g_strobePartIdSub;
+	else
+		partId=1;
+
+	PK_DBG("sensorDev=%d, strobePartIdaa= %d\n",*pSensorId, partId);
 
 
+	if(*pSensorId==e_CAMERA_MAIN_SENSOR)
+	{
+
+#if defined(DUMMY_FLASHLIGHT)
+		defaultFlashlightInit(&g_pFlashlightFunc);
+
+#else
+		if(partId==1)
+			constantFlashlightInit(&g_pFlashlightFunc);
+		else //if(partId==2)
+			mainStrobeInit_2ndPart_2(&g_pFlashlightFunc);
+#endif
+	}
+	else if(*pSensorId==e_CAMERA_SUB_SENSOR && partId==1)
+	{
+		subStrobeInit(&g_pFlashlightFunc);
+	}
+	else if(*pSensorId==e_CAMERA_SUB_SENSOR && partId==2)
+	{
+		subStrobeInit_2ndPart_2(&g_pFlashlightFunc);
+	}
+	else
+	{
+		defaultFlashlightInit(&g_pFlashlightFunc);
+	}
+
+
+
+
+/*
     PK_DBG("[kdSetFlashlightDrv] flashlightIdx: %d, seonsorId %d\n",flashlightIdx, (int)(*pSensorId));
 
     if (NULL != kdFlashlightList[flashlightIdx].flashlightInit) {
@@ -202,7 +221,7 @@ int kdSetFlashlightDrv(unsigned int *pSensorId)
                 }
             }
         }
-    }
+    }*/
 
     //open flashlight driver
     if (g_pFlashlightFunc) {
@@ -220,6 +239,7 @@ static long flashlight_ioctl(struct file *file, unsigned int cmd, unsigned long 
 static int flashlight_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 #endif
 {
+	int partId;
     int i4RetValue = 0;
 
     PK_DBG("XXflashlight_ioctl cmd,arg= %x, %x +\n",cmd,(unsigned int)arg);
@@ -229,6 +249,35 @@ static int flashlight_ioctl(struct inode *inode, struct file *file, unsigned int
         case FLASHLIGHTIOC_X_SET_DRIVER:
             i4RetValue = kdSetFlashlightDrv((unsigned int*)&arg);
             break;
+
+
+       	case FLASH_IOC_GET_MAIN_PART_ID:
+       		partId = strobe_getPartId(e_CAMERA_MAIN_SENSOR);
+       		g_strobePartIdMain = partId;
+       		if(copy_to_user((void __user *) arg , (void*)&partId , 4))
+			{
+			    PK_DBG("[FLASH_IOC_GET_MAIN_PART_ID] ioctl copy to user failed\n");
+			    return -EFAULT;
+			}
+          	break;
+		case FLASH_IOC_GET_SUB_PART_ID:
+       		partId = strobe_getPartId(e_CAMERA_SUB_SENSOR);
+       		g_strobePartIdSub = partId;
+       		if(copy_to_user((void __user *) arg , (void*)&partId , 4))
+			{
+			    PK_DBG("[FLASH_IOC_GET_SUB_PART_ID] ioctl copy to user failed\n");
+			    return -EFAULT;
+			}
+          	break;
+		case FLASH_IOC_GET_MAIN2_PART_ID:
+       		partId = strobe_getPartId(e_CAMERA_MAIN_2_SENSOR);
+       		g_strobePartIdMainSecond = partId;
+       		if(copy_to_user((void __user *) arg , (void*)&partId , 4))
+			{
+			    PK_DBG("[FLASH_IOC_GET_MAIN2_PART_ID] ioctl copy to user failed\n");
+			    return -EFAULT;
+			}
+          	break;
     	default :
     	    if (g_pFlashlightFunc) {
     	        i4RetValue = g_pFlashlightFunc->flashlight_ioctl(cmd,arg);

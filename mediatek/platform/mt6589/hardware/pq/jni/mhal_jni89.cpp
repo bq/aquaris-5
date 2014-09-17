@@ -1,4 +1,4 @@
-/* Copyright Statement: 
+/* Copyright Statement:
  *
  * This software/firmware and related documentation ("MediaTek Software") are
  * protected under relevant copyright laws. The information contained herein is
@@ -7,9 +7,9 @@
  * reproduction, modification, use or disclosure of MediaTek Software, and
  * information contained herein, in whole or in part, shall be strictly
  * prohibited.
- * 
+ *
  * MediaTek Inc. (C) 2010. All rights reserved.
- * 
+ *
  * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
  * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
  * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER
@@ -78,7 +78,7 @@ typedef enum {
 #define PQ_SKINTONE_H_NUM   (7)
 #define PQ_GRASSTONE_H_NUM  (7)
 #define PQ_SKYTONE_H_NUM    (7)
-#define PQ_PURPTONE_S_NUM   (7) 
+#define PQ_PURPTONE_S_NUM   (7)
 #define PQ_SKINTONE_S_NUM   (7)
 #define PQ_GRASSTONE_S_NUM  (7)
 #define PQ_SKYTONE_S_NUM    (7)
@@ -91,7 +91,7 @@ typedef enum {
 
 int drvID = -1;
 
-const static jint g_u4Range[PQ_TuningDimension] = 
+const static jint g_u4Range[PQ_TuningDimension] =
 {
  PQ_PURPTONE_H_NUM , PQ_SKINTONE_H_NUM , PQ_GRASSTONE_H_NUM , PQ_SKYTONE_H_NUM ,
  PQ_PURPTONE_S_NUM , PQ_SKINTONE_S_NUM , PQ_GRASSTONE_S_NUM , PQ_SKYTONE_S_NUM ,
@@ -106,21 +106,21 @@ static jint getRange(PQ_TuningIndex_t a_eIndex)
 }
 
 static int getIndex(PQ_TuningIndex_t a_eIndex)
-{  
+{
     if(drvID == -1) //initial
-        drvID = open("/dev/mtk_disp", O_RDONLY, 0);
-        
+        drvID = open("/proc/mtk_mdp_color", O_RDONLY, 0);
+
     ioctl(drvID, DISP_IOCTL_GET_PQPARAM, &pqparam);
 
-    u4Indics[PQ_Sharp_Adj]    = pqparam.u4SHPGain  ;  
-    u4Indics[PQ_Sat_Adj]      = pqparam.u4SatGain  ;  
-    u4Indics[PQ_SkinTone_H]   = pqparam.u4HueAdj[1];  
-    u4Indics[PQ_GrassTone_H]  = pqparam.u4HueAdj[2];  
-    u4Indics[PQ_SkyTone_H]    = pqparam.u4HueAdj[3];  
-    u4Indics[PQ_SkinTone_S]   = pqparam.u4SatAdj[1];  
-    u4Indics[PQ_GrassTone_S]  = pqparam.u4SatAdj[2];  
-    u4Indics[PQ_SkyTone_S]    = pqparam.u4SatAdj[3]; 
-      
+    u4Indics[PQ_Sharp_Adj]    = pqparam.u4SHPGain  ;
+    u4Indics[PQ_Sat_Adj]      = pqparam.u4SatGain  ;
+    u4Indics[PQ_SkinTone_H]   = pqparam.u4HueAdj[1];
+    u4Indics[PQ_GrassTone_H]  = pqparam.u4HueAdj[2];
+    u4Indics[PQ_SkyTone_H]    = pqparam.u4HueAdj[3];
+    u4Indics[PQ_SkinTone_S]   = pqparam.u4SatAdj[1];
+    u4Indics[PQ_GrassTone_S]  = pqparam.u4SatAdj[2];
+    u4Indics[PQ_SkyTone_S]    = pqparam.u4SatAdj[3];
+
     return (int)u4Indics[a_eIndex];
 }
 
@@ -128,8 +128,8 @@ static jboolean setIndex(PQ_TuningIndex_t a_eIndex , unsigned int a_u4Index)
 {
 	  int actionID=0, RegBase = 0, RegValue = 0, err = 0;
     u4Indics[a_eIndex] = a_u4Index;
-    //implement PQ ioctl 
-    
+    //implement PQ ioctl
+
     pqparam.u4SHPGain = (u4Indics[PQ_Sharp_Adj]); //Sharpness Debug mode on
     pqparam.u4SatGain = u4Indics[PQ_Sat_Adj];
     pqparam.u4HueAdj[1] = u4Indics[PQ_SkinTone_H];
@@ -138,18 +138,18 @@ static jboolean setIndex(PQ_TuningIndex_t a_eIndex , unsigned int a_u4Index)
     pqparam.u4SatAdj[1] = u4Indics[PQ_SkinTone_S];
     pqparam.u4SatAdj[2] = u4Indics[PQ_GrassTone_S];
     pqparam.u4SatAdj[3] = u4Indics[PQ_SkyTone_S];
-    
+
     if(drvID == -1) //initial
-        drvID = open("/dev/mtk_disp", O_RDONLY, 0);
-        
+        drvID = open("/proc/mtk_mdp_color", O_RDONLY, 0);
+
     XLOGE("Setting PQ param : [ShpG %d SatG %d SkinH %d GrassH %d SkyH %d SkinS %d GrassS %d SkyS %d] \n",
     pqparam.u4SHPGain,pqparam.u4SatGain,
     pqparam.u4HueAdj[1],pqparam.u4HueAdj[2],pqparam.u4HueAdj[3],
-    pqparam.u4SatAdj[1],pqparam.u4SatAdj[2],pqparam.u4SatAdj[3]);    
-    
+    pqparam.u4SatAdj[1],pqparam.u4SatAdj[2],pqparam.u4SatAdj[3]);
+
     ioctl(drvID, DISP_IOCTL_SET_PQPARAM, &pqparam);
-    
-    
+
+
     return JNI_TRUE;
 }
 
@@ -395,7 +395,7 @@ static jint getPQ_ADV_SelectIndex(JNIEnv *env, jobject thiz)
 static jboolean setPQ_ADV_SelectIndex(JNIEnv *env, jobject thiz , int index)
 {
     return setIndex(PQ_ADV_Select , index);
-    
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -405,7 +405,7 @@ static jboolean setPQ_ADV_SelectIndex(JNIEnv *env, jobject thiz , int index)
 static const char *classPathName = "com/mediatek/gallery3d/pq/PictureQualityJni89";
 
 static JNINativeMethod g_methods[] = {
-	
+
   {"nativeGetSkinToneHRange",  "()I", (void*)getSkinToneHRange },
   {"nativeGetSkinToneHIndex",  "()I", (void*)getSkinToneHIndex },
   {"nativeSetSkinToneHIndex",  "(I)Z", (void*)setSkinToneHIndex },
@@ -440,7 +440,7 @@ static JNINativeMethod g_methods[] = {
   {"nativeGetYAxisIndex",  "()I", (void*)getYAxisIndex },
   {"nativeSetYAxisIndex",  "(I)Z", (void*)setYAxisIndex}
 
-  
+
 
 };
 
@@ -470,14 +470,14 @@ static int registerNativeMethods(JNIEnv* env, const char* className,
 /*
  * This is called by the VM when the shared library is first loaded.
  */
- 
+
 jint JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv* env = NULL;
     jint result = -1;
-    
+
     XLOGI("JNI_OnLoad");
-    
+
     if (JNI_OK != vm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
         XLOGE("ERROR: GetEnv failed");
         goto bail;
@@ -487,9 +487,9 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
         XLOGE("ERROR: registerNatives failed");
         goto bail;
     }
-    
+
     result = JNI_VERSION_1_4;
-    
+
 bail:
     return result;
 }

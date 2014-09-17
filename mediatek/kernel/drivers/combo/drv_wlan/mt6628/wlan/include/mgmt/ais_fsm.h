@@ -12,6 +12,14 @@
 
 /*
 ** $Log: ais_fsm.h $
+**
+** 02 07 2014 yuche.tsai
+** [ALPS01425175] [6589][6628][KK][S5/Altai][W] MT6589 Roaming???20?, Pass Criteria?14?
+** Shorten Beacon Timeout indication time from 3 sec to 1 sec.
+** Shorten Disconnect indication time to supplicant from 10 sec to 2 sec.
+** Davinci Label:
+** MT6620 E3: 20140207_ALPS_WIFI_FW_MT6620E3_V1_19.
+** MT6628: 20140207_ALPS_WIFI_FW_MT6628_V1_30.
  *
  * 11 22 2011 cp.wu
  * [WCXRP00001120] [MT6620 Wi-Fi][Driver] Modify roaming to AIS state transition from synchronous to asynchronous approach to avoid incomplete state termination
@@ -237,7 +245,7 @@
 #define AIS_BG_SCAN_INTERVAL_MIN_SEC        2 //30 // exponential to 960
 #define AIS_BG_SCAN_INTERVAL_MAX_SEC        2 //960 // 16min
 
-#define AIS_DELAY_TIME_OF_DISCONNECT_SEC    10
+#define AIS_DELAY_TIME_OF_DISCONNECT_SEC    2
 
 #define AIS_IBSS_ALONE_TIMEOUT_SEC          20 // seconds
 
@@ -257,8 +265,6 @@
 
 #define AIS_JOIN_CH_GRANT_THRESHOLD         10
 #define AIS_JOIN_CH_REQUEST_INTERVAL        2000
-
-#define AIS_SCN_DONE_TIMEOUT_SEC            5
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -338,9 +344,6 @@ typedef struct _AIS_FSM_INFO_T {
     TIMER_T             rIndicationOfDisconnectTimer;
 
     TIMER_T             rJoinTimeoutTimer;
-
-
-    TIMER_T             rScanDoneTimer; 
 
     UINT_8              ucSeqNumOfReqMsg;
     UINT_8              ucSeqNumOfChReq;
@@ -628,13 +631,6 @@ aisFsmRunEventJoinTimeout (
     IN P_ADAPTER_T prAdapter,
     UINT_32 u4Param
     );
-
-VOID
-aisFsmRunEventScanDoneTimeOut (
-    IN P_ADAPTER_T prAdapter,
-    UINT_32 u4Param
-    );
-
 
 /*----------------------------------------------------------------------------*/
 /* OID/IOCTL Handling                                                         */

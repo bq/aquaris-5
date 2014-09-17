@@ -3,8 +3,7 @@
 #include <platform/ddp_rdma.h>
 
 #ifndef ASSERT
-//#define ASSERT(expr) do {printf("ASSERT error func=%s, line=%d\n", __FUNC__, __LINE__);} while (!(expr))
-#define ASSERT(expr) do {printf("ASSERT error \n");} while (!(expr))
+#define ASSERT(expr) do { if(!(expr)) printf("ASSERT error func: %s, line: %d\n", __func__, __LINE__);} while (0)
 #endif
 
 
@@ -25,20 +24,20 @@ int RDMAStop(unsigned idx) {
 }
 
 int RDMAReset(unsigned idx) {
+	unsigned int delay_cnt = 0;
+
     ASSERT(idx <= 2);
 
     DISP_REG_SET_FIELD(GLOBAL_CON_FLD_SOFT_RESET, DISP_REG_RDMA_GLOBAL_CON, 1); 
+    while((DISP_REG_GET(idx * 0x1000 + DISP_REG_RDMA_GLOBAL_CON)&0x700)==0x100) {
+    	delay_cnt++;
+    	if(delay_cnt > 10000) {
+    		printf("[DDP] error, RDMAReset(%d) timeout, stage 1! DISP_REG_RDMA_GLOBAL_CON=0x%x \n", idx, DISP_REG_GET(idx * 0x1000 + DISP_REG_RDMA_GLOBAL_CON));
+    		break;
+    	}
+    }
     DISP_REG_SET_FIELD(GLOBAL_CON_FLD_SOFT_RESET, DISP_REG_RDMA_GLOBAL_CON, 0); 
 
-    DISP_REG_SET(DISP_REG_RDMA_GLOBAL_CON     , 0x00);
-    DISP_REG_SET(DISP_REG_RDMA_SIZE_CON_0     , 0x00);
-    DISP_REG_SET(DISP_REG_RDMA_SIZE_CON_1     , 0x00);
-    DISP_REG_SET(DISP_REG_RDMA_MEM_CON         , 0x00);
-    DISP_REG_SET(DISP_REG_RDMA_MEM_START_ADDR , 0x00);
-    DISP_REG_SET(DISP_REG_RDMA_MEM_SRC_PITCH     , 0x00);
-    DISP_REG_SET(DISP_REG_RDMA_MEM_GMC_SETTING_1 , 0x20);     ///TODO: need check
-    DISP_REG_SET(DISP_REG_RDMA_FIFO_CON , 0x80f00008);        ///TODO: need check
-    
     return 0;
 }
 

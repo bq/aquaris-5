@@ -132,11 +132,13 @@
 #include <sys/socket.h>
 #include "tst_main.h"
 #include "FT_Public.h"
+#include <DfoDefines.h>
 
+#include "hardware/ccci_intf.h"
 
 // required META_DLL version
 #define FT_REQUIRED_META_VER	0x03050002
-#define	MAX_PATH				256
+#define	MAX_PATH				1024
 
 #define VERSION_FILE_PATH           "/system/build.prop"
 
@@ -156,6 +158,9 @@
 #define COM_PORT_TYPE_FILE "/sys/bus/platform/drivers/meta_com_type_info/meta_com_type_info"
 #define COM_PORT_TYPE_STR_LEN 1
 
+static int dumpLogState = 0;
+static int md5_device_note = -1;
+
 /********************************************************************************
 //FUNCTION:
 //		FT_Module_Init
@@ -174,10 +179,11 @@
 //		None
 ********************************************************************************/
 
-int FT_Module_Init(void)
+int FT_Module_Init(int device_note)
 {
     //cpu and pmic is comon module, we init these here.
-
+    md5_device_note = device_note;
+    dumpLogState = 0;
     return 1;
 }
 
@@ -229,31 +235,139 @@ void FT_MODEM_INFO_OP(FT_MODEM_REQ *pLocalBuf, char *pft_PeerBuf, kal_int16 ft_p
 	FT_MODEM_CNF ft_cnf;
 	int modem_req=0;
 	int modem_number=0;
-	int modem_id=0;
+	int active_modem_id=0;
+	int modem_type=0;
+	int fd = -1;
+	int type_define=0;
+	char dev_node[32] = {0};
 	
 	FT_LOG("[FTT_Drv:] FT_MODEM_INFO_OP ");
-	
 	memset(&ft_cnf, 0, sizeof(FT_MODEM_CNF));
+	ft_cnf.status = META_FAILED;
+	
+	if(pLocalBuf->type == FT_MODEM_OP_QUERY_INFO)
+	{
+		type_define = 1;
+		modem_number = FT_GetModemType(&active_modem_id,&modem_type);			
+
+		ft_cnf.result.query_modem_info_cnf.modem_number = modem_number;
+		ft_cnf.result.query_modem_info_cnf.modem_id = active_modem_id;
+	
+		ft_cnf.status = META_SUCCESS;
+	}
+	else if(pLocalBuf->type == FT_MODEM_OP_CAPABILITY_LIST)
+	{
+		type_define = 1;
+		MODEM_CAPABILITY_LIST modem_capa;
+		memset(&modem_capa, 0, sizeof(MODEM_CAPABILITY_LIST));
+		FT_GetModemCapability(&modem_capa);
+		memcpy(&ft_cnf.result.query_modem_cap_cnf,&modem_capa,sizeof(MODEM_CAPABILITY_LIST));
+		ft_cnf.status = META_SUCCESS;
+	}
+
+#ifdef MTK_TLR_SUPPORT
+
+	if(MTK_ENABLE_MD5)
+	{			
+		fd = md5_device_note;
+	}
+	else
+	{		
+		snprintf(dev_node, 32, "%s", ccci_get_node_name(USR_META_IOCTL,MD_SYS1));
+		fd = open(dev_node, O_RDWR|O_NOCTTY|O_NDELAY );		
+	}
+
+	if(fd < 0 && (pLocalBuf->type == FT_MODEM_OP_SET_MODEMTYPE || pLocalBuf->type == FT_MODEM_OP_GET_CURENTMODEMTYPE|| pLocalBuf->type == FT_MODEM_OP_QUERY_MDIMGTYPE))
+	{
+		ft_cnf.status = META_FAILED;
+		FT_LOG("[FTT_Drv:]Open device note: %s fail %d",dev_node,fd );
+		ft_cnf.header.id = pLocalBuf->header.id +1;
+    	ft_cnf.header.token = pLocalBuf->header.token;
+		ft_cnf.type = pLocalBuf->type;	
+	
+		WriteDataToPC(&ft_cnf, sizeof(FT_MODEM_CNF),NULL, 0);
+		return;
+	}
 	
 
-	#ifdef MTK_ENABLE_MD1
-		   modem_number = 1;
-		   modem_id = 1;
+	if(pLocalBuf->type == FT_MODEM_OP_SET_MODEMTYPE)
+	{
+		type_define = 1;
+		unsigned int modem_type = pLocalBuf->cmd.set_modem_type_req.modem_type;
+		 
+	
+		if (0 == ioctl(fd, CCCI_IOC_RELOAD_MD_TYPE, &modem_type))
+		{
+			if (0 == ioctl(fd, CCCI_IOC_MD_RESET))
+			{
+				ft_cnf.status = META_SUCCESS;		
+			}
+			else
+			{
+				ft_cnf.status = META_FAILED;
+				FT_LOG("[FTT_Drv:]ioctl CCCI_IOC_MD_RESET fail " );	
+			}
+		}
+		else
+		{
+			ft_cnf.status = META_FAILED;
+			FT_LOG("[FTT_Drv:]ioctl CCCI_IOC_RELOAD_MD_TYPE fail modem_type = %d", modem_type);	
+		}
+	}
+	else if(pLocalBuf->type == FT_MODEM_OP_GET_CURENTMODEMTYPE)
+	{
+		unsigned int modem_type=0;
+		type_define = 1;
+		
+		if (0 == ioctl(fd, CCCI_IOC_GET_MD_TYPE, &modem_type))
+		{
+			ft_cnf.status = META_SUCCESS;
+			ft_cnf.result.get_currentmodem_type_cnf.current_modem_type = modem_type;	
+			FT_LOG("[FTT_Drv:]ioctl CCCI_IOC_GET_MD_TYPE success modem_type = %d", modem_type);
+		}
+		else
+		{
+			ft_cnf.status = META_FAILED;
+			FT_LOG("[FTT_Drv:]ioctl CCCI_IOC_GET_MD_TYPE fail");	
+		}	
+		
+	}
+	else if(pLocalBuf->type == FT_MODEM_OP_QUERY_MDIMGTYPE)
+	{
+		unsigned int mdimg_type[16]={0};
+		type_define = 1;
+
+		if (0 == ioctl(fd, CCCI_IOC_GET_MD_IMG_EXIST, &mdimg_type))
+		{
+			ft_cnf.status = META_SUCCESS;
+			memcpy(ft_cnf.result.query_modem_imgtype_cnf.mdimg_type,mdimg_type,16*sizeof(unsigned int));
+	
+			for(int i = 0;i<16;i++)
+			{
+				FT_LOG("mdimg_type[%d] %d",i, mdimg_type[i]);	
+			}
+	
+		}
+		else
+		{
+			ft_cnf.status = META_FAILED;
+			FT_LOG("[FTT_Drv:]ioctl CCCI_IOC_GET_MD_IMG_EXIST fail");	
+		}	
+	}
+
+	if(!MTK_ENABLE_MD5)
+	{
+	    close(fd);
+	}
 	#endif
 
-	#ifdef MTK_ENABLE_MD2
-		   modem_number+=1;
-		   modem_id = 2;
-		   #ifdef MTK_ENABLE_MD1
-			      modem_id = 1;
-		   #endif
-	#endif	
+	if(type_define == 0)
+	{
+		FT_LOG("[FTT_Drv:]FT_MODEM_REQ have no this type %d",pLocalBuf->type );	
+	}
 
 	ft_cnf.header.id = pLocalBuf->header.id +1;
     ft_cnf.header.token = pLocalBuf->header.token;
-	ft_cnf.result.query_modem_info_cnf.modem_number = modem_number;
-	ft_cnf.result.query_modem_info_cnf.modem_id = modem_id;
-	ft_cnf.status = META_SUCCESS;
 	ft_cnf.type = pLocalBuf->type;
 	
 	WriteDataToPC(&ft_cnf, sizeof(FT_MODEM_CNF),NULL, 0);
@@ -312,19 +426,19 @@ void FT_TestAlive(FT_IS_ALIVE_REQ *req)
 void FT_GetVersionInfo(FT_VER_INFO_REQ *req, char *pft_PeerBuf, kal_int16 ft_peer_len)
 {
     FT_VER_INFO_CNF ft_cnf;
-	unsigned int dwRc ;
-	unsigned int dwValSize;
-	unsigned int dwValType;
-	char szBuffer[MAX_PATH];
+	unsigned int dwRc = 0;
+	unsigned int dwValSize = 0;
+	unsigned int dwValType = 0;
+	char szBuffer[MAX_PATH] = {0};
     FILE *fd = 0;
-    char str[256];
-    char *loc;
+    char str[256] = {0};
+    char *loc = NULL;
 
     memset(&ft_cnf, 0, sizeof(ft_cnf));
     memset(szBuffer,0, sizeof(szBuffer));
-	  char* tmp;
-	  char platform[256];
-	  char chipVersion[256];
+	char* tmp = NULL;
+	char platform[256] = {0};
+	char chipVersion[256] = {0};
 
     //initail the value of ft header
     ft_cnf.header.id = req->header.id +1;
@@ -347,12 +461,12 @@ void FT_GetVersionInfo(FT_VER_INFO_REQ *req, char *pft_PeerBuf, kal_int16 ft_pee
             if(!strcmp(loc, RELEASE_SW_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] SW Version = %s\n", tmp);
-                strcpy((char*)ft_cnf.sw_ver, tmp);
+                strncpy((char*)ft_cnf.sw_ver, tmp, 63);
             }
             if(!strcmp(loc, RELEASE_PLATFORM_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] Platform = %s\n", tmp);
-				strcpy(platform, tmp);
+				strncpy(platform, tmp, 255);
             }
             if(!strcmp(loc, RELEASE_PRODUCT_TOKEN))
             {
@@ -361,13 +475,13 @@ void FT_GetVersionInfo(FT_VER_INFO_REQ *req, char *pft_PeerBuf, kal_int16 ft_pee
             if(!strcmp(loc, RELEASE_CHIP_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] Chip Version = %s\n", tmp);
-                strcpy(chipVersion, tmp);
-                strcpy((char*)ft_cnf.hw_ver, tmp);
+                strncpy(chipVersion, tmp, 255);
+                strncpy((char*)ft_cnf.hw_ver, tmp, 63);
             }
             if(!strcmp(loc, RELEASE_BUILD_TIME_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] Build Time = %s\n", tmp);
-                strcpy((char*)ft_cnf.sw_time, tmp);
+                strncpy((char*)ft_cnf.sw_time, tmp, 63);
             }
         }
     }
@@ -393,7 +507,7 @@ void FT_GetVersionInfo(FT_VER_INFO_REQ *req, char *pft_PeerBuf, kal_int16 ft_pee
 	szBuffer[k++] = '\0';
 	if (strlen(szBuffer) <= 64)
 	{
-		strcpy((char*)ft_cnf.bb_chip, szBuffer);
+		strncpy((char*)ft_cnf.bb_chip, szBuffer, strlen(szBuffer));
 	}
 	else
 	{
@@ -442,10 +556,7 @@ BOOL Meta_Mobile_Log()
 	char tempstr[5]={0};
 	FT_LOG("[FTT_Drv:] Meta_Mobile_Log ");
 
-    //if eng build,send stop command to mobilelog 
-    property_get("ro.build.type",tempstr,"user");
-	if(strcmp(tempstr,"eng")==0)
-	{
+    //support end load and user load,send stop command to mobilelog 
 
 		fd = socket_local_client("mobilelogd", ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM);
 		if (fd < 0) 
@@ -466,11 +577,6 @@ BOOL Meta_Mobile_Log()
 		}
 		close(fd);
 		sleep(4);	      
-	}
-	else
-	{
-		FT_LOG("please make sure the load is eng build ");
-	}
 	return ret;
 	
 }
@@ -510,7 +616,7 @@ void FT_PowerOff(FT_POWER_OFF_REQ *pFTReq, char *pPeerBuf, kal_int16 peer_len )
     if(comPortType == META_USB_COM)
     {
 
-	FILE *PUsbFile;
+	    FILE *PUsbFile = NULL;
         PUsbFile = fopen("sys/devices/platform/mt_usb/cmode","w");
 	if(PUsbFile == NULL)
 	{
@@ -520,9 +626,8 @@ void FT_PowerOff(FT_POWER_OFF_REQ *pFTReq, char *pPeerBuf, kal_int16 peer_len )
 	else
 	{
             fputc('0',PUsbFile);
+			fclose(PUsbFile);
 	}
-
-	fclose(PUsbFile);
     }
     else
     {
@@ -763,67 +868,56 @@ void FT_UtilCheckIfFuncExist(FT_UTILITY_COMMAND_REQ  *req, FT_UTILITY_COMMAND_CN
     kal_uint32	query_op_code = req->cmd.CheckIfFuncExist.query_op_code;
     FT_LOG("[FTT_Drv:] FT_UtilCheckIfFuncExist META Test ");
     cnf->status = FT_CNF_FAIL;
+
+	FT_LOG("request id = %d op = %d",query_ft_msg_id,query_op_code);
     switch (query_ft_msg_id)
     {
-    /*
-    case FT_REG_READ_ID:					//cpu registor read
-    case FT_REG_WRITE_ID:					//cpu registor write
-    case FT_ADC_GETMEADATA_ID:				//adc meta
-    case FT_IS_ALIVE_REQ_ID:				//ft alive query
-    case FT_POWER_OFF_REQ_ID:				// power off query
-    case FT_CHECK_META_VER_REQ_ID:			//
-    case FT_NVRAM_GET_DISK_INFO_REQ_ID:
-    case FT_NVRAM_RESET_REQ_ID:
-    case FT_NVRAM_LOCK_REQ_ID:
-    case FT_NVRAM_READ_REQ_ID:
-    case FT_NVRAM_WRITE_REQ_ID:
-    case FT_VER_INFO_REQ_ID:
+
+#ifdef FT_FM_FEATURE 
+    	case FT_FM_REQ_ID:
+			if(query_op_code == 0)//FT_FM_OP_READ_CHIP_ID
+			{
         cnf->status = FT_CNF_OK;
+			}        	
         break;
-    */
+#endif
 
-    case FT_UTILITY_COMMAND_REQ_ID:
-		FT_LOG("[FTT_Drv:] PRIMITIVE_ID IS FT_UTILITY_COMMAND_REQ_ID");
-        if ( FT_UTILCMD_END > query_op_code )
+#ifdef FT_EMMC_FEATURE
+		case FT_CRYPTFS_REQ_ID:
+			if(query_op_code == 0)//FT_CRYPTFS_OP_QUERYSUPPORT
         {
-            switch (query_op_code)
-            {
-            case FT_UTILCMD_CHECK_IF_AUDIOPARAM45_SUPPORT:
-				FT_LOG("[FTT_Drv:] OP IS FT_UTILCMD_CHECK_IF_AUDIOPARAM45_SUPPORT");
-                break;
-
-            default:
-                cnf->status = FT_CNF_OK;
-				FT_LOG("[FTT_Drv:] OP IS NOT FT_UTILCMD_CHECK_IF_AUDIOPARAM45_SUPPORT");
-                break;
-            }
+				cnf->status = FT_CNF_OK;
+			}
+			else if(query_op_code == 1)//FT_CRYPTFS_OP_VERITIFY
+            {          
+                cnf->status = FT_CNF_OK;	
         }
         break;
-    case FT_FM_REQ_ID:
-        cnf->status = FT_CNF_OK; //FMR_CheckOption();//FT_CNF_OK;   // 0: enable, 1: disable FM radio
-        break;
+#endif
 
-    case FT_TDMB_REQ_ID:
+		case FT_MODEM_REQ_ID:
+			if(query_op_code == FT_MODEM_OP_QUERY_INFO )
     {
         cnf->status = FT_CNF_OK;
-        break;
     }
-
-    case FT_WIFI_REQ_ID:
+			else if(query_op_code == FT_MODEM_OP_CAPABILITY_LIST)
+			{
         cnf->status = FT_CNF_OK;
-        break;
-
-    case FT_BT_REQ_ID:
+			}
+#ifdef MTK_TLR_SUPPORT
+			else if(query_op_code == FT_MODEM_OP_SET_MODEMTYPE)
+			{
         cnf->status = FT_CNF_OK;
-        break;
-	case FT_L4AUD_REQ_ID:
+			}
+			else if(query_op_code == FT_MODEM_OP_GET_CURENTMODEMTYPE)
+			{
 		cnf->status = FT_CNF_OK;
-        break;
-	case FT_CRYPTFS_REQ_ID:
+			}
+			else if(query_op_code == FT_MODEM_OP_QUERY_MDIMGTYPE )
+			{
 		cnf->status = FT_CNF_OK;
-        break;
-	case FT_MODEM_REQ_ID:
-		cnf->status = FT_CNF_OK;
+			}
+#endif
 		break;
     default:
 		FT_LOG("[FTT_Drv:] NOT FOUND THE PRIMITIVE_ID");
@@ -862,7 +956,9 @@ void FT_Peripheral_OP(FT_UTILITY_COMMAND_REQ *pFTReq, char *pPeerBuf, kal_int16 
 {
     FT_UTILITY_COMMAND_CNF UtilityCnf;
     //PROCESS_INFORMATION cleanBootProcInfo;
-    static META_BOOL bInitFlag_Peri = FALSE;
+    static META_BOOL bLCDBKInitFlag_Peri = FALSE;
+    static META_BOOL bLCDFtInitFlag_Peri = FALSE;
+    static META_BOOL bVibratorInitFlag_Peri = FALSE;
 
     //cleanBootProcInfo.hProcess = NULL;
     //cleanBootProcInfo.hThread = NULL;
@@ -875,40 +971,6 @@ void FT_Peripheral_OP(FT_UTILITY_COMMAND_REQ *pFTReq, char *pPeerBuf, kal_int16 
     UtilityCnf.header.token = pFTReq->header.token;
     UtilityCnf.type = pFTReq->type;
     UtilityCnf.status= META_FAILED;
-
-    //we do the related init first.
-    if (bInitFlag_Peri == FALSE)
-    {
-        if (!Meta_LCDBK_Init())
-        {
-            FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_LCDBK_Init Fail ");
-            goto Per_Exit;
-        }
-        /*if (!Meta_NledInit())
-        {
-            FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_NledInit Fail ");
-            goto Per_Exit;
-        }*/
-        /*
-        if (!Meta_KeypadBK_Init())
-        {
-            FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_KeypadBK_Init Fail ");
-            goto Per_Exit;
-        }
-		*/
-         if (!Meta_LCDFt_Init())
-        {
-            FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_LCDFt_Init Fail ");
-            goto Per_Exit;
-        }
-        if (!Meta_Vibrator_Init())
-        {
-            FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_Vibrator_Init Fail ");
-            goto Per_Exit;
-        }
-        bInitFlag_Peri =  TRUE;
-
-    }
 
     //do the related test.
     switch (pFTReq->type)
@@ -927,12 +989,30 @@ void FT_Peripheral_OP(FT_UTILITY_COMMAND_REQ *pFTReq, char *pPeerBuf, kal_int16 
 
     case FT_UTILCMD_MAIN_SUB_LCD_LIGHT_LEVEL:	//test lcd backlight from meta lcd backlight lig
         FT_LOG("[FTT_Drv:] FT_Peripheral_OP pFTReq->type is FT_UTILCMD_MAIN_SUB_LCD_LIGHT_LEVEL ");
+	    if(bLCDBKInitFlag_Peri==FALSE)
+     	{   		
+			if (!Meta_LCDBK_Init())
+			{
+				FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_LCDBK_Init Fail ");
+				goto Per_Exit;
+			}   		
+		    bLCDBKInitFlag_Peri = TRUE;
+    	}        
         UtilityCnf.result.m_LCDCnf = Meta_LCDBK_OP(pFTReq->cmd.m_LCDReq);
         UtilityCnf.status= META_SUCCESS;
         break;
 
 	  case FT_UTILCMD_LCD_COLOR_TEST:
         FT_LOG("[FTT_Drv:] FT_Peripheral_OP pFTReq->type is FT_UTILCMD_LCD_COLOR_TEST ");
+	    if(bLCDFtInitFlag_Peri==FALSE)
+     	{   					
+			if (!Meta_LCDFt_Init())
+			{
+			    FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_LCDFt_Init Fail ");
+			    goto Per_Exit;
+			}			
+		    bLCDFtInitFlag_Peri = TRUE;
+    	}        
         UtilityCnf.result.m_LCDColorTestCNF = Meta_LCDFt_OP(pFTReq->cmd.m_LCDColorTestReq);
         UtilityCnf.status= META_SUCCESS;
         break;
@@ -945,6 +1025,15 @@ void FT_Peripheral_OP(FT_UTILITY_COMMAND_REQ *pFTReq, char *pPeerBuf, kal_int16 
 
     case FT_UTILCMD_VIBRATOR_ONOFF:				//test vibrate and indicator from meta nled lib
         FT_LOG("[FTT_Drv:] FT_Peripheral_OP pFTReq->type is FT_UTILCMD_VIBRATOR_ONOFF ");
+	    if(bVibratorInitFlag_Peri==FALSE)
+     	{
+    		if (!Meta_Vibrator_Init())
+        	{
+            	FT_LOG("[FTT_Drv:] FT_Peripheral_OP Meta_Vibrator_Init Fail ");
+            	goto Per_Exit;
+        	}	
+		    bVibratorInitFlag_Peri = TRUE;
+    	}         
         UtilityCnf.result.m_NLEDCnf = Meta_Vibrator_OP(pFTReq->cmd.m_NLEDReq);
         UtilityCnf.status= META_SUCCESS;
         break;
@@ -974,6 +1063,13 @@ void FT_Peripheral_OP(FT_UTILITY_COMMAND_REQ *pFTReq, char *pPeerBuf, kal_int16 
         FT_LOG("[FTT_Drv:] FT_Peripheral_OP pFTReq->type is FT_UTILCMD_SAVE_MOBILE_LOG ");
         FT_LOG("[FTT_Drv:] FT_UTILCMD_SAVE_MOBILE_LOG META Test %s,%d,%s",__FILE__,__LINE__,__FUNCTION__);
         UtilityCnf.result.m_SaveMobileLogCnf.drv_status = Meta_Mobile_Log();
+        UtilityCnf.status = META_SUCCESS;
+		break;
+   case FT_UTILCMD_OPEN_DUMP_LOG:                          
+        FT_LOG("[FTT_Drv:] FT_Peripheral_OP pFTReq->type is FT_UTILCMD_OPEN_DUMP_LOG ");
+        FT_LOG("[FTT_Drv:] FT_UTILCMD_OPEN_DUMP_LOG META Test %s,%d,%s",__FILE__,__LINE__,__FUNCTION__);
+		dumpLogState = 1;
+        UtilityCnf.result.m_OpenDumpLogCnf.drv_status = true;
         UtilityCnf.status = META_SUCCESS;
 		break;
 
@@ -1887,11 +1983,11 @@ GPIO_Exit:
 const char* makepath(unsigned char file_ID)
 {
 	if(file_ID == 0)
-		return "/data/AllMap";
+		return "/data/nvram/AllMap";
 	else
 	{
 		if(file_ID == 1)
-			return "/data/AllFile";
+			return "/data/nvram/AllFile";
 		else
 		{
 			FT_LOG("[FTT_Drv:] makepath error: invalid file_ID %d! ", file_ID);
@@ -2494,7 +2590,7 @@ void FT_MSENSOR_OP(FT_MSENSOR_REQ *pFTReq, char *pPeerBuf, kal_int16 peer_len)
 	FT_LOG("[FTT_Drv:] FT_MSENSOR_OP");
     FT_MSENSOR_CNF ft_cnf;
     static META_BOOL bInitFlag_MS = FALSE;
-	int res;
+	int res = -1;
 
 
     memset(&ft_cnf, 0, sizeof(FT_MSENSOR_CNF));
@@ -2548,7 +2644,7 @@ void FT_ALSPS_OP(FT_ALSPS_REQ *pFTReq, char *pPeerBuf, kal_int16 peer_len)
 	FT_LOG("[FTT_Drv:] FT_ALSPS_OP");
     FT_ALSPS_CNF ft_cnf;
     static BOOL bInitFlag_ALSPS = FALSE;
-	int res;
+	int res = -1;
 
 
     memset(&ft_cnf, 0, sizeof(FT_ALSPS_CNF));
@@ -2669,19 +2765,19 @@ void FT_CRYPTFS_OP(FT_CRYPTFS_REQ *pFTReq, char *pPeerBuf, kal_int16 peer_len)
 void FT_GetVersionInfoV2(FT_VER_INFO_V2_REQ *req, char *pft_PeerBuf, kal_int16 ft_peer_len)
 {
     FT_VER_INFO_V2_CNF ft_cnf;
-    unsigned int dwRc ;
-    unsigned int dwValSize;
-    unsigned int dwValType;
-    char szBuffer[MAX_PATH];
+    unsigned int dwRc = 0;
+    unsigned int dwValSize = 0;
+    unsigned int dwValType = 0;
+    char szBuffer[MAX_PATH] = {0};
     FILE *fd = 0;
-    char str[256];
-    char *loc;
+    char str[256] = {0};
+    char *loc = NULL;
 
     memset(&ft_cnf, 0, sizeof(ft_cnf));
     memset(szBuffer,0, sizeof(szBuffer));
-    char* tmp;
-    char platform[256];
-    char chipVersion[256];
+    char* tmp = NULL;
+    char platform[256] = {0};
+    char chipVersion[256] = {0};
 
     //initail the value of ft header
     ft_cnf.header.id = req->header.id +1;
@@ -2704,12 +2800,12 @@ void FT_GetVersionInfoV2(FT_VER_INFO_V2_REQ *req, char *pft_PeerBuf, kal_int16 f
             if(!strcmp(loc, RELEASE_SW_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] SW Version = %s\n", tmp);
-                strcpy((char*)ft_cnf.sw_ver, tmp);
+				strncpy((char*)ft_cnf.sw_ver, tmp, 63);
             }
             if(!strcmp(loc, RELEASE_PLATFORM_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] Platform = %s\n", tmp);
-                strcpy(platform, tmp);
+                strncpy(platform, tmp, 255);
             }
             if(!strcmp(loc, RELEASE_PRODUCT_TOKEN))
             {
@@ -2718,18 +2814,18 @@ void FT_GetVersionInfoV2(FT_VER_INFO_V2_REQ *req, char *pft_PeerBuf, kal_int16 f
             if(!strcmp(loc, RELEASE_CHIP_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] Chip Version = %s\n", tmp);
-                strcpy(chipVersion, tmp);
-                strcpy((char*)ft_cnf.hw_ver, tmp);
+				strncpy(chipVersion, tmp, 255);
+                strncpy((char*)ft_cnf.hw_ver, tmp, 63);
             }
             if(!strcmp(loc, RELEASE_BUILD_TIME_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] Build Time = %s\n", tmp);
-                strcpy((char*)ft_cnf.sw_time, tmp);
+				strncpy((char*)ft_cnf.sw_time, tmp, 63);
             }
             if(!strcmp(loc, RELEASE_BUILD_DISP_ID_TOKEN))
             {
                 FT_LOG("[FT_GetVersionInfo] Build Display ID = %s\n", tmp);
-                strcpy((char*)ft_cnf.build_disp_id, tmp);
+				strncpy((char*)ft_cnf.build_disp_id, tmp, 63);
             }
         }
     }
@@ -2755,7 +2851,7 @@ void FT_GetVersionInfoV2(FT_VER_INFO_V2_REQ *req, char *pft_PeerBuf, kal_int16 f
 	szBuffer[k++] = '\0';
 	if (strlen(szBuffer) <= 64)
 	{
-		strcpy((char*)ft_cnf.bb_chip, szBuffer);
+		strncpy((char*)ft_cnf.bb_chip, szBuffer,strlen(szBuffer));
 	}
 	else
 	{
@@ -2895,5 +2991,19 @@ void FT_SIM_NUM_OP(FT_GET_SIM_REQ *req, char *pft_PeerBuf, kal_int16 ft_peer_len
 
 }
 
+
+void FT_ADC_OP(ADC_REQ *pFTReq, char *pPeerBuf, kal_int16 peer_len)
+{
+    FT_LOG("[FTT_Drv:] FT_ADC_OP");
+    Meta_ADC_OP(pFTReq, pPeerBuf, peer_len);	
+    return;
+}
+
+int FT_GetDumpLogState()
+{
+	
+	FT_LOG("[FTT_Drv:] Dump Log State %d",dumpLogState);
+	return dumpLogState;
+}
 
 

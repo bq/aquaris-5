@@ -81,12 +81,11 @@
 *                E X T E R N A L   R E F E R E N C E S
 ******************************************************************************
 */
+#include <hardware_legacy/AudioHardwareInterface.h>
 
+#include <AudioFtmBase.h>
+#include "AudioMeta.h"
 
-#include <AudioFtm.h>
-#include <AudioMeta.h>
-#include <AudioMTKHardware.h>
-#include <AudioMTKStreamIn.h>
 #ifdef __cplusplus
 extern "C" {
 #include "DIF_FFT.h"
@@ -97,37 +96,6 @@ extern "C" {
 #include "meta.h"
 //#include "FT_Cmd_Para.h"
 #include "FT_Public.h"
-
-#include "LoopbackManager.h"
-
-/*
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#include <string.h>
-#include <stdint.h>
-#include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sched.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <utils/Log.h>
-//#include <utils/String8.h>
-#include <hardware_legacy/power.h>
-#include <linux/fm.h>
-*/
-
-//#include "WM2Linux.h"
-/*
-#include "AudioMTKHardware.h"
-#include "AudioIoctl.h"
-#include "AudioDef.h"
-#include "audio_custom_exp.h"
-#include "AudioMTKStreamOut.h"
-#include "AudioAnalogReg.h"
-*/
 
 using namespace android;
 
@@ -159,11 +127,6 @@ using namespace android;
 #define AUDIO_APPLY_MAX_GAIN (0xffff)
 #define AUDIO_APPLY_BIG_GAIN (0xcccc)
 
-#define MIC1_OFF  0
-#define MIC1_ON   1
-#define MIC2_OFF  2
-#define MIC2_ON   3
-
 #define PEER_BUF_SIZE 2*1024
 #define ADVANCED_META_MODE 5
 
@@ -171,7 +134,8 @@ using namespace android;
 *                         D A T A   T Y P E S
 ******************************************************************************
 */
-enum audio_devices {
+enum audio_devices
+{
     // output devices
     OUT_EARPIECE = 0,
     OUT_SPEAKER = 1,
@@ -205,10 +169,8 @@ static void Audio_Set_Speaker_On(int Channel);
 static void Audio_Set_Speaker_Off(int Channel);
 */
 
-static android::AudioFtm *mAudioFtm;
+static android::AudioFtmBase *mAudioFtm;
 static bool bMetaAudioInited = false;
-static    android::AudioMTKHardware *gAudioHardware = NULL;
-static    android_audio_legacy::AudioStreamIn *gAudioStreamIn = NULL;
 /*****************************************************************************
 *                        F U N C T I O N   D E F I N I T I O N
 ******************************************************************************
@@ -216,6 +178,9 @@ static    android_audio_legacy::AudioStreamIn *gAudioStreamIn = NULL;
 //#define GENERIC_AUDIO   //for test
 
 #ifndef GENERIC_AUDIO
+
+static android_audio_legacy::AudioHardwareInterface *gAudioHardware = NULL;
+static android_audio_legacy::AudioStreamIn *gAudioStreamIn = NULL;
 
 static void *AudioRecordControlLoop(void *arg)
 {
@@ -240,11 +205,11 @@ static void Audio_Set_Speaker_Off(int Channel)
 bool META_Audio_init(void)
 {
     META_LOG("+META_Audio_init");
-    if(gAudioHardware == NULL)
+    if (gAudioHardware == NULL)
     {
-        gAudioHardware = new android::AudioMTKHardware(false);
+        gAudioHardware = android_audio_legacy::createAudioHardware();
     }
-    mAudioFtm = android::AudioFtm::getInstance();
+    mAudioFtm = android::AudioFtmBase::createAudioFtmInstance();
     //mAudioFtm->RequestClock();
     bMetaAudioInited = true;
     META_LOG("-META_Audio_init");
@@ -263,11 +228,13 @@ bool META_Audio_deinit()
 bool RecieverLoopbackTest(char echoflag)
 {
     META_LOG("RecieverLoopbackTest echoflag=%d", echoflag);
-    if (echoflag) {
-        LoopbackManager::GetInstance()->SetLoopbackOn(AP_MAIN_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_RECEIVER);
+    if (echoflag)
+    {
+        mAudioFtm->PhoneMic_Receiver_Loopback(MIC1_ON);
     }
-    else {
-        LoopbackManager::GetInstance()->SetLoopbackOff();
+    else
+    {
+        mAudioFtm->PhoneMic_Receiver_Loopback(MIC1_OFF);
     }
     return true;
 }
@@ -275,11 +242,13 @@ bool RecieverLoopbackTest(char echoflag)
 bool RecieverLoopbackTest_Mic2(char echoflag)
 {
     LOGD("RecieverLoopbackTest_Mic2 echoflag=%d", echoflag);
-    if (echoflag) {
-        LoopbackManager::GetInstance()->SetLoopbackOn(AP_REF_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_RECEIVER);
+    if (echoflag)
+    {
+        mAudioFtm->PhoneMic_Receiver_Loopback(MIC2_ON);
     }
-    else {
-        LoopbackManager::GetInstance()->SetLoopbackOff();
+    else
+    {
+        mAudioFtm->PhoneMic_Receiver_Loopback(MIC2_OFF);
     }
     return true;
 }
@@ -288,29 +257,14 @@ bool RecieverLoopbackTest_Mic2(char echoflag)
 bool EarphoneLoopbackTest(char echoflag)
 {
     META_LOG("EarphoneLoopbackTest echoflag = %d", echoflag);
-    if (echoflag == MIC1_ON) {
-        LoopbackManager::GetInstance()->SetLoopbackOn(AP_MAIN_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_EARPHONE);
-    }
-    else if (echoflag == MIC2_ON) {
-        LoopbackManager::GetInstance()->SetLoopbackOn(AP_REF_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_EARPHONE);
-    }
-    else {
-        LoopbackManager::GetInstance()->SetLoopbackOff();
-    }
-    return true;
+    return mAudioFtm->PhoneMic_EarphoneLR_Loopback(echoflag);
 }
 
 
 static int HeadsetMic_EarphoneLR_Loopback(char bEnable)
 {
     META_LOG("HeadsetMic_EarphoneLR_Loopback bEnable = %d", bEnable);
-    if (bEnable == true) {
-        LoopbackManager::GetInstance()->SetLoopbackOn(AP_HEADSET_MIC_AFE_LOOPBACK, LOOPBACK_OUTPUT_EARPHONE);
-    }
-    else {
-        LoopbackManager::GetInstance()->SetLoopbackOff();
-    }
-    return true;
+    return mAudioFtm->HeadsetMic_EarphoneLR_Loopback(bEnable, true);
 }
 
 
@@ -338,7 +292,7 @@ bool EarphoneTest(char bEnable)
     return true;
 }
 
-bool FMLoopbackTest(char bEnable)   //ship to do
+bool FMLoopbackTest(char bEnable) //ship to do
 {
     META_LOG("FMLoopbackTest bEnable = %d", bEnable);
     mAudioFtm->FMLoopbackTest(bEnable);
@@ -523,7 +477,8 @@ void META_Audio_OP(FT_L4AUD_REQ *req, char *peer_buff, unsigned short peer_len)
 
     META_LOG("+META_Audio_OP");
 #if 0
-    if (bMetaAudioInited == FALSE) {
+    if (bMetaAudioInited == FALSE)
+    {
         META_LOG("META_Audio_OP not initialed \r");
         audio_cnf.status = META_FAILED;
         WriteDataToPC(&audio_cnf, sizeof(FT_L4AUD_CNF), NULL, 0);
@@ -531,56 +486,67 @@ void META_Audio_OP(FT_L4AUD_REQ *req, char *peer_buff, unsigned short peer_len)
 #endif
     META_LOG("META_Audio_OP req->op=%d \r", req->op);
 
-    switch (req->op) {
-        case FT_L4AUD_OP_SET_PARAM_SETTINGS_0809: {
+    switch (req->op)
+    {
+        case FT_L4AUD_OP_SET_PARAM_SETTINGS_0809:
+        {
             META_LOG("META_Audio_OP, Audio Set Param Req \r");
 
             break;
         }
 
-        case FT_L4AUD_OP_GET_PARAM_SETTINGS_0809: {
+        case FT_L4AUD_OP_GET_PARAM_SETTINGS_0809:
+        {
             META_LOG("META_Audio_OP, Audio Get Param Req\r\n");
             break;
         }
-        case FT_L4AUD_OP_SET_ACF_COEFFS: {
+        case FT_L4AUD_OP_SET_ACF_COEFFS:
+        {
             META_LOG("META_Audio_OP, Audio Set ACF Param Req \r");
             break;
         }
 
-        case FT_L4AUD_OP_GET_ACF_COEFFS: {
+        case FT_L4AUD_OP_GET_ACF_COEFFS:
+        {
             META_LOG("META_Audio_OP, Audio Get ACF Param Req\r\n");
             break;
         }
-        case FT_L4AUD_OP_SET_PREVIEW_ACF_COEFFS: {
+        case FT_L4AUD_OP_SET_PREVIEW_ACF_COEFFS:
+        {
             META_LOG("META_Audio_OP, Audio Set ACF Preview Param Req\r\n");
 
             break;
         }
-        case FT_L4AUD_OP_SET_HCF_COEFFS: {
+        case FT_L4AUD_OP_SET_HCF_COEFFS:
+        {
             META_LOG("META_Audio_OP, Audio Set HCF Param Req \r");
 
             break;
         }
 
-        case FT_L4AUD_OP_GET_HCF_COEFFS: {
+        case FT_L4AUD_OP_GET_HCF_COEFFS:
+        {
             META_LOG("META_Audio_OP, Audio Get HCF Param Req\r\n");
 
             break;
         }
-        case FT_L4AUD_OP_SET_PREVIEW_HCF_COEFFS: {
+        case FT_L4AUD_OP_SET_PREVIEW_HCF_COEFFS:
+        {
             META_LOG("META_Audio_OP, Audio Set HCF Preview Param Req\r\n");
 
             break;
         }
 
-        case FT_L4AUD_OP_SET_ECHO: { //ship to do
+        case FT_L4AUD_OP_SET_ECHO:   //ship to do
+        {
             META_LOG("META_Audio_OP, Loopback test \r\n");
             ft_l4aud_set_echo *par;
             par = (ft_l4aud_set_echo *)&req->req;
             ret = RecieverLoopbackTest(par->echoflag);
             break;
         }
-        case FT_L4AUD_OP_MIC2_LOOPBACK: { //ship to do
+        case FT_L4AUD_OP_MIC2_LOOPBACK:   //ship to do
+        {
             LOGD("META_Audio_OP, MIC2 Loopback test \r\n");
             ft_l4aud_set_echo *par;
             par = (ft_l4aud_set_echo *)&req->req;
@@ -588,110 +554,131 @@ void META_Audio_OP(FT_L4AUD_REQ *req, char *peer_buff, unsigned short peer_len)
             ret = RecieverLoopbackTest_Mic2(par->echoflag);
             break;
         }
-        case FT_L4AUD_OP_RECEIVER_TEST: {  //ship to do
+        case FT_L4AUD_OP_RECEIVER_TEST:    //ship to do
+        {
             META_LOG("META_Audio_OP, Receiver test \r\n");
             ft_l4aud_receiver_test *par;
             par = (ft_l4aud_receiver_test *)&req->req;
             ret = RecieverTest((char)par->receiver_test);
             break;
         }
-        case FT_L4AUD_OP_LOUDSPK_TEST: {  //ship to do
+        case FT_L4AUD_OP_LOUDSPK_TEST:    //ship to do
+        {
             META_LOG("META_Audio_OP, LoudSpk test \r\n");
             ft_l4aud_loudspk *par;
             par = (ft_l4aud_loudspk *)&req->req;
             ret = LouderSPKTest(par->left_channel, par->right_channel);
             break;
         }
-        case FT_L4AUD_OP_EARPHONE_TEST: {  //ship to do
+        case FT_L4AUD_OP_EARPHONE_TEST:    //ship to do
+        {
             META_LOG("META_Audio_OP, Earphone test \r\n");
             ret = EarphoneTest(req->req.eaphone_test.bEnable);
             break;
         }
 
-        case FT_L4AUD_OP_HEADSET_LOOPBACK_TEST: {  //ship to do
+        case FT_L4AUD_OP_HEADSET_LOOPBACK_TEST:    //ship to do
+        {
             META_LOG("META_Audio_OP, Headset loopback test \r\n");
             ret = HeadsetMic_EarphoneLR_Loopback(req->req.headset_loopback_test.bEnable);
             break;
         }
 
-        case FT_L4AUD_OP_FM_LOOPBACK_TEST: { //ship to do
+        case FT_L4AUD_OP_FM_LOOPBACK_TEST:   //ship to do
+        {
             META_LOG("META_Audio_OP, FM loopback test \r\n");
             ret = FMLoopbackTest(req->req.fm_loopback_test.bEnable);
             break;
         }
 
-        case FT_L4AUD_OP_SET_PLAYBACK_FILE: {
+        case FT_L4AUD_OP_SET_PLAYBACK_FILE:
+        {
             META_LOG("META_Audio_OP, set playback file \r\n");
             break;
         }
 
-        case FT_L4AUD_OP_DL_DATA_PACKAGE: {
+        case FT_L4AUD_OP_DL_DATA_PACKAGE:
+        {
             META_LOG("META_Audio_OP, down link data pakage \r\n");
             break;
         }
 
-        case FT_L4AUD_OP_DUALMIC_RECORD: {
+        case FT_L4AUD_OP_DUALMIC_RECORD:
+        {
             META_LOG("META_Audio_OP, dual mic recording \r\n");
             break;
         }
 
-        case FT_L4AUD_OP_PLAYBACK_DUALMICRECORD: {
+        case FT_L4AUD_OP_PLAYBACK_DUALMICRECORD:
+        {
             META_LOG("META_Audio_OP, playback and dual mic recording \r\n");
 
             break;
         }
 
-        case FT_L4AUD_OP_PLAYBACK_DUALMICRECORD_HS: {
+        case FT_L4AUD_OP_PLAYBACK_DUALMICRECORD_HS:
+        {
             META_LOG("META_Audio_OP, headset playback and dual mic recording \r\n");
 
             break;
         }
 
-        case FT_L4AUD_OP_STOP_DUALMIC_RECORD: {
+        case FT_L4AUD_OP_STOP_DUALMIC_RECORD:
+        {
             META_LOG("META_Audio_OP, stop dual mic recording \r\n");
 
             break;
         }
 
-        case FT_L4AUD_OP_UL_DATA_PACKAGE: {
+        case FT_L4AUD_OP_UL_DATA_PACKAGE:
+        {
 
             break;
         }
 
-        case FT_L4AUD_OP_DUALMIC_SET_PARAMS: {
+        case FT_L4AUD_OP_DUALMIC_SET_PARAMS:
+        {
             break;
         }
 
-        case FT_L4AUD_OP_DUALMIC_GET_PARAMS: {
+        case FT_L4AUD_OP_DUALMIC_GET_PARAMS:
+        {
             break;
         }
 
-        case FT_L4AUD_OP_LOAD_VOLUME: {
+        case FT_L4AUD_OP_LOAD_VOLUME:
+        {
             break;
         }
-        case FT_L4AUD_OP_GET_GAINTABLE_SUPPORT: {
+        case FT_L4AUD_OP_GET_GAINTABLE_SUPPORT:
+        {
             break;
         }
-        case FT_L4AUD_OP_GET_GAINTABLE_NUM: {
+        case FT_L4AUD_OP_GET_GAINTABLE_NUM:
+        {
             ret = true;
             break;
         }
-        case FT_L4AUD_OP_GET_GAINTABLE_LEVEL: {
+        case FT_L4AUD_OP_GET_GAINTABLE_LEVEL:
+        {
             META_LOG("META_Audio_OP, FT_L4AUD_OP_GET_GAINTABLE_LEVEL \r\n");
             ret = true;
             break;
         }
-        case FT_L4AUD_OP_GET_CTRPOINT_NUM: {
+        case FT_L4AUD_OP_GET_CTRPOINT_NUM:
+        {
             META_LOG("META_Audio_OP, FT_L4AUD_OP_GET_CTRPOINT_NUM \r\n");
             ret = true;
             break;
         }
-        case FT_L4AUD_OP_GET_CTRPOINT_BITS: {
+        case FT_L4AUD_OP_GET_CTRPOINT_BITS:
+        {
             META_LOG("META_Audio_OP, FT_L4AUD_OP_GET_CTRPOINT_BITS \r\n");
             ret = true;
             break;
         }
-        case FT_L4AUD_OP_GET_CTRPOINT_TABLE: {
+        case FT_L4AUD_OP_GET_CTRPOINT_TABLE:
+        {
             META_LOG("META_Audio_OP, FT_L4AUD_OP_GET_CTRPOINT_TABLE \r\n");
 
             break;
@@ -702,76 +689,80 @@ void META_Audio_OP(FT_L4AUD_REQ *req, char *peer_buff, unsigned short peer_len)
     }
 
     if (!ret)
+    {
         audio_cnf.status = META_FAILED;
+    }
 
     META_LOG("-META_Audio_OP, audio_cnf.status = %d \r", audio_cnf.status);
     WriteDataToPC(&audio_cnf, sizeof(FT_L4AUD_CNF), pBuff, mReadSize);
 
 }
 //short pbuffer[512],bytes:512*2
-int readRecordData(void * pbuffer,int bytes)
+int readRecordData(void *pbuffer, int bytes)
 {
     int nBytes = 0;
 
-    if(gAudioStreamIn == NULL)
+    if (gAudioStreamIn == NULL)
     {
         android::AudioParameter paramVoiceMode = android::AudioParameter();
-        paramVoiceMode.addInt(android::String8("HDREC_SET_VOICE_MODE"),0);
+        paramVoiceMode.addInt(android::String8("HDREC_SET_VOICE_MODE"), 0);
         gAudioHardware->setParameters(paramVoiceMode.toString());
-        
+
         uint32_t device = AUDIO_DEVICE_IN_BUILTIN_MIC;
         int format = AUDIO_FORMAT_PCM_16_BIT;
         uint32_t channel = AUDIO_CHANNEL_IN_STEREO;
         uint32_t sampleRate = 48000;
         status_t status = 0;
-        gAudioStreamIn = gAudioHardware->openInputStream(device,&format,&channel,&sampleRate,&status,(android_audio_legacy::AudioSystem::audio_in_acoustics)0);
+        gAudioStreamIn = gAudioHardware->openInputStream(device, &format, &channel, &sampleRate, &status, (android_audio_legacy::AudioSystem::audio_in_acoustics)0);
         android::AudioParameter param = android::AudioParameter();
         param.addInt(android::String8(android::AudioParameter::keyRouting), device);
         param.addInt(android::String8(android::AudioParameter::keyInputSource), android_audio_legacy::AUDIO_SOURCE_MIC);
         gAudioStreamIn->setParameters(param.toString());
     }
 
-    nBytes = gAudioStreamIn->read(pbuffer,bytes);
+    nBytes = gAudioStreamIn->read(pbuffer, bytes);
     return nBytes;
 }
 //short pbuffer[512],bytes:512*2
-bool freqCheck(short pbuffer[],int bytes)
+bool freqCheck(short pbuffer[], int bytes)
 {
-    short pbufferL[256]={0};	
-	  short pbufferR[256]={0};
-	  int lowFreq = 1000 * (1-0.1);
-    int highFreq = 1000 * (1+0.1);	
-	  for(int i = 0 ; i < 256 ; i++)
+    short pbufferL[256] = {0};
+    short pbufferR[256] = {0};
+    int lowFreq = 1000 * (1 - 0.1);
+    int highFreq = 1000 * (1 + 0.1);
+    for (int i = 0 ; i < 256 ; i++)
     {
-       pbufferL[i] = pbuffer[2 * i];
-       pbufferR[i] = pbuffer[2 * i + 1];
+        pbufferL[i] = pbuffer[2 * i];
+        pbufferR[i] = pbuffer[2 * i + 1];
     }
 #if 0
-		char filenameL[]="/data/record_dataL.pcm";
-		char filenameR[]="/data/record_dataR.pcm";
-		FILE * fpL= fopen(filenameL, "ab+");
-		FILE * fpR= fopen(filenameR, "ab+");
-		
-		if(fpL!=NULL)
-		{
-		  fwrite(pbufferL,bytes/2,1,fpL);
-		  fclose(fpL);
-		}
-		
-		if(fpR!=NULL)
-		{
-		  fwrite(pbufferR,bytes/2,1,fpR);
-		  fclose(fpR);
-		}
+    char filenameL[] = "/data/record_dataL.pcm";
+    char filenameR[] = "/data/record_dataR.pcm";
+    FILE *fpL = fopen(filenameL, "ab+");
+    FILE *fpR = fopen(filenameR, "ab+");
+
+    if (fpL != NULL)
+    {
+        fwrite(pbufferL, bytes / 2, 1, fpL);
+        fclose(fpL);
+    }
+
+    if (fpR != NULL)
+    {
+        fwrite(pbufferR, bytes / 2, 1, fpR);
+        fclose(fpR);
+    }
 #endif
-	  unsigned int freqDataL[3]={0},magDataL[3]={0};
-	  unsigned int freqDataR[3]={0},magDataR[3]={0};
-    ApplyFFT256(48000,pbufferL,0,freqDataL,magDataL);
-    ApplyFFT256(48000,pbufferR,0,freqDataR,magDataR);
+    unsigned int freqDataL[3] = {0}, magDataL[3] = {0};
+    unsigned int freqDataR[3] = {0}, magDataR[3] = {0};
+    ApplyFFT256(48000, pbufferL, 0, freqDataL, magDataL);
+    ApplyFFT256(48000, pbufferR, 0, freqDataR, magDataR);
     if ((freqDataL[0] <= highFreq && freqDataL[0] >= lowFreq) && (freqDataR[0] <= highFreq && freqDataR[0] >= lowFreq))
-    	return true;
+    {
+        return true;
+    }
     return false;
- 	
+
 }
 
 #else   //GENERIC_AUDIO is defined, dummy function
@@ -810,8 +801,8 @@ static META_BOOL setParameters(ft_l4aud_dualmic_set_params_req &set_par) { retur
 static META_BOOL getParameters(ft_l4aud_dualmic_get_params_req &get_par, void *audio_par) { return true; }
 void META_Audio_OP(FT_L4AUD_REQ *req, char *peer_buff, unsigned short peer_len) {}
 static int HeadsetMic_EarphoneLR_Loopback(char bEnable) { return true; }
-int readRecordData(void * pbuffer,int bytes){return 0;}
-bool freqCheck(short pbuffer[],int bytes){return true;}
+int readRecordData(void *pbuffer, int bytes) {return 0;}
+bool freqCheck(short pbuffer[], int bytes) {return true;}
 
 #endif  //end ifndefined GENERIC_AUDIO
 #ifdef __cplusplus

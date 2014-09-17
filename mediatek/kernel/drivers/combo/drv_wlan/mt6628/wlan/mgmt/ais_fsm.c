@@ -1159,11 +1159,6 @@ aisFsmInit (
             (PFN_MGMT_TIMEOUT_FUNC)aisFsmRunEventJoinTimeout,
             (UINT_32)NULL);
 
-    cnmTimerInitTimer(prAdapter,
-                &prAisFsmInfo->rScanDoneTimer,
-                (PFN_MGMT_TIMEOUT_FUNC)aisFsmRunEventScanDoneTimeOut,
-                (UINT_32)NULL);
-
     //4 <1.2> Initiate PWR STATE
     SET_NET_PWR_STATE_IDLE(prAdapter, NETWORK_TYPE_AIS_INDEX);
 
@@ -1246,7 +1241,6 @@ aisFsmUninit (
     cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rIbssAloneTimer);
     cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rIndicationOfDisconnectTimer);
     cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rJoinTimeoutTimer);
-    cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rScanDoneTimer); //Add by Enlai
 
     //4 <2> flush pending request
     aisFsmFlushRequest(prAdapter);
@@ -1658,7 +1652,6 @@ aisFsmStateAbort_JOIN (
 
     /* 3.2 reset local variable */
     prAisFsmInfo->fgIsInfraChannelFinished = TRUE;
-    prAdapter->rWifiVar.rConnSettings.fgIsConnReqIssued = FALSE;
 
     return;
 } /* end of aisFsmAbortJOIN() */
@@ -2090,7 +2083,7 @@ aisFsmSteps (
 
         case AIS_STATE_WAIT_FOR_NEXT_SCAN:
 
-            DBGLOG(AIS, LOUD, ("SCAN: Idle Begin - Current Time = %ld\n", kalGetTimeTick()));
+            DBGLOG(AIS, LOUD, ("SCAN: Idle Begin - Current Time = %u\n", kalGetTimeTick()));
 
             cnmTimerStartTimer(prAdapter,
                     &prAisFsmInfo->rBGScanTimer,
@@ -2330,7 +2323,7 @@ aisFsmRunEventScanDone (
     ASSERT(prAdapter);
     ASSERT(prMsgHdr);
 
-    DBGLOG(AIS, LOUD, ("EVENT-SCAN DONE: Current Time = %ld\n", kalGetTimeTick()));
+    DBGLOG(AIS, LOUD, ("EVENT-SCAN DONE: Current Time = %u\n", kalGetTimeTick()));
 
     prAisFsmInfo = &(prAdapter->rWifiVar.rAisFsmInfo);
     prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
@@ -3813,64 +3806,6 @@ aisFsmDisconnect (
 
 /*----------------------------------------------------------------------------*/
 /*!
-* @brief This function will indicate an Event of Scan done Time-Out to AIS FSM.
-*
-* @param[in] u4Param  Unused timer parameter
-*
-* @return (none)
-*/
-/*----------------------------------------------------------------------------*/
-VOID
-aisFsmRunEventScanDoneTimeOut (
-    IN P_ADAPTER_T prAdapter,
-    UINT_32 u4Param
-    )
-{
-    DEBUGFUNC("aisFsmRunEventScanDoneTimeOut()");
-
-    P_AIS_FSM_INFO_T prAisFsmInfo;
-    ENUM_AIS_STATE_T eNextState;
-    P_CONNECTION_SETTINGS_T prConnSettings;
-
-    ASSERT(prAdapter);
-
-    prAisFsmInfo = &(prAdapter->rWifiVar.rAisFsmInfo);
-    prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
-
-    DBGLOG(AIS, STATE, ("aisFsmRunEventScanDoneTimeOut Current[%d]\n",prAisFsmInfo->eCurrentState));
-
-    prConnSettings->fgIsScanReqIssued = FALSE;
-    kalScanDone(prAdapter->prGlueInfo, KAL_NETWORK_TYPE_AIS_INDEX, WLAN_STATUS_SUCCESS);
-    eNextState = prAisFsmInfo->eCurrentState;
-
-    switch (prAisFsmInfo->eCurrentState) {
-            case AIS_STATE_SCAN:
-                prAisFsmInfo->u4ScanIELength = 0;
-                eNextState = AIS_STATE_IDLE;
-                break;
-            case AIS_STATE_ONLINE_SCAN:
-                /* reset scan IE buffer */
-                prAisFsmInfo->u4ScanIELength = 0;
-#if CFG_SUPPORT_ROAMING
-                eNextState = aisFsmRoamingScanResultsUpdate(prAdapter);
-#else
-                eNextState = AIS_STATE_NORMAL_TR;
-#endif /* CFG_SUPPORT_ROAMING */
-                break;
-            default:
-                break;
-        }
-
-        if (eNextState != prAisFsmInfo->eCurrentState) {
-            aisFsmSteps(prAdapter, eNextState);
-        }
-
-    return;
-} /* end of aisFsmBGSleepTimeout() */
-
-
-/*----------------------------------------------------------------------------*/
-/*!
 * @brief This function will indicate an Event of "Background Scan Time-Out" to AIS FSM.
 *
 * @param[in] u4Param  Unused timer parameter
@@ -3895,7 +3830,7 @@ aisFsmRunEventBGSleepTimeOut (
 
     switch (prAisFsmInfo->eCurrentState) {
     case AIS_STATE_WAIT_FOR_NEXT_SCAN:
-        DBGLOG(AIS, LOUD, ("EVENT - SCAN TIMER: Idle End - Current Time = %ld\n", kalGetTimeTick()));
+        DBGLOG(AIS, LOUD, ("EVENT - SCAN TIMER: Idle End - Current Time = %u\n", kalGetTimeTick()));
 
         eNextState = AIS_STATE_LOOKING_FOR;
 
@@ -4404,35 +4339,6 @@ aisFsmRunEventRoamingDiscovery (
 
     /* search candidates by best rssi */
     prConnSettings->eConnectionPolicy = CONNECT_BY_SSID_BEST_RSSI;
-
-#if CFG_SUPPORT_WFD
-#if CFG_ENABLE_WIFI_DIRECT
-    {
-        /* Check WFD is running */
-        P_BSS_INFO_T prP2pBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_P2P_INDEX]);
-        P_WFD_CFG_SETTINGS_T prWfdCfgSettings = (P_WFD_CFG_SETTINGS_T)NULL;
-        if (prAdapter->fgIsP2PRegistered &&
-                    IS_BSS_ACTIVE(prP2pBssInfo) &&
-                    (prP2pBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT ||
-                    prP2pBssInfo->eCurrentOPMode == OP_MODE_INFRASTRUCTURE)) {
-             DBGLOG(ROAMING, INFO, ("Handle roaming when P2P is GC or GO.\n"));
-             if (prAdapter->rWifiVar.prP2pFsmInfo) {
-                prWfdCfgSettings = &(prAdapter->rWifiVar.prP2pFsmInfo->rWfdConfigureSettings);
-                if ((prWfdCfgSettings->ucWfdEnable == 1) &&
-                        ((prWfdCfgSettings->u4WfdFlag & WFD_FLAGS_DEV_INFO_VALID))) {
-                   DBGLOG(ROAMING, INFO, ("WFD is running. Stop roaming.\n"));
-                   roamingFsmRunEventRoam(prAdapter);
-                   roamingFsmRunEventFail(prAdapter, ROAMING_FAIL_REASON_NOCANDIDATE);
-                   return;
-                }
-            }
-            else {
-                ASSERT(0);
-            }
-        } /* fgIsP2PRegistered */ 
-    }
-#endif
-#endif
 
     /* results are still new */
     if (!u4ReqScan) {

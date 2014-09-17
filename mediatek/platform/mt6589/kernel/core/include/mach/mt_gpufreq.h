@@ -2,7 +2,7 @@
 #define _MT_GPUFREQ_H
 
 #include <linux/module.h>
-
+ 
 /*********************
 * Clock Mux Register
 **********************/

@@ -113,6 +113,8 @@
 #define RE_BOOT_BY_WDT_HW               (0x01)
 #define RE_BOOT_BY_WDT_SW               (0x02)
 #define RE_BOOT_WITH_INTTERUPT          (0x04)
+#define RE_BOOT_BY_SPM_THERMAL        (0x08)
+
 #define RE_BOOT_ABNORMAL                (0xF0)
 
 /* Reboot from which stage */

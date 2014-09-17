@@ -12,6 +12,7 @@ LOCAL_SHARED_LIBRARIES := \
     libandroid_runtime \
     libutils \
     libbinder \
+    liblog \
     libaal
  
 LOCAL_PRELINK_MODULE := false

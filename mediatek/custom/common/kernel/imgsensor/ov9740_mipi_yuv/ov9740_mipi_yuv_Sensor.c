@@ -1,38 +1,4 @@
 /*****************************************************************************
-*  Copyright Statement:
-*  -------------------- 
-*  This software is protected by Copyright and the information contained
-*  herein is confidential. The software may not be copied and the information
-*  contained herein may not be used or disclosed except with the written
-*  permission of MediaTek Inc. (C) 2008
-*
-*  BY OPENING THIS FILE, BUYER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
-*  THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
-*  RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO BUYER ON
-*  AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
-*  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
-*  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
-*  NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
-*  SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
-*  SUPPLIED WITH THE MEDIATEK SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH
-*  THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO
-*  NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S
-*  SPECIFICATION OR TO CONFORM TO A PARTICULAR STANDARD OR OPEN FORUM.
-*
-*  BUYER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND CUMULATIVE
-*  LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
-*  AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
-*  OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY BUYER TO
-*  MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
-*
-*  THE TRANSACTION CONTEMPLATED HEREUNDER SHALL BE CONSTRUED IN ACCORDANCE
-*  WITH THE LAWS OF THE STATE OF CALIFORNIA, USA, EXCLUDING ITS CONFLICT OF
-*  LAWS PRINCIPLES.  ANY DISPUTES, CONTROVERSIES OR CLAIMS ARISING THEREOF AND
-*  RELATED THERETO SHALL BE SETTLED BY ARBITRATION IN SAN FRANCISCO, CA, UNDER
-*  THE RULES OF THE INTERNATIONAL CHAMBER OF COMMERCE (ICC).
-*
-*****************************************************************************/
-/*****************************************************************************
  *
  * Filename:
  * ---------
@@ -876,7 +842,7 @@ UINT32 OV9740MIPIGetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
 					  MSDK_SENSOR_INFO_STRUCT *pSensorInfo,
 					  MSDK_SENSOR_CONFIG_STRUCT *pSensorConfigData)
 {
-	#if defined(MT6575)
+	#if 0
     switch(ScenarioId)
     {
         
@@ -1001,7 +967,7 @@ UINT32 OV9740MIPIControl(MSDK_SCENARIO_ID_ENUM ScenarioId, MSDK_SENSOR_EXPOSURE_
 			OV9740MIPICapture(pImageWindow, pSensorConfigData);
 		break;
 		
-		#if defined(MT6575)
+		#if 0
 		case MSDK_SCENARIO_ID_CAMERA_ZSD:
 			   OV9740MIPICapture(pImageWindow, pSensorConfigData);
 			break;
@@ -1261,30 +1227,40 @@ BOOL OV9740MIPI_set_param_banding(UINT16 para)
 {
 	kal_uint8 m_banding_auto;
 	kal_uint8 m_banding_sel;  
+	kal_uint8 m_banding_sel_set;  
 
-	if(OV9740MIPICurrentStatus.iBanding == para)
-		return TRUE;
+//	if(OV9740MIPICurrentStatus.iBanding == para)
+//		return TRUE;
+	
+	SENSORDB("OV9740MIPI_set_param_banding %d  \r\n", para);
+	SENSORDB("50hz %d  \r\n", AE_FLICKER_MODE_50HZ);
+	SENSORDB("60hz %d  \r\n", AE_FLICKER_MODE_60HZ);
 
 	m_banding_auto  =OV9740MIPI_read_cmos_sensor(0x3C01);
-	m_banding_sel   =OV9740MIPI_read_cmos_sensor(0x3C0C);
+	//m_banding_sel   =OV9740MIPI_read_cmos_sensor(0x3C0C);//read only
+	m_banding_sel_set = OV9740MIPI_read_cmos_sensor(0x3C00);
+	
 
 	m_banding_auto = m_banding_auto & 0x7F;
-	m_banding_sel = m_banding_sel   & 0xFA;
+	//m_banding_sel = m_banding_sel   & 0xFA;
+	m_banding_sel_set &= 0xfb;
 
     switch (para)
 	{
 		case AE_FLICKER_MODE_50HZ:
+			OV9740MIPI_write_cmos_sensor(0x3C00, (m_banding_sel_set |   4) );
 			OV9740MIPI_write_cmos_sensor(0x3C01, (m_banding_auto|0x80) );
-			OV9740MIPI_write_cmos_sensor(0x3C0C, (m_banding_sel |   1) );
+		//	OV9740MIPI_write_cmos_sensor(0x3C0C, (m_banding_sel |   1) );
 			break;
 		case AE_FLICKER_MODE_60HZ:
+			OV9740MIPI_write_cmos_sensor(0x3C00, (m_banding_sel_set)    );
 			OV9740MIPI_write_cmos_sensor(0x3C01, (m_banding_auto|0x80) );
-			OV9740MIPI_write_cmos_sensor(0x3C0C,  m_banding_sel        );
+		//	OV9740MIPI_write_cmos_sensor(0x3C0C,  m_banding_sel        );
 			break;
 		default:
 
 			OV9740MIPI_write_cmos_sensor(0x3C01,  m_banding_auto     );
-			OV9740MIPI_write_cmos_sensor(0x3C0C, (m_banding_sel | 4) );
+		//	OV9740MIPI_write_cmos_sensor(0x3C0C, (m_banding_sel | 4) );
 			return FALSE;
 	}
 	spin_lock(&ov9740mipi_yuv_drv_lock);
@@ -1475,7 +1451,7 @@ kal_uint16 OV9740MIPIReadAwbBGain(void)
 	return (temp_msb|temp_lsb);
 
 }
-#if defined(MT6575)
+#if 0
 
 /*************************************************************************
 * FUNCTION
@@ -1721,7 +1697,7 @@ UINT32 OV9740MIPIFeatureControl(MSDK_SENSOR_FEATURE_ENUM FeatureId,
 		case SENSOR_FEATURE_SET_VIDEO_MODE:
 		    OV9740MIPIYUVSetVideoMode(*pFeatureData16);
 		    break; 
-		#if defined(MT6575)
+		#if 0//
 		case SENSOR_FEATURE_GET_EV_AWB_REF:
 			 OV9740MIPIGetEvAwbRef(*pFeatureData32);
 				break;

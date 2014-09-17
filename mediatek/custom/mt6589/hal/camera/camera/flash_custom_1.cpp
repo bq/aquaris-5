@@ -15,27 +15,16 @@
 
 int cust_getFlashModeStyle(int sensorType, int flashMode)
 {
-    XLOGD("cust_getFlashModeStyle");
-	//LIB3A_FLASH_MODE_AUTO        =  0,
-    //LIB3A_FLASH_MODE_SLOWSYNC    =  0, //NOW DO NOT SUPPORT SLOW SYNC, TEMPERALLY THE SAME WITH AUTO
-    //LIB3A_FLASH_MODE_FORCE_ON    =  1,
-    //LIB3A_FLASH_MODE_FORCE_OFF   =  2,
-    //LIB3A_FLASH_MODE_REDEYE      =  3,
-    //LIB3A_FLASH_MODE_FORCE_TORCH =  4,
-    //flash style
+
+    //if(sensorType==(int)DUAL_CAMERA_MAIN_SENSOR)
+
     /*
-  e_FLASH_STYLE_OFF_OFF =10, //Preview
-  e_FLASH_STYLE_OFF_AUTO,
+    e_FLASH_STYLE_OFF_AUTO = 0,
   e_FLASH_STYLE_OFF_ON,
-  //e_FLASH_STYLE_OFF_TORCH,
-  //e_FLASH_STYLE_ON_OFF,
-  //e_FLASH_STYLE_ON_AUTO,
+    e_FLASH_STYLE_OFF_OFF,
   e_FLASH_STYLE_ON_ON,
-  e_FLASH_STYLE_ON_TORCH,
-  */
+    e_FLASH_STYLE_ON_TORCH, */
 
-   	if(sensorType==(int)DUAL_CAMERA_MAIN_SENSOR)
-   	{
    		if(flashMode==LIB3A_FLASH_MODE_AUTO)
    		{
    			return e_FLASH_STYLE_OFF_AUTO;
@@ -43,6 +32,7 @@ int cust_getFlashModeStyle(int sensorType, int flashMode)
    		else if(flashMode==LIB3A_FLASH_MODE_FORCE_ON)
    		{
    			return e_FLASH_STYLE_OFF_ON;
+		//return e_FLASH_STYLE_ON_ON;
    		}
    		else if(flashMode==LIB3A_FLASH_MODE_FORCE_OFF)
    		{
@@ -54,19 +44,26 @@ int cust_getFlashModeStyle(int sensorType, int flashMode)
    		}
    		else if(flashMode==LIB3A_FLASH_MODE_FORCE_TORCH)
    		{
-   			return e_FLASH_STYLE_ON_TORCH;
+		return e_FLASH_STYLE_ON_ON;
    		}
-
+	return e_FLASH_STYLE_OFF_AUTO;
    	}
-   	else
+int cust_getVideoFlashModeStyle(int sensorType, int flashMode)
    	{
+    /*
+    e_FLASH_STYLE_OFF_AUTO = 0,
+    e_FLASH_STYLE_OFF_ON,
+    e_FLASH_STYLE_OFF_OFF,
+    e_FLASH_STYLE_ON_ON,
+    e_FLASH_STYLE_ON_TORCH, */
+
    		if(flashMode==LIB3A_FLASH_MODE_AUTO)
    		{
    			return e_FLASH_STYLE_OFF_AUTO;
    		}
    		else if(flashMode==LIB3A_FLASH_MODE_FORCE_ON)
    		{
-   			return e_FLASH_STYLE_OFF_ON;
+		return e_FLASH_STYLE_ON_ON;
    		}
    		else if(flashMode==LIB3A_FLASH_MODE_FORCE_OFF)
    		{
@@ -74,13 +71,25 @@ int cust_getFlashModeStyle(int sensorType, int flashMode)
    		}
    		else if(flashMode==LIB3A_FLASH_MODE_REDEYE)
    		{
-   			return e_FLASH_STYLE_OFF_AUTO;
+		return e_FLASH_STYLE_OFF_OFF;
    		}
    		else if(flashMode==LIB3A_FLASH_MODE_FORCE_TORCH)
    		{
-   			return e_FLASH_STYLE_ON_TORCH;
+		return e_FLASH_STYLE_ON_ON;
    		}
+	return e_FLASH_STYLE_OFF_OFF;
    	}
-   	return e_FLASH_STYLE_OFF_AUTO;
+
+
+float evX[5] = {-3, -1.5, 0, 1.5, 3};
+float evY[5] = {-2, -1, 0, 1, 2};
+float evL[5] = {0,   0,   0, 3, 5};
+void cust_getEvCompPara(int& maxEvTar10Bit, int& indNum, float*& evIndTab, float*& evTab, float*& evLevel)
+{
+    maxEvTar10Bit=600;
+    indNum = 5;
+    evIndTab = evX;
+    evTab = evY;
+    evLevel = evL;
 
 }

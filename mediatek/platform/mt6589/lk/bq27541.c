@@ -4,6 +4,10 @@
 #include <platform/bq27541.h>
 #include <printf.h>
 
+#ifdef MTK_BATTERY_I2C_CUST
+#include <target/cust_battery_i2c.h>
+#endif
+
 int g_bq27541_log_en=1;
 
 /**********************************************************
@@ -20,6 +24,10 @@ int g_bq27541_log_en=1;
   *
   *********************************************************/
 
+#ifndef BQ27541_BUSNUM
+#define BQ27541_BUSNUM I2C6
+#endif
+
 /**********************************************************
   *
   *   [I2C Function For Read/Write bq27541] 
@@ -27,7 +35,7 @@ int g_bq27541_log_en=1;
   *********************************************************/  
 U32 bq27541_set_cmd_read(U8 cmd, int *returnData)
 {
-    char cmd_buf[2]={0x00, 0x00};
+    unsigned char cmd_buf[2]={0x00, 0x00};
     U32 ret_code = I2C_OK;
     int readData = 0;
 	
@@ -35,7 +43,7 @@ U32 bq27541_set_cmd_read(U8 cmd, int *returnData)
 
     cmd_buf[0] = cmd;
 
-    i2c.id = I2C6;
+    i2c.id = BQ27541_BUSNUM;
 	i2c.dir = 1; //I2C4~6 need set to 1
 	i2c.addr = 0x55;
 	i2c.mode = ST_MODE;
@@ -53,7 +61,7 @@ U32 bq27541_set_cmd_read(U8 cmd, int *returnData)
 
 //    printf("buffer write = [%X][%X]\n", buffer[0], buffer[1]);
 
-    i2c.id = I2C6;
+    i2c.id = BQ27541_BUSNUM;
 	i2c.dir = 1; //I2C4~6 need set to 1
 	i2c.addr = 0x55;
 	i2c.mode = ST_MODE;

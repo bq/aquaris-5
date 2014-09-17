@@ -195,9 +195,5 @@ p2PFreeInfo(
     P_GLUE_INFO_T prGlueInfo
     );
 
-void
-p2pEalySuspendReg (
-    P_GLUE_INFO_T prGlueInfo,
-    BOOLEAN fgIsEnable
-);
+
 #endif

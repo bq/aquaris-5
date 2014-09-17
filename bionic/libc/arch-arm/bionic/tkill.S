@@ -25,6 +25,11 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
+#include <linux/err.h>
+#include <asm/unistd.h>
+#include <machine/asm.h>
+
 /* unlike our auto-generated syscall stubs, this code saves lr
    on the stack, as well as a few other registers. this makes
    our stack unwinder happy, when we generate debug stack
@@ -33,19 +38,13 @@
    of a corrupted malloc heap).
 */
 
-#include <sys/linux-syscalls.h>
-#include <machine/asm.h>
-
-#ifndef __NR_tkill
-#define __NR_tkill  238
-#endif
-
 ENTRY(tkill)
     stmfd   sp!, {r4-r7, ip, lr}
     ldr     r7, =__NR_tkill
     swi     #0
     ldmfd   sp!, {r4-r7, ip, lr}
-    movs    r0, r0
-    bxpl    lr
-    b       __set_syscall_errno
+    cmn     r0, #(MAX_ERRNO + 1)
+    bxls    lr
+    neg     r0, r0
+    b       __set_errno
 END(tkill)

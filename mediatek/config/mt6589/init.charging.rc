@@ -448,7 +448,7 @@ on post-fs-data
     #Accdet
     chown root radio /sys/devices/platform/Accdet_Driver/driver/accdet_call_state
     #VideoCodec
-    insmod /system/lib/modules/vcodec_kernel_driver.ko
+    #insmod /system/lib/modules/vcodec_kernel_driver.ko
     mknod /dev/Vcodec c 160 0
     chmod 0660 /dev/Vcodec
     chown system media /dev/Vcodec
@@ -469,9 +469,6 @@ on post-fs-data
     chown system /sys/devices/platform/msensor/driver/cpsopmode
     chown system /sys/devices/platform/msensor/driver/cpsreptxy
     chown system /sys/devices/platform/msensor/driver/cpsreptz
-
-    # GPIO
-    chmod 0664 /dev/mtgpio
 
     # SPM SODI Enable
     chown media /proc/mcdi/sodi_en
@@ -514,7 +511,6 @@ on post-fs-data
     mkdir /data/misc/ppp 0770 bluetooth net_bt
 
     # Android SEC related device nodes
-    insmod /system/lib/modules/sec.ko
     mknod /dev/sec c 182 0
     chmod 0660 /dev/sec
     chown root system /dev/sec
@@ -524,14 +520,11 @@ on post-fs-data
     chmod 0660 /dev/fm
     chown system media /dev/fm
 
-    # device apc settings
-    insmod /system/lib/modules/devapc.ko
 
     # device info /proc interface
-    insmod /system/lib/modules/devinfo.ko
     mknod /dev/devmap c 196 0;
-    chmod 0444 /dev/devmap
-    chown root media /dev/devmap
+    chmod 0440 /dev/devmap
+    chown root system /dev/devmap
 
     # bluetooth
     mkdir /data/@btmtk 0770 bluetooth net_bt
@@ -552,22 +545,29 @@ on post-fs-data
     chmod 0664 /dev/hdmitx
 
     # JPEG
-    chmod 0444 /dev/mtk_jpeg
-    chmod 0444 /dev/mtk_gdma
-    chmod 0444 /dev/mtk_gfmt
-    chmod 0444 /dev/mtk_almk
+    #chmod 0440 /dev/mtk_jpeg
+    #chmod 0440 /dev/mtk_gdma
+    #chmod 0440 /dev/mtk_gfmt
+    chmod 0440 /dev/mtk_almk
 
     # DISP
     chmod 0444 /dev/mtk_disp
 
     #Camera
-    chmod 0664 /dev/camera-sysram
-    chmod 0664 /dev/camera-isp
-    chmod 0664 /dev/camera-pipemgr
+    chmod 0660 /dev/camera-sysram
+    chmod 0660 /dev/camera-isp
+    chmod 0660 /dev/camera-pipemgr
     chmod 0660 /dev/kd_camera_hw
     chmod 0660 /dev/kd_camera_flashlight
     chmod 0660 /dev/kd_camera_hw_bus2
     chmod 0660 /dev/FM50AF
+    chmod 0660 /dev/A5142AF
+    chmod 0660 /dev/AR0833AF    
+    chmod 0660 /dev/OV5647AF       
+    chmod 0660 /dev/OV8825AF       
+    chmod 0660 /dev/OV12830AF 
+    chmod 0660 /dev/IMX135AF
+    chmod 0660 /dev/IMX111AF
     chmod 0660 /dev/CAM_CAL_DRV
 
     chown system camera /dev/camera-sysram
@@ -611,14 +611,6 @@ on post-fs-data
 
 # End of adding by MTK drivers
 # -----------------------
-
-on boot
-
-
-# Set this property so surfaceflinger is not started by system_init
-    setprop system_init.startsurfaceflinger 0
-
-    class_start default
 
 on ipo
 # xlog
@@ -718,18 +710,16 @@ service adbd /sbin/adbd
 on property:ro.kernel.qemu=1
     start adbd
 
+service drvbd /system/bin/drvbd
+    class main
+    user system
+    group system
+
 service debuggerd /system/bin/debuggerd
     class main
 
 service mobile_log_d /system/bin/mobile_log_d
     class main
-
-# SGX init
-service pvrsrvctl /system/vendor/bin/pvrsrvctl --start
-    class main
-    user root
-    group root
-    oneshot
 
 service servicemanager /system/bin/servicemanager
     class core
@@ -742,12 +732,6 @@ service servicemanager /system/bin/servicemanager
     onrestart restart surfaceflinger
     onrestart restart drm
     onrestart restart aal
-
-service surfaceflinger /system/bin/surfaceflinger
-    class main
-#    user system
-    group graphics
-    onrestart restart zygote
 
 service ipod /system/bin/logwrapper /system/bin/ipod
     user root

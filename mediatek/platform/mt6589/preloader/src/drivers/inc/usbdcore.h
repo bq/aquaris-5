@@ -264,7 +264,7 @@ struct endpoint_descriptor
     u8 bmAttributes;
     u16 wMaxPacketSize;
     u8 bInterval;
-} __attribute__ ((packed));
+}; //__attribute__ ((packed));
 
 struct string_descriptor
 {

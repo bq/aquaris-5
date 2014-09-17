@@ -12,17 +12,21 @@ LOCAL_SHARED_LIBRARIES := libc \
                           libfile_op \
                           libdl \
                           libhwm \
-                          libacdk \
                           libutils\
                           libaudio.primary.default \
                           #libaudiocompensationfilter \
                           #libheadphonecompensationfilter \
                           #libaudiocustparam \
-
+                          #libacdk \
 
 ifeq ($(HAVE_MATV_FEATURE),yes)
 LOCAL_SHARED_LIBRARIES += libmatv_cust
 endif
+
+ifeq ($(TELEPHONY_DFOSET),yes)
+LOCAL_SHARED_LIBRARIES += libdfo
+endif  
+
 
 LOCAL_C_INCLUDES += $(MTK_PATH_SOURCE)/external/nvram/libfile_op \
                     $(MTK_PATH_SOURCE)/external/meta/common/inc \
@@ -48,15 +52,22 @@ LOCAL_C_INCLUDES += $(MTK_PATH_SOURCE)/external/nvram/libfile_op \
                     $(PLATFORM_PATH)/gyroscope \
                     $(PLATFORM_PATH)/touch \
                     $(PLATFORM_PATH)/cameratool/CCAP \
-                    $(MTK_PATH_SOURCE)/platform/mt6589/hardware/camera/inc/acdk \
-                    $(MTK_PATH_SOURCE)/platform/mt6589/hardware/camera/acdk/inc \
-                    $(MTK_PATH_SOURCE)/platform/mt6589/hardware/camera/acdk/inc/acdk \
+                    $(TOP)/$(MTK_PATH_SOURCE)/hardware/mtkcam/inc/acdk \
+                    $(TOP)/$(MTK_PATH_PLATFORM)/hardware/mtkcam/inc/acdk \
+                    $(TOP)/$(MTK_PATH_PLATFORM)/hardware/mtkcam/acdk/inc/cct \
+                    $(TOP)/$(MTK_PATH_PLATFORM)/hardware/mtkcam/acdk/inc/acdk \
                     $(MTK_PATH_SOURCE)/external/mhal/src/custom/inc \
                     $(MTK_PATH_SOURCE)/external/mhal/inc \
                     $(TOP)/$(MTK_PATH_CUSTOM)/kernel/imgsensor/inc \
                     $(MTK_PATH_CUSTOM)/hal/inc \
                     $(PLATFORM_PATH)/Audio \
-                    
+                    mediatek/external/dfo/featured \
+                    $(TARGET_OUT_HEADERS)/dfo\
+                    $(TOPDIR)/hardware/libhardware_legacy/include\
+                    $(TOPDIR)/hardware/libhardware/include
+
+LOCAL_C_INCLUDES += $(TOP)/$(MTK_PATH_SOURCE)/hardware/include
+LOCAL_C_INCLUDES += $(TOP)/$(MTK_PATH_PLATFORM)/hardware/include
 
 ifeq ($(MTK_WLAN_SUPPORT),yes)
 LOCAL_C_INCLUDES += $(PLATFORM_PATH)/wifi
@@ -103,8 +114,8 @@ LOCAL_STATIC_LIBRARIES := libmeta_apeditor \
                           libmeta_gsensor \
                           libmeta_gyroscope\
                           libmeta_touch \
-                          libccap \
                           libmeta_audio \
+                          libccap \
                           
 LOCAL_STATIC_LIBRARIES += libfft
 ifeq ($(MTK_WLAN_SUPPORT),yes)
@@ -153,16 +164,6 @@ LOCAL_CFLAGS += \
     -DFT_NFC_FEATURE
 endif
 
-ifeq ($(MTK_ENABLE_MD1),yes)
-LOCAL_CFLAGS += \
-    -DMTK_ENABLE_MD1
-endif  
-
-ifeq ($(MTK_ENABLE_MD2),yes)
-LOCAL_CFLAGS += \
-    -DMTK_ENABLE_MD2
-endif
-
 ifeq ($(GEMINI),yes)
 LOCAL_CFLAGS += \
     -DGEMINI
@@ -178,6 +179,33 @@ LOCAL_CFLAGS += \
     -DMTK_GEMINI_4SIM_SUPPORT
 endif  
 
+ifeq ($(MTK_TLR_SUPPORT),yes)
+LOCAL_CFLAGS += \
+    -DMTK_TLR_SUPPORT
+endif  
+
+ifeq ($(MTK_LTE_SUPPORT),yes)
+LOCAL_CFLAGS +=-DMTK_LTE_SUPPORT
+endif
+
 LOCAL_MODULE := libft
+
+#
+# Start of common part ------------------------------------
+sinclude $(TOP)/$(MTK_PATH_PLATFORM)/hardware/mtkcam/mtkcam.mk
+
+#-----------------------------------------------------------
+LOCAL_CFLAGS += $(MTKCAM_CFLAGS)
+
+#-----------------------------------------------------------
+LOCAL_C_INCLUDES += $(MTKCAM_C_INCLUDES)
+
+#-----------------------------------------------------------
+LOCAL_C_INCLUDES += $(TOP)/$(MTK_PATH_SOURCE)/hardware/include
+LOCAL_C_INCLUDES += $(TOP)/$(MTK_PATH_PLATFORM)/hardware/include
+
+# End of common part ---------------------------------------
+#
+
 include $(BUILD_SHARED_LIBRARY)
 

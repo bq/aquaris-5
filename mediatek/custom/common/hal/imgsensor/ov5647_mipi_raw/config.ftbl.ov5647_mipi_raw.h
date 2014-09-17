@@ -100,16 +100,17 @@ FTABLE_SCENE_INDEP()
     FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_VALUES(
         KEY_AS_(MtkCameraParameters::KEY_PICTURE_SIZE), 
         SCENE_AS_DEFAULT_SCENE(
-            ITEM_AS_DEFAULT_("3264x2448"), 
+            ITEM_AS_DEFAULT_("2560x1920"), 
             ITEM_AS_VALUES_(
-					"320x180", "320x240",	
-					 "640x360",   "640x480",	
-					"1280x720",   "1024x768",					
-					"1440x810", "1280x960", 
-					"1760x990",   "1600x1200",	 
-					 "2240x1260",	 "2048x1536",	
-					"2880x1620",     "2560x1920",  
-					"3584x2016",  "3264x2448",
+		"256x144", "320x240",	  //  QVGA    76800
+		"512x288",   "640x480",   // HVGA     307200
+		"1280x720",   "1024x768",	// 1 M    786432
+		 "1536x864", "1280x960",   // 1.3M     1228800
+		 "1792x1008",   "1600x1200",     // 2M  1920000
+		 "2304x1296",   "2048x1536",   // 3M   3145728
+		 "3072x1728",	 "2624x1968",  // 5M   4915200
+		// "3840x2160",    "3328x2496",     // 8M   7990272
+		//"4864x2736",	 "4224x3168",  // 13M  12582912
             )
         ), 
     )
@@ -120,9 +121,9 @@ FTABLE_SCENE_INDEP()
         SCENE_AS_DEFAULT_SCENE(
             ITEM_AS_DEFAULT_("2880x1620"), 
             ITEM_AS_VALUES_(
-					"320x180", "320x240",	 "640x360",   "640x480",	"1280x720",   "1024x768",	
-					"1280x960",   "1600x1200",	  "2240x1260",	 "2048x1536",
-					"2880x1620",	 "2560x1920",  
+		"320x240",	  "640x480",	  "1024x768",	
+		 "1280x960",   "1600x1200",	  "2240x1260",	
+		  "2048x1536",  "2880x1620",	 "2560x1920",  
             )
         ), 
     )
@@ -184,6 +185,18 @@ FTABLE_SCENE_INDEP()
                 "1.0",      //exposure compensation step; EV = step x index
             )
         ), 
+        //......................................................................
+        #if 1   //  SCENE HDR
+        SCENE_AS_(MtkCameraParameters::SCENE_MODE_HDR, 
+            ITEM_AS_DEFAULT_("0"), 
+            ITEM_AS_USER_LIST_(
+                "0",        //min exposure compensation index
+                "0",        //max exposure compensation index
+                "1.0",      //exposure compensation step; EV = step x index
+            )
+        )
+        #endif
+        //......................................................................
     )
 #endif
     //==========================================================================
@@ -204,13 +217,23 @@ FTABLE_SCENE_INDEP()
 #endif
     //==========================================================================
 #if 1
+    //  Video Snapshot
+    FTABLE_CONFIG_AS_TYPE_OF_USER(
+        KEY_AS_(MtkCameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED), 
+        SCENE_AS_DEFAULT_SCENE(
+            ITEM_AS_DEFAULT_(MtkCameraParameters::TRUE), 
+        ), 
+    )
+#endif
+    //==========================================================================
+#if 1
     //  Video Stabilization (EIS)
     FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_SUPPORTED(
         KEY_AS_(MtkCameraParameters::KEY_VIDEO_STABILIZATION), 
         SCENE_AS_DEFAULT_SCENE(
             ITEM_AS_DEFAULT_(MtkCameraParameters::FALSE), 
             ITEM_AS_SUPPORTED_(
-            #if 1
+            #if 0
                 MtkCameraParameters::FALSE
             #else
                 MtkCameraParameters::TRUE
@@ -244,6 +267,7 @@ FTABLE_SCENE_INDEP()
             ITEM_AS_DEFAULT_(MtkCameraParameters::OFF), 
             ITEM_AS_VALUES_(
                 MtkCameraParameters::OFF, 
+                MtkCameraParameters::ON
             )
         ), 
     )
@@ -257,9 +281,14 @@ FTABLE_SCENE_INDEP()
             ITEM_AS_DEFAULT_(MtkCameraParameters::CAPTURE_MODE_NORMAL), 
             ITEM_AS_VALUES_(
                 MtkCameraParameters::CAPTURE_MODE_NORMAL, 
-                MtkCameraParameters::CAPTURE_MODE_HDR_SHOT, 
                 MtkCameraParameters::CAPTURE_MODE_FACE_BEAUTY, 
                 MtkCameraParameters::CAPTURE_MODE_CONTINUOUS_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_SMILE_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_BEST_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_EV_BRACKET_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_AUTO_PANORAMA_SHOT,
+                MtkCameraParameters::CAPTURE_MODE_MAV_SHOT,
+                MtkCameraParameters::CAPTURE_MODE_ASD_SHOT, 
             )
         ), 
     )
@@ -288,34 +317,6 @@ FTABLE_SCENE_DEP()
                 "manual",   "fullscan", 
             )
         ), 
-        //......................................................................
-        #if 1   //  SCENE LANDSCAPE
-        SCENE_AS_(MtkCameraParameters::SCENE_MODE_LANDSCAPE, 
-            ITEM_AS_DEFAULT_(MtkCameraParameters::FOCUS_MODE_INFINITY), 
-            ITEM_AS_VALUES_(
-                MtkCameraParameters::FOCUS_MODE_AUTO,   
-                MtkCameraParameters::FOCUS_MODE_MACRO, 
-                MtkCameraParameters::FOCUS_MODE_INFINITY, 
-                MtkCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE, 
-                MtkCameraParameters::FOCUS_MODE_CONTINUOUS_VIDEO, 
-                "manual",   "fullscan", 
-            )
-        )
-        #endif
-        //......................................................................
-        #if 1   //  SCENE SPORTS
-        SCENE_AS_(MtkCameraParameters::SCENE_MODE_SPORTS, 
-            ITEM_AS_DEFAULT_(MtkCameraParameters::FOCUS_MODE_INFINITY), 
-            ITEM_AS_VALUES_(
-                MtkCameraParameters::FOCUS_MODE_AUTO,   
-                MtkCameraParameters::FOCUS_MODE_MACRO, 
-                MtkCameraParameters::FOCUS_MODE_INFINITY, 
-                MtkCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE, 
-                MtkCameraParameters::FOCUS_MODE_CONTINUOUS_VIDEO, 
-                "manual",   "fullscan", 
-            )
-        )
-        #endif
         //......................................................................
     )
 #endif

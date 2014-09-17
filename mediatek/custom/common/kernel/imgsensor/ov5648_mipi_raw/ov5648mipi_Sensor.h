@@ -127,38 +127,39 @@ typedef struct _sensor_data_struct
 
 
 /* Data Format */
-#define OV5648MIPI_COLOR_FORMAT                     SENSOR_OUTPUT_FORMAT_RAW_B
+#define OV5648MIPI_COLOR_FORMAT                     SENSOR_OUTPUT_FORMAT_RAW_Gr//SENSOR_OUTPUT_FORMAT_RAW_Gb//SENSOR_OUTPUT_FORMAT_RAW_B
 
 
 #define OV5648MIPI_MIN_ANALOG_GAIN                  1   /* 1x */
-#define OV5648MIPI_MAX_ANALOG_GAIN                  32  /* 32x */
-
-
-#define OV5648MIPI_FULL_PERIOD_PIXEL_NUMS          (2752) /* 15 fps */
-#define OV5648MIPI_FULL_PERIOD_LINE_NUMS           (1974)
-
-#define OV5648MIPI_PV_PERIOD_PIXEL_NUMS            (1896) /* 30 fps */
-#define OV5648MIPI_PV_PERIOD_LINE_NUMS             (984)
-
-#define OV5648MIPI_VIDEO_PERIOD_PIXEL_NUMS         (2416) /* 30 fps */
-#define OV5648MIPI_VIDEO_PERIOD_LINE_NUMS          (1104)
+#define OV5648MIPI_MAX_ANALOG_GAIN                  16  //32  /* 32x */
 
 #define OV5648MIPI_FULL_START_X                    (4)
 #define OV5648MIPI_FULL_START_Y                    (8)
 #define OV5648MIPI_IMAGE_SENSOR_FULL_WIDTH         (2560)
 #define OV5648MIPI_IMAGE_SENSOR_FULL_HEIGHT        (1920)
 
+#define OV5648MIPI_PV_START_X                      (4)
+#define OV5648MIPI_PV_START_Y                      (8)
+#define OV5648MIPI_IMAGE_SENSOR_PV_WIDTH           (2560)
+#define OV5648MIPI_IMAGE_SENSOR_PV_HEIGHT          (1920)
+/*
 #define OV5648MIPI_PV_START_X                      (2)
 #define OV5648MIPI_PV_START_Y                      (2)
 #define OV5648MIPI_IMAGE_SENSOR_PV_WIDTH           (1280)
 #define OV5648MIPI_IMAGE_SENSOR_PV_HEIGHT          (960)
-
+*/
 
 /* SENSOR PIXEL/LINE NUMBERS IN ONE PERIOD */
 #define OV5648MIPI_FULL_PERIOD_PIXEL_NUMS          (2816) /* 15 fps */
 #define OV5648MIPI_FULL_PERIOD_LINE_NUMS           (1984)
 #define OV5648MIPI_PV_PERIOD_PIXEL_NUMS            (2816) /* 30 fps */
-#define OV5648MIPI_PV_PERIOD_LINE_NUMS             (992)
+#define OV5648MIPI_PV_PERIOD_LINE_NUMS             (1984)
+
+//#define OV5648MIPI_PV_PERIOD_PIXEL_NUMS            (2816) /* 30 fps */
+//#define OV5648MIPI_PV_PERIOD_LINE_NUMS             (992)
+
+#define OV5648MIPI_VIDEO_PERIOD_PIXEL_NUMS         (2816) /* 30 fps */
+#define OV5648MIPI_VIDEO_PERIOD_LINE_NUMS          (992)
 
 /* SENSOR READ/WRITE ID */
 #define OV5648MIPI_WRITE_ID (0x6c)

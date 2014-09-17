@@ -1,37 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- *
- * MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
 //-----------------------------------------------------------------------------
 #include <linux/uaccess.h>
 #include <linux/module.h>
@@ -48,6 +14,9 @@
 #include <asm/io.h>
 #include <mach/camera_pipe_mgr.h>
 #include <mach/camera_pipe_mgr_imp.h>
+
+#include <linux/proc_fs.h>
+
 //-----------------------------------------------------------------------------
 static CAM_PIPE_MGR_STRUCT CamPipeMgr;
 //------------------------------------------------------------------------------
@@ -296,6 +265,10 @@ static CAM_PIPE_MGR_STATUS_ENUM CamPipeMgr_LockPipe(CAM_PIPE_MGR_LOCK_STRUCT* pL
     else
     {
         CamPipeMgr_SpinUnlock();
+        if(pLock->Timeout > CAM_PIPE_MGR_TIMEOUT_MAX)
+        {
+            pLock->Timeout = CAM_PIPE_MGR_TIMEOUT_MAX;
+        }
         Timeout = wait_event_interruptible_timeout(
                     CamPipeMgr.WaitQueueHead, 
                     (CamPipeMgr.PipeMask & pLock->PipeMask) == 0,
@@ -762,6 +735,25 @@ static long CamPipeMgr_Ioctl(
         {
             if(copy_from_user(&Mode, (void*)Param, sizeof(CAM_PIPE_MGR_MODE_STRUCT)) == 0)
             {
+                if((Mode.ScenHw > CAM_PIPE_MGR_SCEN_HW_VSS) || (Mode.ScenHw<0))
+                {
+                    LOG_ERR("ScenHw(%d) > max(%d)",Mode.ScenHw,CAM_PIPE_MGR_SCEN_HW_VSS);
+                    Ret = -EFAULT;
+                    goto EXIT;
+                }
+                if((Mode.ScenSw > CAM_PIPE_MGR_SCEN_SW_N3D) || (Mode.ScenSw<0))
+                {
+                    LOG_ERR("ScenSw(%d) > max(%d)",Mode.ScenSw,CAM_PIPE_MGR_SCEN_SW_N3D);
+                    Ret = -EFAULT;
+                    goto EXIT;
+                }
+                if((Mode.Dev > CAM_PIPE_MGR_DEV_VT) || (Mode.Dev<0))
+                {
+                    LOG_ERR("Dev(%d) > max(%d)",Mode.Dev,CAM_PIPE_MGR_DEV_VT);
+                    Ret = -EFAULT;
+                    goto EXIT;
+                }
+                //
                 LOG_MSG("SET_MODE:Sw(%d),Hw(%d)",Mode.ScenSw,Mode.ScenHw);
                 if((CamPipeMgr.PipeMask | CamPipeMgr.PipeLockTable[Mode.ScenHw]) ^ CamPipeMgr.PipeLockTable[Mode.ScenHw])
                 {
@@ -791,6 +783,25 @@ static long CamPipeMgr_Ioctl(
         //
         case CAM_PIPE_MGR_GET_MODE:
         {
+            if((CamPipeMgr.Mode.ScenHw > CAM_PIPE_MGR_SCEN_HW_VSS) ||(CamPipeMgr.Mode.ScenHw <0))
+            {
+                LOG_ERR("ScenHw(%d) > max(%d)",CamPipeMgr.Mode.ScenHw,CAM_PIPE_MGR_SCEN_HW_VSS);
+                Ret = -EFAULT;
+                goto EXIT;
+            }
+            if((CamPipeMgr.Mode.ScenSw > CAM_PIPE_MGR_SCEN_SW_N3D) || (CamPipeMgr.Mode.ScenSw<0))
+            {
+                LOG_ERR("ScenSw(%d) > max(%d)",CamPipeMgr.Mode.ScenSw,CAM_PIPE_MGR_SCEN_SW_N3D);
+                Ret = -EFAULT;
+                goto EXIT;
+            }
+            if((CamPipeMgr.Mode.Dev > CAM_PIPE_MGR_DEV_VT) || (CamPipeMgr.Mode.Dev<0))
+            {
+                LOG_ERR("Dev(%d) > max(%d)",CamPipeMgr.Mode.Dev,CAM_PIPE_MGR_DEV_VT);
+                Ret = -EFAULT;
+                goto EXIT;
+            }
+            //
             if(copy_to_user((void*)Param, &(CamPipeMgr.Mode),  sizeof(CAM_PIPE_MGR_MODE_STRUCT)) == 0)
             {
                 //do nothing.
@@ -907,6 +918,7 @@ static const struct file_operations CamPipeMgr_FileOper =
     .unlocked_ioctl = CamPipeMgr_Ioctl
 };
 //-----------------------------------------------------------------------------
+#if 1
 static int CamPipeMgr_RegCharDev(void)
 {
     MINT32 Ret = 0;
@@ -952,6 +964,7 @@ static int CamPipeMgr_RegCharDev(void)
     LOG_MSG("X");
     return Ret;
 }
+#endif
 //-----------------------------------------------------------------------------
 static inline void CamPipeMgr_UnregCharDev(void)
 {
@@ -969,10 +982,13 @@ static int CamPipeMgr_Probe(struct platform_device *pDev)
 {
     MINT32 Ret = 0;
     MUINT32 i;
-    struct device* pDevice = NULL;
     //
+    struct device* pDevice = NULL;
+
     LOG_MSG("E");
     //
+#if 1
+
     Ret = CamPipeMgr_RegCharDev();
     if(Ret < 0)
     {
@@ -1000,6 +1016,12 @@ static int CamPipeMgr_Probe(struct platform_device *pDev)
         LOG_ERR("device_create fail");
         return (int)pDevice;
     }
+#else
+
+    proc_create(CAM_PIPE_MGR_DEV_NAME, 0660, NULL, &CamPipeMgr_FileOper);
+
+#endif
+
     //Initial variable
     spin_lock_init(&(CamPipeMgr.SpinLock));
     init_waitqueue_head(&(CamPipeMgr.WaitQueueHead));
@@ -1042,12 +1064,17 @@ static int CamPipeMgr_Remove(struct platform_device *pdev)
 {
     LOG_MSG("E");
     //unregister char driver.
+
+#if 1
     CamPipeMgr_UnregCharDev();
     //
     device_destroy(
         CamPipeMgr.pClass,
         CamPipeMgr.DevNo);
     class_destroy(CamPipeMgr.pClass);
+#else
+    remove_proc_entry(CAM_PIPE_MGR_DEV_NAME, NULL);
+#endif
     //
     LOG_MSG("X");
     return 0;

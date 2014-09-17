@@ -312,7 +312,8 @@ bool usb_handshake(struct bldr_command_handler *handler)
 
     if (usb_connect(enum_tmo) == FALSE) {
         print("%s USB enum timeout!\n", MOD);
-    	ASSERT(g_usbphy_ok);
+        /* USB enum fail when connecting to a standby PC, remove ASSERT */
+    	/* ASSERT(g_usbphy_ok); */
         goto end;
     }
 

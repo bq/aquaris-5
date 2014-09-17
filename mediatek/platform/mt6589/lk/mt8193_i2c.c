@@ -276,9 +276,9 @@ int mt8193_i2c_write8(u16 addr, u8 data)
     }
     
     //check 
-    result_tmp = mt8193_i2c_read8(addr);
-    
-    printf("[mt8193_i2c_write] Reg[0x%x]=0x%x\n", addr, data);
+    result_tmp = mt8193_i2c_read8(addr);    
+
+    printf("[mt8193_i2c_write] Reg[0x%x]=0x%x, result_tmp=0x%x \n", addr, data, result_tmp);
 
     return 0;
 }
@@ -352,7 +352,7 @@ int mt8193_i2c_write16(u16 addr, u16 data)
     //check 
     result_tmp = mt8193_i2c_read16(addr);
     
-    printf("[mt8193_i2c_write] Reg[0x%x]=0x%x\n", addr, data);
+    printf("[LK mt8193_i2c_write] Reg[0x%x]=0x%x, result_tmp=0x%x \n", addr, data, result_tmp);
 
     return 0;
 }
@@ -430,8 +430,7 @@ int mt8193_i2c_write32(u16 addr, u32 data)
     //check 
     result_tmp = mt8193_i2c_read32(addr);
     
-    printf("[mt8193_i2c_write] Reg[0x%x]=0x%x\n", addr, data);
-
+    printf("[LK mt8193_i2c_write] Reg[0x%x]=0x%x, result_tmp=0x%x \n", addr, data, result_tmp);
     return 0;
 }
 

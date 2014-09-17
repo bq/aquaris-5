@@ -8,38 +8,42 @@
 #include "SpeechPhoneCallController.h"
 #include "LoopbackManager.h"
 
+#include "AudioFMController.h"
+#include "AudioMATVController.h"
 #include "audio_custom_exp.h"
 #include "AudioVUnlockDL.h"
 #include "AudioIoctl.h"
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "WCNChipController.h"
 #define MAX_NUM_FILE (5)
 #define MAX_FILE_LENGTH (50000000)
+#define NO_REMAIN_DATA_INFO (-1)
 
 #define LOG_TAG  "AudioMTKStreamOut"
 #ifndef ANDROID_DEFAULT_CODE
-    #include <cutils/xlog.h>
-    #ifdef ALOGE
-    #undef ALOGE
-    #endif
-    #ifdef ALOGW
-    #undef ALOGW
-    #endif ALOGI
-    #undef ALOGI
-    #ifdef ALOGD
-    #undef ALOGD
-    #endif
-    #ifdef ALOGV
-    #undef ALOGV
-    #endif
-    #define ALOGE XLOGE
-    #define ALOGW XLOGW
-    #define ALOGI XLOGI
-    #define ALOGD XLOGD
-    #define ALOGV XLOGV
+#include <cutils/xlog.h>
+#ifdef ALOGE
+#undef ALOGE
+#endif
+#ifdef ALOGW
+#undef ALOGW
+#endif ALOGI
+#undef ALOGI
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#ifdef ALOGV
+#undef ALOGV
+#endif
+#define ALOGE XLOGE
+#define ALOGW XLOGW
+#define ALOGI XLOGI
+#define ALOGD XLOGD
+#define ALOGV XLOGV
 #else
-    #include <utils/Log.h>
+#include <utils/Log.h>
 #endif
 
 //Configure ACF Work Mode
@@ -72,11 +76,9 @@ AudioMTKStreamOut::AudioMTKStreamOut()
     mPFinalPCMDumpFile = NULL;
     mSteroToMono = false;
     mForceStandby = false;
-    DumpFileNum =0;
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+    DumpFileNum = 0;
     mCPUAdjustEnable = false;
-#endif
-    ALOGD("-AudioMTKStreamOut default constructor"); 
+    ALOGD("-AudioMTKStreamOut default constructor");
 }
 
 AudioMTKStreamOut::AudioMTKStreamOut(uint32_t devices, int *format, uint32_t *channels, uint32_t *sampleRate, status_t *status)
@@ -88,10 +90,11 @@ AudioMTKStreamOut::AudioMTKStreamOut(uint32_t devices, int *format, uint32_t *ch
     mFd = 0;
     mPDacPCMDumpFile = NULL;
     mPFinalPCMDumpFile = NULL;
-    DumpFileNum =0;
+    DumpFileNum = 0;
     // here open audio hardware for register setting
     mFd = ::open(kAudioDeviceName, O_RDWR);
-    if (mFd == 0) {
+    if (mFd == 0)
+    {
         ALOGE("AudioMTKStreamOut open mFd fail");
     }
 
@@ -104,12 +107,14 @@ AudioMTKStreamOut::AudioMTKStreamOut(uint32_t devices, int *format, uint32_t *ch
     mAudioDigitalControl = AudioDigitalControlFactory::CreateAudioDigitalControl();
     mAudioAnalogControl = AudioAnalogControlFactory::CreateAudioAnalogControl();
     mAudioResourceManager = AudioResourceManagerFactory::CreateAudioResource();
-    if (!mAudioResourceManager) {
+    if (!mAudioResourceManager)
+    {
         ALOGE("mAudioResourceManager get fail  = %p", mAudioResourceManager);
     }
 
     mAudioSpeechEnhanceInfoInstance = AudioSpeechEnhanceInfo::getInstance();
-    if(!mAudioSpeechEnhanceInfoInstance){
+    if (!mAudioSpeechEnhanceInfoInstance)
+    {
         ALOGE("mAudioSpeechEnhanceInfoInstance get fail");
     }
 
@@ -119,21 +124,29 @@ AudioMTKStreamOut::AudioMTKStreamOut(uint32_t devices, int *format, uint32_t *ch
     ALOGD("format = %d, channels = %d, rate = %d", *format, *channels, *sampleRate);
 
     if (*format == AUDIO_FORMAT_PCM_16_BIT)
+    {
         mDL1Attribute->mFormat = AUDIO_FORMAT_PCM_16_BIT;
+    }
     else if (*format == AUDIO_FORMAT_PCM_8_BIT)
+    {
         mDL1Attribute->mFormat = AUDIO_FORMAT_PCM_8_BIT;
-    else {
+    }
+    else
+    {
         ALOGE("Format is not a valid number");
         mDL1Attribute->mFormat = AUDIO_FORMAT_PCM_16_BIT;
     }
 
-    if (*channels == AUDIO_CHANNEL_OUT_MONO) {
+    if (*channels == AUDIO_CHANNEL_OUT_MONO)
+    {
         mDL1Attribute->mChannels = 1;
     }
-    else if (*channels == AUDIO_CHANNEL_OUT_STEREO) {
+    else if (*channels == AUDIO_CHANNEL_OUT_STEREO)
+    {
         mDL1Attribute->mChannels = 2;
     }
-    else {
+    else
+    {
         ALOGE("Channelsis not a valid number");
         mDL1Attribute->mChannels = 2;
     }
@@ -149,77 +162,80 @@ AudioMTKStreamOut::AudioMTKStreamOut(uint32_t devices, int *format, uint32_t *ch
     mDL1Attribute->mBufferSize = 8192;
     mHwBufferSize = mAudioDigitalControl->GetMemBufferSize(AudioDigitalType::MEM_DL1);
     mLatency = (mHwBufferSize * 1000) / (mDL1Attribute->mSampleRate * mDL1Attribute->mChannels *
-                                        (mDL1Attribute->mFormat == AUDIO_FORMAT_PCM_8_BIT ? 1 : 2));
-    AudioVUnlockDL* VUnlockhdl = AudioVUnlockDL::getInstance();
-    if(VUnlockhdl !=NULL)
+                                         (mDL1Attribute->mFormat == AUDIO_FORMAT_PCM_8_BIT ? 1 : 2));
+    AudioVUnlockDL *VUnlockhdl = AudioVUnlockDL::getInstance();
+    if (VUnlockhdl != NULL)
     {
         VUnlockhdl->GetStreamOutLatency(mLatency);
     }
     calInterrupttime();
 
-    Set2ndI2SOutAttribute();
-    SetI2SOutDACAttribute();
-    SetDAIBTAttribute();
 
     mBliSrc = NULL;
     mBliSrc = new BliSrc();
 
     mSwapBufferTwo = NULL;
     mSwapBufferTwo = new uint8_t[bufferSize()];
-    if (mSwapBufferTwo == NULL) {
+    if (mSwapBufferTwo == NULL)
+    {
         ALOGE("mSwapBufferTwo for BliSRC allocate fail1!!! \n");
     }
-    
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+
     mBliSrcVoIP = NULL;
     mBliSrcVoIP = new BliSrc();
 
-    mSwapBufferVoIP= NULL;
+    mSwapBufferVoIP = NULL;
     mSwapBufferVoIP = new uint8_t[bufferSize()];
-    if (mSwapBufferVoIP == NULL) {
+    if (mSwapBufferVoIP == NULL)
+    {
         ALOGE("mSwapBufferVoIP for BliSRCVoIP allocate fail!!! \n");
     }
-#endif
 
     mSwapBufferThree = NULL;
     mForceStandby = false;
 
 #if defined(ENABLE_AUDIO_COMPENSATION_FILTER)||defined(ENABLE_AUDIO_DRC_SPEAKER)    //For reduce resource
-    StreamOutCompFltCreate(AUDIO_COMP_FLT_AUDIO,AUDIO_COMPENSATION_FLT_MODE);
+    StreamOutCompFltCreate(AUDIO_COMP_FLT_AUDIO, AUDIO_COMPENSATION_FLT_MODE);
 #endif
 
 #if defined(ENABLE_HEADPHONE_COMPENSATION_FILTER)   //For reduce resource
-    StreamOutCompFltCreate(AUDIO_COMP_FLT_HEADPHONE,AUDIO_CMP_FLT_LOUDNESS_COMP_HEADPHONE);
+    StreamOutCompFltCreate(AUDIO_COMP_FLT_HEADPHONE, AUDIO_CMP_FLT_LOUDNESS_COMP_HEADPHONE);
 #endif
 
 #if defined(MTK_AUDENH_SUPPORT) //For reduce resource
     mSwapBufferThree = new uint8_t[bufferSize()];
-    if (mSwapBufferThree == NULL) {
+    if (mSwapBufferThree == NULL)
+    {
         ALOGE("mSwapBufferThree for AudEnh allocate fail1!!! \n");
     }
 
-    StreamOutCompFltCreate(AUDIO_COMP_FLT_AUDENH,AUDIO_CMP_FLT_LOUDNESS_COMP_AUDENH);
+    StreamOutCompFltCreate(AUDIO_COMP_FLT_AUDENH, AUDIO_CMP_FLT_LOUDNESS_COMP_AUDENH);
     setFsync();
 
-    #if 0
+#if 0
     char value[PROPERTY_VALUE_MAX];
     int result = 0 ;
     property_get("persist.af.audenh.ctrl", value, "1");
     result = atoi(value);
-    #else
+#else
 
     unsigned int result = 0 ;
     AUDIO_AUDENH_CONTROL_OPTION_STRUCT audioParam;
-    if(GetAudEnhControlOptionParamFromNV(&audioParam))
+    if (GetAudEnhControlOptionParamFromNV(&audioParam))
+    {
         result = audioParam.u32EnableFlg;
-    #endif
+    }
+#endif
 
-    mUseAudCompFltHeadphoneWithFixedParameter = (result?true:false);
+    mUseAudCompFltHeadphoneWithFixedParameter = (result ? true : false);
 #else
     mUseAudCompFltHeadphoneWithFixedParameter = false;
 #endif
-    ALOGD("Init mUseAudCompFltHeadphoneWithFixedParameter [%d]\n",mUseAudCompFltHeadphoneWithFixedParameter);
+    ALOGD("Init mUseAudCompFltHeadphoneWithFixedParameter [%d]\n", mUseAudCompFltHeadphoneWithFixedParameter);
     *status = NO_ERROR;
+
+    mPresentedBytes = 0;
+
     ALOGD("-AudioMTKStreamOut constructor \n");
 }
 
@@ -231,35 +247,40 @@ AudioMTKStreamOut::~AudioMTKStreamOut()
     StreamOutCompFltDestroy(AUDIO_COMP_FLT_HEADPHONE);
     StreamOutCompFltDestroy(AUDIO_COMP_FLT_AUDENH);
 
-    if (mBliSrc) {
+    if (mBliSrc)
+    {
         mBliSrc->close();
         delete mBliSrc;
         mBliSrc = NULL;
     }
-    if (mSwapBufferTwo) {
+    if (mSwapBufferTwo)
+    {
         delete []mSwapBufferTwo;
         mSwapBufferTwo = NULL;
     }
 
-    if (mSwapBufferThree) {
+    if (mSwapBufferThree)
+    {
         delete []mSwapBufferThree;
         mSwapBufferThree = NULL;
     }
 
-    if(mEcho_reference)
+    if (mEcho_reference)
+    {
         mEcho_reference = NULL;
-        
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
-    if (mBliSrcVoIP) {
+    }
+
+    if (mBliSrcVoIP)
+    {
         mBliSrcVoIP->close();
         delete mBliSrcVoIP;
         mBliSrcVoIP = NULL;
     }
-    if (mSwapBufferVoIP) {
+    if (mSwapBufferVoIP)
+    {
         delete []mSwapBufferVoIP;
         mSwapBufferVoIP = NULL;
     }
-#endif    
 }
 
 uint32_t AudioMTKStreamOut::calInterrupttime()
@@ -268,7 +289,9 @@ uint32_t AudioMTKStreamOut::calInterrupttime()
     ALOGD("calInterrupttime bufferSize = %d mDL1Attribute->mChannels = %d", bufferSize(), mDL1Attribute->mChannels);
 
     if (mDL1Attribute->mFormat == AUDIO_FORMAT_PCM_16_BIT)
+    {
         SampleCount = SampleCount >> 1;
+    }
 
     mDL1Attribute->mInterruptSample =  SampleCount >> 1;
     ALOGD("calInterrupttime mInterruptCounter = %d", mDL1Attribute->mInterruptSample);
@@ -319,12 +342,12 @@ status_t AudioMTKStreamOut::Set2ndI2SOutAttribute()
 
 
 status_t AudioMTKStreamOut::Set2ndI2SOutAttribute(
-                                               AudioDigtalI2S::LR_SWAP LRswap ,
-                                               AudioDigtalI2S::I2S_SRC mode ,
-                                               AudioDigtalI2S::INV_LRCK inverse,
-                                               AudioDigtalI2S::I2S_FORMAT format,
-                                               AudioDigtalI2S::I2S_WLEN Wlength,
-                                               int samplerate )
+    AudioDigtalI2S::LR_SWAP LRswap ,
+    AudioDigtalI2S::I2S_SRC mode ,
+    AudioDigtalI2S::INV_LRCK inverse,
+    AudioDigtalI2S::I2S_FORMAT format,
+    AudioDigtalI2S::I2S_WLEN Wlength,
+    int samplerate)
 {
     ALOGD("Set2ndI2SOutAttribute with dedicated define");
     m2ndI2SOut->mLR_SWAP = LRswap;
@@ -355,16 +378,20 @@ status_t AudioMTKStreamOut::Set2ndI2SOut(bool bEnable)
 status_t AudioMTKStreamOut::SetDAIBTAttribute()
 {
     // fix me , ned to base on actual situation
-#if defined(MTK_MERGE_INTERFACE_SUPPORT)
-    mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_MGRIF;
-#else
-    mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_BT;
-#endif
-    mDaiBt->mDAI_BT_MODE = AudioDigitalDAIBT::Mode8K;
+    if (WCNChipController::GetInstance()->IsBTMergeInterfaceSupported() == true)
+    {
+        mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_MGRIF;
+    }
+    else
+    {
+        mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_BT;
+    }
+
+    mDaiBt->mDAI_BT_MODE = (WCNChipController::GetInstance()->BTChipSamplingRate()) ? (AudioDigitalDAIBT::Mode16K) : (AudioDigitalDAIBT::Mode8K);
     mDaiBt->mDAI_DEL = AudioDigitalDAIBT::HighWord;
-    mDaiBt->mBT_LEN  = 0;
+    mDaiBt->mBT_LEN  = WCNChipController::GetInstance()->BTChipSyncLength();
     mDaiBt->mDATA_RDY = true;
-    mDaiBt->mBT_SYNC = AudioDigitalDAIBT::Short_Sync;
+    mDaiBt->mBT_SYNC = WCNChipController::GetInstance()->BTChipSyncFormat();
     mDaiBt->mBT_ON = true;
     mDaiBt->mDAIBT_ON = false;
     mAudioDigitalControl->SetDAIBBT(mDaiBt);
@@ -404,10 +431,12 @@ size_t AudioMTKStreamOut::bufferSize() const
 
 uint32_t AudioMTKStreamOut::channels() const // TODO(Harvey): WHY? 1 & 2 ??? or 0x1 & 0x3 ???
 {
-    if (mDL1Attribute->mChannels == 1) {
+    if (mDL1Attribute->mChannels == 1)
+    {
         return AUDIO_CHANNEL_OUT_MONO;
     }
-    else {
+    else
+    {
         return AUDIO_CHANNEL_OUT_STEREO;
     }
     return AUDIO_CHANNEL_OUT_STEREO;
@@ -444,45 +473,35 @@ status_t AudioMTKStreamOut::ReleasePlaybackclock()
 status_t AudioMTKStreamOut::SetPlayBackPinmux()
 {
     ALOGD("SetPlayBackPinmux");
-    if (mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINR) ||
-        mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINL)) {
-        if(!mAudioResourceManager->IsWiredHeadsetOn()){
-            mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERR, AudioAnalogType::MUX_AUDIO);
-            mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERL, AudioAnalogType::MUX_AUDIO);
-            ALOGD("SetPlayBackPinmux spk pinmux as MUX_AUDIO");
-        } else {
-            ALOGD("SetPlayBackPinmux keep the same");
-        }
-        // keep the same pinmux
+
+    uint32 DlDevice = mAudioResourceManager->getDlOutputDevice();
+    if ((DlDevice & AUDIO_DEVICE_OUT_WIRED_HEADSET) || (DlDevice & AUDIO_DEVICE_OUT_WIRED_HEADPHONE))
+    {
+        mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETR, AudioAnalogType::MUX_AUDIO);
+        mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETL, AudioAnalogType::MUX_AUDIO);
+        mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERR, AudioAnalogType::MUX_AUDIO);
+        mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERL, AudioAnalogType::MUX_AUDIO);
     }
-    else {
-        ALOGD("SetPlayBackPinmux set audio pinmux");
-        uint32 DlDevice = mAudioResourceManager->getDlOutputDevice();
-        if((DlDevice & AUDIO_DEVICE_OUT_WIRED_HEADSET) || (DlDevice & AUDIO_DEVICE_OUT_WIRED_HEADPHONE)) {
-            mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETR, AudioAnalogType::MUX_AUDIO);
-            mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_HEADSETL, AudioAnalogType::MUX_AUDIO);
-            mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERR, AudioAnalogType::MUX_AUDIO);
-            mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_SPEAKERL, AudioAnalogType::MUX_AUDIO);
-        }
-        if(DlDevice & AUDIO_DEVICE_OUT_EARPIECE) {
-            mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_EARPIECEL, AudioAnalogType::MUX_VOICE);
-        }
+    if (DlDevice & AUDIO_DEVICE_OUT_EARPIECE)
+    {
+        mAudioAnalogControl->AnalogSetMux(AudioAnalogType::DEVICE_OUT_EARPIECEL, AudioAnalogType::MUX_VOICE);
     }
+
     return NO_ERROR;
 }
 
 bool AudioMTKStreamOut::DoStereoMonoConvert(void *buffer, size_t byte)
 {
     //ALOGD("DoStereoMonoConvert mSteroToMono = %d",mSteroToMono);
-    if(mSteroToMono == true)
+    if (mSteroToMono == true)
     {
-        short *Sample = (short*)buffer;
-        int FinalValue  =0;
-        while(byte > 0)
+        short *Sample = (short *)buffer;
+        int FinalValue  = 0;
+        while (byte > 0)
         {
-            FinalValue = ((*Sample) + (*(Sample+1)));
-            *Sample++= FinalValue>>1;
-            *Sample++ = FinalValue >>1;
+            FinalValue = ((*Sample) + (*(Sample + 1)));
+            *Sample++ = FinalValue >> 1;
+            *Sample++ = FinalValue >> 1;
             byte -= 4;
         }
     }
@@ -491,7 +510,7 @@ bool AudioMTKStreamOut::DoStereoMonoConvert(void *buffer, size_t byte)
 
 status_t AudioMTKStreamOut::SetStereoToMonoFlag(int device)
 {
-    if((device&AUDIO_DEVICE_OUT_SPEAKER)&&(IsStereoSpeaker()== false))
+    if ((device & AUDIO_DEVICE_OUT_SPEAKER) && (IsStereoSpeaker() == false))
     {
         mSteroToMono = true;
     }
@@ -505,21 +524,24 @@ status_t AudioMTKStreamOut::SetStereoToMonoFlag(int device)
 void  AudioMTKStreamOut::OpenPcmDumpFile()
 {
     char Buf[10];
-    sprintf(Buf, "%d.pcm", DumpFileNum);
-    if(mPDacPCMDumpFile == NULL){
-        DumpFileName =String8(streamout);
-        DumpFileName.append ((const char*)Buf);
-        ALOGD("mPDacPCMDumpFile DumpFileName = %s",DumpFileName.string ());
-        mPDacPCMDumpFile = AudioOpendumpPCMFile(DumpFileName.string (), streamout_propty);
+    //sprintf(Buf, "%d.pcm", DumpFileNum);
+    snprintf(Buf,sizeof(Buf), "%d.pcm", DumpFileNum);
+    if (mPDacPCMDumpFile == NULL)
+    {
+        DumpFileName = String8(streamout);
+        DumpFileName.append((const char *)Buf);
+        ALOGD("mPDacPCMDumpFile DumpFileName = %s", DumpFileName.string());
+        mPDacPCMDumpFile = AudioOpendumpPCMFile(DumpFileName.string(), streamout_propty);
     }
-    if(mPFinalPCMDumpFile == NULL){
-        DumpFileName =String8(streamoutfinal);
-        DumpFileName.append ((const char*)Buf);
-        ALOGD("mPFinalPCMDumpFile DumpFileName = %s",DumpFileName.string ());
-        mPFinalPCMDumpFile = AudioOpendumpPCMFile(DumpFileName.string (), streamout_propty);
+    if (mPFinalPCMDumpFile == NULL)
+    {
+        DumpFileName = String8(streamoutfinal);
+        DumpFileName.append((const char *)Buf);
+        ALOGD("mPFinalPCMDumpFile DumpFileName = %s", DumpFileName.string());
+        mPFinalPCMDumpFile = AudioOpendumpPCMFile(DumpFileName.string(), streamout_propty);
     }
     DumpFileNum++;
-    DumpFileNum %=MAX_NUM_FILE;
+    DumpFileNum %= MAX_NUM_FILE;
 }
 
 void  AudioMTKStreamOut::ClosePcmDumpFile()
@@ -532,13 +554,13 @@ void  AudioMTKStreamOut::ClosePcmDumpFile()
 
 int AudioMTKStreamOut::WriteOriginPcmDump(void *buffer, size_t bytes)
 {
-    int written_data =0;
+    int written_data = 0;
     if (mPDacPCMDumpFile)
     {
-        long int position =0;
-        position = ftell (mPDacPCMDumpFile);
-        ALOGD("position = %d",position);
-        if(position> MAX_FILE_LENGTH)
+        long int position = 0;
+        position = ftell(mPDacPCMDumpFile);
+        ALOGD("position = %d", position);
+        if (position > MAX_FILE_LENGTH)
         {
             rewind(mPDacPCMDumpFile);
         }
@@ -549,53 +571,55 @@ int AudioMTKStreamOut::WriteOriginPcmDump(void *buffer, size_t bytes)
 
 bool AudioMTKStreamOut::IsStereoSpeaker()
 {
-    #ifdef ENABLE_STEREO_SPEAKER
+#ifdef ENABLE_STEREO_SPEAKER
     return true;
-    #else
+#else
     return false;
-    #endif
+#endif
 }
 
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
 timespec AudioMTKStreamOut::GetSystemTime(bool print)
 {
     struct timespec systemtime;
     int rc;
     rc = clock_gettime(CLOCK_MONOTONIC, &systemtime);
-    if (rc != 0) {        
+    if (rc != 0)
+    {
         systemtime.tv_sec  = 0;
-        systemtime.tv_nsec = 0;        
+        systemtime.tv_nsec = 0;
         ALOGD("clock_gettime error");
     }
-    if(print==true)    
+    if (print == true)
+    {
         ALOGD("GetSystemTime, sec %ld nsec %ld", systemtime.tv_sec, systemtime.tv_nsec);
-    
+    }
+
     return systemtime;
 }
-#endif
 
 ssize_t AudioMTKStreamOut::write(const void *buffer, size_t bytes)
 {
-    int ret =0;
+    int ret = 0;
     ALOGD("%s(), buffer = %p bytes = %d mLatency = %d", __FUNCTION__, buffer, bytes, mLatency);
     // here need write data to hardware
     ssize_t WrittenBytes = 0;
-    if (mSuspend || LoopbackManager::GetInstance()->GetLoopbackType() != NO_LOOPBACK) {
+    if (mSuspend || LoopbackManager::GetInstance()->GetLoopbackType() != NO_LOOPBACK)
+    {
         usleep(mLatency * 1000);//slee for a while
         ALOGD("%s() suspend write", __FUNCTION__);
         return bytes;
     }
-    AudioVUnlockDL* VUnlockhdl = AudioVUnlockDL::getInstance();
+    AudioVUnlockDL *VUnlockhdl = AudioVUnlockDL::getInstance();
     // need lock first
-    ret=  mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_HARDWARE_LOCK, 3000);
-     if(ret)
-     {
-         ALOGW("write EnableAudioLock  AUDIO_HARDWARE_LOCK fail");
-         usleep(50 * 1000);
-         return bytes;
+    ret =  mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_HARDWARE_LOCK, 3000);
+    if (ret)
+    {
+        ALOGW("write EnableAudioLock  AUDIO_HARDWARE_LOCK fail");
+        usleep(50 * 1000);
+        return bytes;
     }
     ret = mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMOUT_LOCK, 3000);
-    if(ret)
+    if (ret)
     {
         ALOGW("write EnableAudioLock AUDIO_STREAMOUT_LOCK fail");
         usleep(50 * 1000);
@@ -604,11 +628,13 @@ ssize_t AudioMTKStreamOut::write(const void *buffer, size_t bytes)
 
     audio_mode_t Mode = mAudioResourceManager->GetAudioMode();
     //staring DL digital part.
-    if (GetStreamRunning() == false) {
+    if (GetStreamRunning() == false)
+    {
         RequesetPlaybackclock();
         OpenPcmDumpFile();
         SetStreamRunning(true);
-        switch (Mode) {
+        switch (Mode)
+        {
             case AUDIO_MODE_NORMAL:
             case AUDIO_MODE_RINGTONE:
             case AUDIO_MODE_IN_COMMUNICATION:
@@ -616,20 +642,20 @@ ssize_t AudioMTKStreamOut::write(const void *buffer, size_t bytes)
                 ::ioctl(mFd, START_MEMIF_TYPE, AudioDigitalType::MEM_DL1); // fp for write indentify
                 uint32 DigitalPart = mAudioDigitalControl->DlPolicyByDevice(mDL1Attribute->mdevices);
                 SetAnalogFrequency(DigitalPart);
-                SetPlayBackPinmux();
 
-                DoStereoMonoConvert((void*)buffer,bytes);
+                DoStereoMonoConvert((void *)buffer, bytes);
 
-                if (DigitalPart == AudioDigitalType::DAI_BT) {
-                    WrittenBytes = WriteDataToBTSCOHW(buffer, bufferSize());
+                if (DigitalPart == AudioDigitalType::DAI_BT)
+                {
+                    WrittenBytes = WriteDataToBTSCOHW(buffer, bytes);
                 }
-                else {
-                    WrittenBytes =WriteDataToAudioHW(buffer, bufferSize());
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+                else
+                {
+                    WrittenBytes = WriteDataToAudioHW(buffer, bufferSize());
                     ALOGD("playback first write finish time");
                     GetSystemTime(true);
-#endif                    
-                    if(VUnlockhdl != NULL)
+
+                    if (VUnlockhdl != NULL)
                     {
                         VUnlockhdl->SetInputStandBy(false);
                         VUnlockhdl-> GetSRCInputParameter(mDL1Attribute->mSampleRate, mDL1Attribute->mChannels);
@@ -645,23 +671,25 @@ ssize_t AudioMTKStreamOut::write(const void *buffer, size_t bytes)
 
                 // turn on irq 1 INTERRUPT_IRQ1_MCU
                 SetIMcuIRQ(AudioDigitalType::IRQ1_MCU_MODE, mDL1Attribute);
+                SetMEMIFAttribute(AudioDigitalType::MEM_DL1, mDL1Attribute);
+
+                SetMEMIFEnable(AudioDigitalType::MEM_DL1, true);
                 EnableIMcuIRQ(AudioDigitalType::IRQ1_MCU_MODE, true);
 
-                SetMEMIFAttribute(AudioDigitalType::MEM_DL1, mDL1Attribute);
-                SetMEMIFEnable(AudioDigitalType::MEM_DL1, true);
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
-                mAudioSpeechEnhanceInfoInstance->GetDownlinkIntrStartTime();
-#endif
-                if(VUnlockhdl != NULL)
+                if (VUnlockhdl != NULL)
                 {
-                   VUnlockhdl->GetFirstDLTime();
+                    VUnlockhdl->GetFirstDLTime();
                 }
+
+                mAudioSpeechEnhanceInfoInstance->GetDownlinkIntrStartTime();
+
                 mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMOUT_LOCK);
                 mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_HARDWARE_LOCK);
                 return WrittenBytes;
             }
             case AUDIO_MODE_IN_CALL:
-            case AUDIO_MODE_IN_CALL_2: {
+            case AUDIO_MODE_IN_CALL_2:
+            {
                 SpeechDriverInterface *pSpeechDriver = SpeechDriverFactory::GetInstance()->GetSpeechDriver();
                 BGSPlayer *pBGSPlayer = BGSPlayer::GetInstance();
                 pBGSPlayer->mBGSMutex.lock();
@@ -670,39 +698,45 @@ ssize_t AudioMTKStreamOut::write(const void *buffer, size_t bytes)
                 pBGSPlayer->mBGSMutex.unlock();
                 break;
             }
-            default: {
+            default:
+            {
                 break;
             }
         }
     }
 
     mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_HARDWARE_LOCK);
-    WriteOriginPcmDump((void*)buffer,bytes);
+    WriteOriginPcmDump((void *)buffer, bytes);
 
-    switch (Mode) {
+    switch (Mode)
+    {
         case AUDIO_MODE_NORMAL:
         case AUDIO_MODE_RINGTONE:
         case AUDIO_MODE_IN_COMMUNICATION:
         {
             uint32 DigitalPart = mAudioDigitalControl->DlPolicyByDevice(mDL1Attribute->mdevices);
 
-            DoStereoMonoConvert((void*)buffer,bytes);
-            if (DigitalPart == AudioDigitalType::DAI_BT) {
+            DoStereoMonoConvert((void *)buffer, bytes);
+            if (DigitalPart == AudioDigitalType::DAI_BT)
+            {
                 WrittenBytes = WriteDataToBTSCOHW(buffer, bufferSize());
             }
-            else {
+            else
+            {
                 //WrittenBytes =::write(mFd, buffer, bufferSize());
                 VUnlockhdl->SetInputStandBy(false);
-                WrittenBytes =WriteDataToAudioHW(buffer, bufferSize());
+                WrittenBytes = WriteDataToAudioHW(buffer, bufferSize());
             }
             break;
         }
         case AUDIO_MODE_IN_CALL:
-        case AUDIO_MODE_IN_CALL_2: {
+        case AUDIO_MODE_IN_CALL_2:
+        {
             WrittenBytes = BGSPlayer::GetInstance()->Write(const_cast<void *>(buffer), bytes);
             break;
         }
-        default: {
+        default:
+        {
             break;
         }
     }
@@ -713,67 +747,86 @@ ssize_t AudioMTKStreamOut::write(const void *buffer, size_t bytes)
 
 ssize_t AudioMTKStreamOut::WriteDataToBTSCOHW(const void *buffer, size_t bytes)
 {
-    ssize_t WrittenBytes = 0;
-    size_t outputSize = 0;
+    ssize_t consum_len;
+    size_t outputSize = 0, WrittenBytes;
     uint8_t *outbuffer;
 
-    outputSize = DoBTSCOSRC(buffer, bytes, (void **)&outbuffer);
+    consum_len = DoBTSCOSRC(buffer, bytes, (void **)&outbuffer, &outputSize);
     WrittenBytes =::write(mFd, outbuffer, outputSize);
-    writeDataToEchoReference(buffer, bytes);
-    return WrittenBytes;
+    struct timespec TimeInfo = GetSystemTime(false);
+    writeDataToEchoReference(buffer, bytes, NO_REMAIN_DATA_INFO, TimeInfo);
+    return consum_len;
 }
 
-ssize_t AudioMTKStreamOut::DoBTSCOSRC(const void *buffer, size_t bytes, void **outbuffer)
+ssize_t AudioMTKStreamOut::DoBTSCOSRC(const void *buffer, size_t bytes, void **outbuffer, size_t *outputSize)
 {
-    size_t outputSize = 0;
+    size_t consume_len = 0;
 
-    if (mBliSrc) {
-        if (mBliSrc->initStatus() != OK) {
-            // 6628 only support 8k BTSCO
-            ALOGD("DoBTSCOSRC Init BLI_SRC,mDL1Attribute->mSampleRate=%d, target=8000",mDL1Attribute->mSampleRate);
-            mBliSrc->init(44100, mDL1Attribute->mChannels, 8000, mDL1Attribute->mChannels);
+    if (mBliSrc)
+    {
+        if (mBliSrc->initStatus() != OK)
+        {
+            if (mAudioDigitalControl->BT_SCO_GetMode() == 0)
+            {
+                ALOGD("DoBTSCOSRC Init BLI_SRC,mDL1Attribute->mSampleRate=%d, target=8000", mDL1Attribute->mSampleRate);
+                mBliSrc->init(44100, mDL1Attribute->mChannels, 8000, mDL1Attribute->mChannels);
+            }
+            else
+            {
+                ALOGD("DoBTSCOSRC Init BLI_SRC,mDL1Attribute->mSampleRate=%d, target=16000", mDL1Attribute->mSampleRate);
+                mBliSrc->init(44100, mDL1Attribute->mChannels, 16000, mDL1Attribute->mChannels);
+
+            }
         }
         *outbuffer = mSwapBufferTwo;
-        outputSize = mBliSrc->process(buffer, bytes, *outbuffer);
-        if (outputSize <= 0) {
+        consume_len = mBliSrc->process(buffer, bytes, *outbuffer, outputSize);
+		#if 0
+        if (outputSize <= 0)
+        {
             outputSize = bytes;
             *outbuffer = (void *)buffer;
         }
-        return outputSize;
+		#endif
+        return consume_len;
     }
-    else {
+    else
+    {
         ALOGW("DoBTSCOSRC() mBliSrc=NULL!!!");
         *outbuffer = (void *)buffer;
         return bytes;
     }
 }
 
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
 ssize_t AudioMTKStreamOut::DoVoIPSRC(const void *buffer, size_t bytes, void **outbuffer)
 {
     size_t outputSize = 0;
 
-    if (mBliSrcVoIP) {
-        if (mBliSrcVoIP->initStatus() != OK) {
+    if (mBliSrcVoIP)
+    {
+        if (mBliSrcVoIP->initStatus() != OK)
+        {
             // VoIP only support 16k mono downlink data
-            ALOGD("DoVoIPSRC Init BLI_SRC,mDL1Attribute->mSampleRate=%d, target=16000, stereo",mDL1Attribute->mSampleRate);
+            ALOGD("DoVoIPSRC Init BLI_SRC,mDL1Attribute->mSampleRate=%d, target=16000, stereo", mDL1Attribute->mSampleRate);
             mBliSrcVoIP->init(44100, mDL1Attribute->mChannels, 16000, 1);
         }
         *outbuffer = mSwapBufferVoIP;
-        outputSize = mBliSrcVoIP->process(buffer, bytes, *outbuffer);
-        if (outputSize <= 0) {
+        mBliSrcVoIP->process(buffer, bytes, *outbuffer, &outputSize);
+		#if 0
+        if (outputSize <= 0)
+        {
             outputSize = bytes;
             *outbuffer = (void *)buffer;
         }
+		#endif
         return outputSize;
     }
-    else {
+    else
+    {
         ALOGD("DoVoIPSRC() mBliSrcVoIP=NULL!!!");
         *outbuffer = (void *)buffer;
         return bytes;
     }
 }
-#endif
 
 status_t AudioMTKStreamOut::setForceStandby(bool bEnable)
 {
@@ -787,9 +840,10 @@ status_t AudioMTKStreamOut::standby()
     ALOGD("+AudioMTKStreamOut standby");
     mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMOUT_LOCK, 3000);
     ALOGD("+AudioMTKStreamOut standby() EnableAudioLock AUDIO_STREAMOUT_LOCK");
-    AudioVUnlockDL* VUnlockhdl = AudioVUnlockDL::getInstance();
+    AudioVUnlockDL *VUnlockhdl = AudioVUnlockDL::getInstance();
     //staring DL digital part.
-    if (GetStreamRunning() == true) {
+    if (GetStreamRunning() == true)
+    {
         SetStreamRunning(false);
         ClosePcmDumpFile();
         ClearFSync();
@@ -797,35 +851,37 @@ status_t AudioMTKStreamOut::standby()
         {
             case AUDIO_MODE_NORMAL:
             case AUDIO_MODE_RINGTONE:
-            case AUDIO_MODE_IN_COMMUNICATION: {
-                if (mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINR) ||
-                    mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINL) ||
-                    mAudioDigitalControl->GetI2SConnectStatus() ) {
-                    // when analog lin in enable ......
-                    ALOGD("AudioMTKStreamOut standby() FM is on, LineInR(%d), LineInL(%d), I2S(%d), do nothing!!!!!!", mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINR), mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINL) , mAudioDigitalControl->GetI2SConnectStatus());
+            case AUDIO_MODE_IN_COMMUNICATION:
+            {
+                if (AudioFMController::GetInstance()->GetFmEnable() == true ||
+                    AudioMATVController::GetInstance()->GetMatvEnable() == true)
+                {
+                    ALOGD("%s(), FM/mATV is on, do nothing!!!!!!", __FUNCTION__);
                 }
-                else {
+                else
+                {
                     mAudioResourceManager->StopOutputDevice();
                 }
                 uint32 DigitalPart = mAudioDigitalControl->DlPolicyByDevice(mAudioResourceManager->getDlOutputDevice());
-                if( mAudioDigitalControl->GetI2SConnectStatus() )
-                    TurnOffAfeDigital(DigitalPart, true);
-                else
-                    TurnOffAfeDigital(DigitalPart, false);
+                TurnOffAfeDigital(DigitalPart, AudioFMController::GetInstance()->GetFmEnable() || AudioMATVController::GetInstance()->GetMatvEnable());
                 EnableIMcuIRQ(AudioDigitalType::IRQ1_MCU_MODE, false);
-                usleep(1*1000);
+                usleep(1 * 1000);
                 SetMEMIFEnable(AudioDigitalType::MEM_DL1, false); // disable irq 1
-                if( !mAudioDigitalControl->GetI2SConnectStatus() )
+                if (AudioFMController::GetInstance()->GetFmEnable() == false &&
+                    AudioMATVController::GetInstance()->GetMatvEnable() == false)
+                {
                     mAudioDigitalControl->SetAfeEnable(false);
+                }
                 ::ioctl(mFd, STANDBY_MEMIF_TYPE, AudioDigitalType::MEM_DL1); // disable mem interface mem1
-                if(VUnlockhdl != NULL)
+                if (VUnlockhdl != NULL)
                 {
                     VUnlockhdl->SetInputStandBy(true);
                 }
                 break;
             }
             case AUDIO_MODE_IN_CALL:
-            case AUDIO_MODE_IN_CALL_2: {
+            case AUDIO_MODE_IN_CALL_2:
+            {
                 SpeechDriverInterface *pSpeechDriver = SpeechDriverFactory::GetInstance()->GetSpeechDriver();
                 BGSPlayer *pBGSPlayer = BGSPlayer::GetInstance();
                 pBGSPlayer->mBGSMutex.lock();
@@ -836,21 +892,20 @@ status_t AudioMTKStreamOut::standby()
             }
         }
         ReleasePlaybackclock();
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDIO,false);
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_HEADPHONE,false);
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDENH,false);
-        if (mBliSrc) {
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDIO, false);
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_HEADPHONE, false);
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDENH, false);
+        if (mBliSrc)
+        {
             mBliSrc->close();
         }
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT        
-        if (mBliSrcVoIP) {
+        if (mBliSrcVoIP)
+        {
             mBliSrcVoIP->close();
         }
-#endif        
         StopWriteDataToEchoReference();
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT        
-        setCPU_MIN_Freq("497250","1",false);
-#endif        
+
+        setCPU_MIN_Freq("497250", "1", false);
     }
     mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMOUT_LOCK);
     ALOGD("-AudioMTKStreamOut standby");
@@ -861,19 +916,24 @@ status_t AudioMTKStreamOut::standby()
 status_t AudioMTKStreamOut::SetAnalogFrequency(uint32 AfeDigital)
 {
     ALOGD("SetAnalogFrequency AfeDigital = %d", AfeDigital);
-    switch (AfeDigital) {
-        case (AudioDigitalType::DAI_BT): {
+    switch (AfeDigital)
+    {
+        case (AudioDigitalType::DAI_BT):
+        {
             break;
         }
-        case (AudioDigitalType::I2S_OUT_DAC): {
-            mAudioAnalogControl->SetFrequency(AudioAnalogType::DEVICE_OUT_DAC, mDL1Out->mI2S_SAMPLERATE);
+        case (AudioDigitalType::I2S_OUT_DAC):
+        {
+            mAudioAnalogControl->SetFrequency(AudioAnalogType::DEVICE_OUT_DAC, sampleRate());
             break;
         }
-        case (AudioDigitalType::I2S_INOUT_2): {
-            mAudioAnalogControl->SetFrequency(AudioAnalogType::DEVICE_OUT_DAC, mDL1Out->mI2S_SAMPLERATE);
+        case (AudioDigitalType::I2S_INOUT_2):
+        {
+            mAudioAnalogControl->SetFrequency(AudioAnalogType::DEVICE_OUT_DAC, sampleRate());
             break;
         }
-        default: {
+        default:
+        {
             ALOGD("Turn on default I2S out DAC part");
         }
     }
@@ -883,18 +943,21 @@ status_t AudioMTKStreamOut::SetAnalogFrequency(uint32 AfeDigital)
 status_t AudioMTKStreamOut::TurnOnAfeDigital(uint32 AfeDigital)
 {
     ALOGD("TurnOnAfeDigital AfeDigital = %d", AfeDigital);
-    switch (AfeDigital) {
-        case (AudioDigitalType::DAI_BT): {
+    switch (AfeDigital)
+    {
+        case (AudioDigitalType::DAI_BT):
+        {
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I05, AudioDigitalType::O02);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I06, AudioDigitalType::O02);
-			mAudioDigitalControl->SetinputConnection(AudioDigitalType::ConnectionShift, AudioDigitalType::I05, AudioDigitalType::O02);
-			mAudioDigitalControl->SetinputConnection(AudioDigitalType::ConnectionShift, AudioDigitalType::I06, AudioDigitalType::O02);
+            mAudioDigitalControl->SetinputConnection(AudioDigitalType::ConnectionShift, AudioDigitalType::I05, AudioDigitalType::O02);
+            mAudioDigitalControl->SetinputConnection(AudioDigitalType::ConnectionShift, AudioDigitalType::I06, AudioDigitalType::O02);
             SetDAIBTAttribute();
             SetDAIBTOut(true);
             // turn on dai_out
             break;
         }
-        case (AudioDigitalType::I2S_OUT_DAC): {
+        case (AudioDigitalType::I2S_OUT_DAC):
+        {
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I05, AudioDigitalType::O03);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I06, AudioDigitalType::O04);
             SetMEMIFEnable(AudioDigitalType::I2S_OUT_DAC, true);
@@ -903,21 +966,23 @@ status_t AudioMTKStreamOut::TurnOnAfeDigital(uint32 AfeDigital)
             SetI2SDACOut(true);
             break;
         }
-        case (AudioDigitalType::I2S_INOUT_2): {
+        case (AudioDigitalType::I2S_INOUT_2):
+        {
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I05, AudioDigitalType::O00);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I06, AudioDigitalType::O01);
             SetMEMIFEnable(AudioDigitalType::I2S_INOUT_2, true);
             // turn on 2nd_I2S out
 #if defined(HDMI_2NDI2S_32BIT)
             // MT8193 need 64*fs , wordlength =32 bits.
-            Set2ndI2SOutAttribute(AudioDigtalI2S::NO_SWAP,AudioDigtalI2S::MASTER_MODE,AudioDigtalI2S::NO_INVERSE,AudioDigtalI2S::I2S,AudioDigtalI2S::WLEN_32BITS,sampleRate());
+            Set2ndI2SOutAttribute(AudioDigtalI2S::NO_SWAP, AudioDigtalI2S::MASTER_MODE, AudioDigtalI2S::NO_INVERSE, AudioDigtalI2S::I2S, AudioDigtalI2S::WLEN_32BITS, sampleRate());
 #else
             Set2ndI2SOutAttribute();
 #endif
             Set2ndI2SOut(true);
             break;
         }
-        default: {
+        default:
+        {
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I05, AudioDigitalType::O03);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I06, AudioDigitalType::O04);
             SetI2SOutDACAttribute();
@@ -931,30 +996,37 @@ status_t AudioMTKStreamOut::TurnOnAfeDigital(uint32 AfeDigital)
 status_t AudioMTKStreamOut::TurnOffAfeDigital(uint32 AfeDigital, bool keepDacOpen)
 {
     ALOGD("TurnOffAfeDigital AfeDigital = %d", AfeDigital);
-    switch (AfeDigital) {
-        case (AudioDigitalType::DAI_BT): {
+    switch (AfeDigital)
+    {
+        case (AudioDigitalType::DAI_BT):
+        {
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I05, AudioDigitalType::O02);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I06, AudioDigitalType::O02);
             SetDAIBTOut(false);
             // turn off dai_out
             break;
         }
-        case (AudioDigitalType::I2S_INOUT_2): {
+        case (AudioDigitalType::I2S_INOUT_2):
+        {
             SetMEMIFEnable(AudioDigitalType::I2S_INOUT_2, false);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I05, AudioDigitalType::O00);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I06, AudioDigitalType::O01);
             Set2ndI2SOut(false);
             break;
         }
-        case (AudioDigitalType::I2S_OUT_DAC): {
+        case (AudioDigitalType::I2S_OUT_DAC):
+        {
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I05, AudioDigitalType::O03);
             mAudioDigitalControl->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I06, AudioDigitalType::O04);
             SetMEMIFEnable(AudioDigitalType::I2S_OUT_DAC, false);
-            if(!keepDacOpen)
+            if (!keepDacOpen)
+            {
                 SetI2SDACOut(false);
+            }
             break;
         }
-        default: {
+        default:
+        {
             ALOGD("TurnOffAfeDigital no setting is available");
         }
     }
@@ -972,17 +1044,21 @@ void AudioMTKStreamOut::dokeyRouting(uint32_t new_device)
 
     SpeechPhoneCallController::GetInstance()->SetRoutingForTty((audio_devices_t)new_device);
 
+    AudioFMController *pAudioFMController = AudioFMController::GetInstance();
+
+    // When FM + (WFD, A2DP, SCO(44.1K -> 8/16K), ...), Policy will routing to AUDIO_DEVICE_NONE
+    // Hence, use other device like AUDIO_DEVICE_OUT_REMOTE_SUBMIX instead to achieve FM routing.
+    if (new_device == AUDIO_DEVICE_NONE && pAudioFMController->GetFmEnable() == true)
+    {
+        ALOGD("%s(), Replace AUDIO_DEVICE_NONE with AUDIO_DEVICE_OUT_REMOTE_SUBMIX for AP-path FM routing", __FUNCTION__);
+        new_device = AUDIO_DEVICE_OUT_REMOTE_SUBMIX;
+    }
+
+    // Check if no need to routing, return
     if ((new_device == 0 || new_device == current_device) ||
-        (LoopbackManager::GetInstance()->GetLoopbackType() != NO_LOOPBACK)) {
-#ifdef MTK_FM_SUPPORT_WFD_OUTPUT
-        if(new_device == AUDIO_DEVICE_NONE && mAudioDigitalControl->GetFmDigitalStatus())
-        {
-            ALOGD("Replace NonDevice with Speaker for AP-path routing");
-            new_device = AUDIO_DEVICE_OUT_SPEAKER;
-        }
-        else
-#endif
-            goto EXIT_SETPARAMETERS;
+        (LoopbackManager::GetInstance()->GetLoopbackType() != NO_LOOPBACK))
+    {
+        goto EXIT_SETPARAMETERS;
     }
 
     SetStereoToMonoFlag(new_device);
@@ -994,15 +1070,23 @@ void AudioMTKStreamOut::dokeyRouting(uint32_t new_device)
         SpeechPhoneCallController::GetInstance()->ChangeDeviceForModemSpeechControlFlow(mAudioResourceManager->GetAudioMode(), (audio_devices_t)new_device);
 
         // TODO(Harvey): Reduce copy & paste code here...
-        if (android_audio_legacy::AudioSystem::isBluetoothScoDevice((android_audio_legacy::AudioSystem::audio_devices)new_device) == true) { // BT
+        if (android_audio_legacy::AudioSystem::isBluetoothScoDevice((android_audio_legacy::AudioSystem::audio_devices)new_device) == true) // BT
+        {
             mDL1Attribute->mSampleRate = 8000;
             mDL1Attribute->mInterruptSample = 256;
         }
-        else {
-            mDL1Attribute->mSampleRate = mSourceSampleRate;
+        else
+        {
+            mDL1Attribute->mSampleRate = mSourceSampleRate ;
             calInterrupttime();
         }
 
+        mDL1Attribute->mdevices = new_device;
+    }
+    else if (pAudioFMController->GetFmEnable() == true)
+    {
+        // Set FM Devices
+        pAudioFMController->ChangeDevice(new_device);
         mDL1Attribute->mdevices = new_device;
     }
     else if (mStarting == true)
@@ -1011,16 +1095,25 @@ void AudioMTKStreamOut::dokeyRouting(uint32_t new_device)
         bool outputdevicechange = mAudioDigitalControl->CheckDlDigitalChange(current_device, new_device);
         if (true == outputdevicechange)
         {
-            if(!(current_device&AUDIO_DEVICE_OUT_ALL_SCO)&&(new_device&AUDIO_DEVICE_OUT_ALL_SCO)) // change to BTSCO device
+            if (!(current_device & AUDIO_DEVICE_OUT_ALL_SCO) && (new_device & AUDIO_DEVICE_OUT_ALL_SCO)) // change to BTSCO device
             {
                 mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMOUT_LOCK); // disable AUDIO_STREAMOUT_LOCK since standby() will use itemAt
                 standby();
                 mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMOUT_LOCK, 3000);
-                mDL1Attribute->mSampleRate = 8000;
-                mDL1Attribute->mInterruptSample = 256;
-                ALOGD("setParameters mStarting=true change to BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ",mDL1Attribute->mSampleRate,mDL1Attribute->mInterruptSample);
+
+                if (mAudioDigitalControl->BT_SCO_GetMode() == 0)
+                {
+                    mDL1Attribute->mSampleRate = 8000;
+                    mDL1Attribute->mInterruptSample = 256;
+                }
+                else
+                {
+                    mDL1Attribute->mSampleRate = 16000;
+                    mDL1Attribute->mInterruptSample = 512;
+                }
+                ALOGD("setParameters mStarting=true change to BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ", mDL1Attribute->mSampleRate, mDL1Attribute->mInterruptSample);
             }
-            else if((current_device&AUDIO_DEVICE_OUT_ALL_SCO)&&!(new_device&AUDIO_DEVICE_OUT_ALL_SCO)) // change from BTSCO device
+            else if ((current_device & AUDIO_DEVICE_OUT_ALL_SCO) && !(new_device & AUDIO_DEVICE_OUT_ALL_SCO)) // change from BTSCO device
             {
                 mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMOUT_LOCK); // disable AUDIO_STREAMOUT_LOCK since standby() will use it
                 standby();
@@ -1028,7 +1121,7 @@ void AudioMTKStreamOut::dokeyRouting(uint32_t new_device)
                 mDL1Attribute->mSampleRate = mSourceSampleRate; //mSourceSampleRate is from AudioMTKStreamOut constructor
                 calInterrupttime();
                 SetI2SOutDACAttribute();
-                ALOGD("setParameters mStarting=true change from BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ",mDL1Attribute->mSampleRate,mDL1Attribute->mInterruptSample);
+                ALOGD("setParameters mStarting=true change from BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ", mDL1Attribute->mSampleRate, mDL1Attribute->mInterruptSample);
             }
             else
             {
@@ -1043,27 +1136,20 @@ void AudioMTKStreamOut::dokeyRouting(uint32_t new_device)
         mAudioResourceManager->SelectOutputDevice(new_device);
         mDL1Attribute->mdevices = new_device;
     }
-    else if( mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINR) ||
-             mAudioAnalogControl->GetAnalogState(AudioAnalogType::DEVICE_IN_LINEINL) ||
-             mAudioDigitalControl->GetFmDigitalStatus())
-    {
-            mAudioResourceManager->SelectOutputDevice(new_device);
-            mDL1Attribute->mdevices = new_device;
-    }
     else
     {
-        if(!(current_device&AUDIO_DEVICE_OUT_ALL_SCO)&&(new_device&AUDIO_DEVICE_OUT_ALL_SCO)) // change to BTSCO device
+        if (!(current_device & AUDIO_DEVICE_OUT_ALL_SCO) && (new_device & AUDIO_DEVICE_OUT_ALL_SCO)) // change to BTSCO device
         {
             mDL1Attribute->mSampleRate = 8000;
             mDL1Attribute->mInterruptSample = 256;
-            ALOGD("setParameters mStarting=false change to BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ",mDL1Attribute->mSampleRate,mDL1Attribute->mInterruptSample);
+            ALOGD("setParameters mStarting=false change to BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ", mDL1Attribute->mSampleRate, mDL1Attribute->mInterruptSample);
         }
-        else if((current_device&AUDIO_DEVICE_OUT_ALL_SCO)&&!(new_device&AUDIO_DEVICE_OUT_ALL_SCO)) // change from BTSCO device
+        else if ((current_device & AUDIO_DEVICE_OUT_ALL_SCO) && !(new_device & AUDIO_DEVICE_OUT_ALL_SCO)) // change from BTSCO device
         {
             mDL1Attribute->mSampleRate = mSourceSampleRate; //mSourceSampleRate is from AudioMTKStreamOut constructor
             SetI2SOutDACAttribute();
             calInterrupttime();
-            ALOGD("setParameters mStarting=false change from BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ",mDL1Attribute->mSampleRate,mDL1Attribute->mInterruptSample);
+            ALOGD("setParameters mStarting=false change from BTSCO device, mDL1Attribute->mSampleRate=%d,mDL1Attribute->mInterruptSample=%d ", mDL1Attribute->mSampleRate, mDL1Attribute->mInterruptSample);
         }
         mAudioResourceManager->setDlOutputDevice(new_device);
         mDL1Attribute->mdevices = new_device;  //mDL1Attribute->mdevices to be used in AudioMTKStreamOut::write()
@@ -1083,31 +1169,32 @@ status_t AudioMTKStreamOut::setParameters(const String8 &keyValuePairs)
     String8 keyStereoOutput = String8("EnableStereoOutput");
     status_t status = NO_ERROR;
     int devices = 0;
-    ALOGD("setParameters() %s", keyValuePairs.string());
-    if (param.getInt(keyRouting, devices) == NO_ERROR) {
+    int value = 0;
+
+    ALOGD("AudioMTKStreamOut setParameters() %s", keyValuePairs.string());
+    if (param.getInt(keyRouting, devices) == NO_ERROR)
+    {
         param.remove(keyRouting);
         uint32_t olddevice = mDL1Attribute->mdevices;
         dokeyRouting(devices);
-        //mAudioResourceManager->doSetMode();
         uint32_t newdevice = mDL1Attribute->mdevices;
         //speaker/receiver(headphone) switch no input path change, but should use receiver params
-        if(((newdevice==AUDIO_DEVICE_OUT_SPEAKER)&&((olddevice==AUDIO_DEVICE_OUT_EARPIECE)||(olddevice==AUDIO_DEVICE_OUT_WIRED_HEADPHONE)))
-            ||(((newdevice==AUDIO_DEVICE_OUT_EARPIECE)||(newdevice==AUDIO_DEVICE_OUT_WIRED_HEADPHONE))&&(olddevice==AUDIO_DEVICE_OUT_SPEAKER)))
+        if (((newdevice == AUDIO_DEVICE_OUT_SPEAKER) && ((olddevice == AUDIO_DEVICE_OUT_EARPIECE) || (olddevice == AUDIO_DEVICE_OUT_WIRED_HEADPHONE)))
+            || (((newdevice == AUDIO_DEVICE_OUT_EARPIECE) || (newdevice == AUDIO_DEVICE_OUT_WIRED_HEADPHONE)) && (olddevice == AUDIO_DEVICE_OUT_SPEAKER)))
         {
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
             ALOGD("check if need to update VoIP parameters");
             //Mutex::Autolock _l(mSPEVoIPLock);
             mAudioSpeechEnhanceInfoInstance->NeedUpdateVoIPParams();
-#endif            
         }
     }
-    if (param.getInt(keyHardwareMute, devices) == NO_ERROR) {
+    if (param.getInt(keyHardwareMute, devices) == NO_ERROR)
+    {
         param.remove(keyRouting);
         mAudioResourceManager->SetHardwareMute(devices);
     }
     if (param.getInt(keyStereoOutput, devices) == NO_ERROR)
     {
-        if(devices)
+        if (devices)
         {
             mSteroToMono = false;
         }
@@ -1117,8 +1204,32 @@ status_t AudioMTKStreamOut::setParameters(const String8 &keyValuePairs)
         }
         param.remove(keyStereoOutput);
     }
+    if (param.getInt(String8("force_standby"), value) == NO_ERROR) // only set this param when entering call related mode!!
+    {
+        if (value == true)
+        {
+            SetSuspend(true);
+            if (AudioFMController::GetInstance()->GetFmEnable() == true)
+            {
+                ALOGD("%s(), force_standby, FM is on, disable it.", __FUNCTION__);
+                AudioFMController::GetInstance()->SetFmEnable(false);
+            }
+            else if (AudioMATVController::GetInstance()->GetMatvEnable() == true)
+            {
+                ALOGD("%s(), force_standby, mATV is on, disable it.", __FUNCTION__);
+                AudioMATVController *pAudioMATVController = AudioMATVController::GetInstance();
+                pAudioMATVController->SetMatvEnable(false, pAudioMATVController->GetMatvType());
+            }
+            standby();
+        }
+        else
+        {
+            SetSuspend(false);
+        }
+    }
 
-    if (param.size()) {
+    if (param.size())
+    {
         status = BAD_VALUE;
     }
     return status;
@@ -1137,13 +1248,33 @@ status_t AudioMTKStreamOut::getRenderPosition(uint32_t *dspFrames)
     return NO_ERROR;
 }
 
+status_t AudioMTKStreamOut::getNextWriteTimestamp(int64_t *timestamp)
+{
+    return INVALID_OPERATION;
+}
+
+status_t AudioMTKStreamOut::setCallBack(stream_callback_t callback, void *cookie)
+{
+    //TODO : new for KK
+    return INVALID_OPERATION;
+}
+
+status_t AudioMTKStreamOut::getPresentationPosition(uint64_t *frames, struct timespec *timestamp)
+{
+	return INVALID_OPERATION;
+    ALOGV("%s()", __FUNCTION__);
+
+    *frames = mPresentedBytes / (uint64_t)(mDL1Attribute->mChannels * (mDL1Attribute->mFormat == AUDIO_FORMAT_PCM_8_BIT ? 1 : 2));
+    *timestamp = mPresentedTime;
+
+    return NO_ERROR;
+}
+
 status_t AudioMTKStreamOut::SetStreamRunning(bool bEnable)
 {
-    ALOGD("+AudioMTKStreamOut SetStreamRunning bEnable = %d",bEnable);
+    ALOGD("+AudioMTKStreamOut SetStreamRunning bEnable = %d", bEnable);
     mStarting = bEnable;
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
     mAudioSpeechEnhanceInfoInstance->SetOutputStreamRunning(mStarting);
-#endif    
     return NO_ERROR;
 }
 
@@ -1156,11 +1287,14 @@ uint32_t AudioMTKStreamOut::StreamOutCompFltProcess(AudioCompFltType_t eCompFltT
 {
     // if return 0, means CompFilter can't do anything. Caller should use input buffer to write to Hw.
     // do post process
-    if (mStreamOutCompFltEnable[eCompFltType]) {
-        if (mpClsCompFltObj[eCompFltType]) {
+    if (mStreamOutCompFltEnable[eCompFltType])
+    {
+        if (mpClsCompFltObj[eCompFltType])
+        {
             int dBytePerSample = ((format() == AUDIO_FORMAT_PCM_16_BIT) ? sizeof(int16_t) : sizeof(int8_t));
             int inputSampleCount = bytes / dBytePerSample;
-            if (inputSampleCount >= 1024) {
+            if (inputSampleCount >= 1024)
+            {
                 int consumedSampleCount  = inputSampleCount;
                 int outputSampleCount = 0;
                 mpClsCompFltObj[eCompFltType]->Process((const short *)Buffer, &consumedSampleCount, (short *)pOutputBuf, &outputSampleCount);
@@ -1177,26 +1311,36 @@ status_t AudioMTKStreamOut::SetStreamOutCompFltStatus(AudioCompFltType_t eCompFl
 {
 
     if (NULL == mpClsCompFltObj[eCompFltType])
+    {
         return INVALID_OPERATION;
+    }
 
-    if (false == mStreamOutCompFltEnable[eCompFltType]) {
-        if (true == bEnable) {
-            mpClsCompFltObj[eCompFltType]->SetWorkMode(channels()==AUDIO_CHANNEL_OUT_MONO?1:2, sampleRate(), mdCompFltMode[eCompFltType]);
+    if (false == mStreamOutCompFltEnable[eCompFltType])
+    {
+        if (true == bEnable)
+        {
+            mpClsCompFltObj[eCompFltType]->SetWorkMode(channels() == AUDIO_CHANNEL_OUT_MONO ? 1 : 2, sampleRate(), mdCompFltMode[eCompFltType]);
             mpClsCompFltObj[eCompFltType]->Start();
             ALOGD("SetStreamOutCompFltStatus eCompFltType = %d  bEnable = %d", eCompFltType, bEnable);
             ALOGD("SetStreamOutCompFltStatus Start CompFilter");
-            if(AUDIO_COMP_FLT_AUDENH==eCompFltType)
+            if (AUDIO_COMP_FLT_AUDENH == eCompFltType)
+            {
                 ALOGD("AudEnh: Start\n");
+            }
         }
     }
-    else {
-        if (false == bEnable) {
+    else
+    {
+        if (false == bEnable)
+        {
             mpClsCompFltObj[eCompFltType]->Stop();
             mpClsCompFltObj[eCompFltType]->ResetBuffer();
-                ALOGD("SetStreamOutCompFltStatus eCompFltType = %d  bEnable = %d", eCompFltType, bEnable);
-                ALOGD("SetStreamOutCompFltStatus Stop CompFilter");
-            if(AUDIO_COMP_FLT_AUDENH==eCompFltType)
+            ALOGD("SetStreamOutCompFltStatus eCompFltType = %d  bEnable = %d", eCompFltType, bEnable);
+            ALOGD("SetStreamOutCompFltStatus Stop CompFilter");
+            if (AUDIO_COMP_FLT_AUDENH == eCompFltType)
+            {
                 ALOGD("AudEnh: Stop\n");
+            }
         }
     }
 
@@ -1207,7 +1351,9 @@ status_t AudioMTKStreamOut::SetStreamOutCompFltStatus(AudioCompFltType_t eCompFl
 bool AudioMTKStreamOut::GetStreamOutCompFltStatus(AudioCompFltType_t eCompFltType)
 {
     if (NULL == mpClsCompFltObj[eCompFltType])
+    {
         return false;
+    }
 
     return mStreamOutCompFltEnable[eCompFltType];
 }
@@ -1216,25 +1362,32 @@ status_t AudioMTKStreamOut::SetStreamOutCompFltApplyStauts(AudioCompFltType_t eC
 {
 
     if (NULL == mpClsCompFltObj[eCompFltType])
+    {
         return INVALID_OPERATION;
+    }
 
-    if (false == mStreamOutCompFltEnable[eCompFltType]) {
-        if (true == bEnable) {
-                SetStreamOutCompFltStatus(eCompFltType,bEnable);
+    if (false == mStreamOutCompFltEnable[eCompFltType])
+    {
+        if (true == bEnable)
+        {
+            SetStreamOutCompFltStatus(eCompFltType, bEnable);
         }
     }
-    else {
+    else
+    {
 
         if (true == mStreamOutCompFltApplyStatus[eCompFltType])
         {
-            if (false == bEnable) {
+            if (false == bEnable)
+            {
                 ALOGD("AudEnh: Pause\n");
                 mpClsCompFltObj[eCompFltType]->Pause();
             }
         }
         else
         {
-            if (true == bEnable) {
+            if (true == bEnable)
+            {
                 ALOGD("AudEnh: Resume\n");
                 mpClsCompFltObj[eCompFltType]->Resume();
             }
@@ -1252,15 +1405,21 @@ status_t AudioMTKStreamOut::StreamOutCompFltCreate(AudioCompFltType_t eCompFltTy
     ALOGD("StreamOutFLTCreate eCompFltType = %d eCompFltMode = %d", eCompFltType, eCompFltMode);
 
     if (NULL != mpClsCompFltObj[eCompFltType])
+    {
         return ALREADY_EXISTS;
+    }
 
     if (eCompFltType >= AUDIO_COMP_FLT_NUM)
+    {
         return BAD_TYPE;
+    }
 
-    mpClsCompFltObj[eCompFltType] = new AudioCompensationFilter(eCompFltType,bufferSize());
+    mpClsCompFltObj[eCompFltType] = new AudioCompensationFilter(eCompFltType, bufferSize());
 
     if (NULL == mpClsCompFltObj[eCompFltType])
+    {
         return NO_INIT;
+    }
 
     mpClsCompFltObj[eCompFltType]->Init();
     mpClsCompFltObj[eCompFltType]->LoadACFParameter();
@@ -1275,7 +1434,9 @@ status_t AudioMTKStreamOut::StreamOutCompFltDestroy(AudioCompFltType_t eCompFltT
     ALOGD("StreamOutACFDestroy eCompFltType = %d", eCompFltType);
 
     if (NULL == mpClsCompFltObj[eCompFltType])
+    {
         return DEAD_OBJECT;
+    }
 
     mpClsCompFltObj[eCompFltType]->Stop();//For Memory Leak if StreamOut doesn't stop Flt in this timing
     mpClsCompFltObj[eCompFltType]->Deinit();
@@ -1286,12 +1447,14 @@ status_t AudioMTKStreamOut::StreamOutCompFltDestroy(AudioCompFltType_t eCompFltT
     return NO_ERROR;
 }
 
-status_t AudioMTKStreamOut::StreamOutCompFltPreviewParameter(AudioCompFltType_t eCompFltType,void *ptr , int len)
+status_t AudioMTKStreamOut::StreamOutCompFltPreviewParameter(AudioCompFltType_t eCompFltType, void *ptr , int len)
 {
     ALOGD("StreamOutACFDestroy eCompFltType = %d", eCompFltType);
 
     if (NULL == mpClsCompFltObj[eCompFltType])
+    {
         return DEAD_OBJECT;
+    }
 
     //Stop ?
     mpClsCompFltObj[eCompFltType]->SetACFPreviewParameter((AUDIO_ACF_CUSTOM_PARAM_STRUCT *)ptr);
@@ -1302,15 +1465,17 @@ status_t AudioMTKStreamOut::StreamOutCompFltPreviewParameter(AudioCompFltType_t 
 
 status_t AudioMTKStreamOut::SetSuspend(bool suspend)
 {
-    if (suspend) {
+    if (suspend)
+    {
         mSuspend++;
     }
-    else {
+    else
+    {
         mSuspend--;
-        if(mSuspend <0)
+        if (mSuspend < 0)
         {
-            ALOGW("mSuspend = %d",mSuspend);
-            mSuspend =0;
+            ALOGW("mSuspend = %d", mSuspend);
+            mSuspend = 0;
         }
     }
     ALOGD("SetSuspend mSuspend = %d suspend = %d", mSuspend, suspend);
@@ -1344,21 +1509,25 @@ status_t AudioMTKStreamOut::BliSrc::initStatus()
 
 status_t  AudioMTKStreamOut::BliSrc::init(uint32 inSamplerate, uint32 inChannel, uint32 OutSamplerate, uint32 OutChannel)
 {
-    if (mHandle == NULL) {
+    if (mHandle == NULL)
+    {
         uint32_t workBufSize;
         BLI_GetMemSize(inSamplerate, inChannel, OutSamplerate, OutChannel, &workBufSize);
         ALOGD("BliSrc::init InputSampleRate=%u, inChannel=%u, OutputSampleRate=%u, OutChannel=%u, mWorkBufSize = %u",
               inSamplerate, inChannel, OutSamplerate, OutChannel, workBufSize);
         mBuffer = new uint8_t[workBufSize];
-        if (!mBuffer) {
+        if (!mBuffer)
+        {
             ALOGE("BliSrc::init Fail to create work buffer");
             return NO_MEMORY;
         }
         memset((void *)mBuffer, 0, workBufSize);
         mHandle = BLI_Open(inSamplerate, inChannel, OutSamplerate, OutChannel, (char *)mBuffer, NULL);
-        if (!mHandle) {
+        if (!mHandle)
+        {
             ALOGE("BliSrc::init Fail to get blisrc handle");
-            if (mBuffer) {
+            if (mBuffer)
+            {
                 delete []mBuffer;
                 mBuffer = NULL;
             }
@@ -1370,14 +1539,15 @@ status_t  AudioMTKStreamOut::BliSrc::init(uint32 inSamplerate, uint32 inChannel,
 
 }
 
-size_t  AudioMTKStreamOut::BliSrc::process(const void *inbuffer, size_t inBytes, void *outbuffer)
+size_t  AudioMTKStreamOut::BliSrc::process(const void *inbuffer, size_t inBytes, void *outbuffer, size_t *outputSize)
 {
-    if (mHandle) {
+    if (mHandle)
+    {
         size_t inputLength = inBytes;
-        size_t outputLength = inBytes;
-        size_t consume = BLI_Convert(mHandle, (short *)inbuffer, &inputLength, (short *)outbuffer, &outputLength);
-        ALOGD_IF(consume != inBytes, "inputLength=%d,consume=%d,outputLength=%d", inputLength, consume, outputLength);
-        return outputLength;
+        *outputSize = inBytes;
+        size_t consume = BLI_Convert(mHandle, (short *)inbuffer, &inputLength, (short *)outbuffer, outputSize);
+        ALOGD_IF(consume != inBytes, "inputLength=%d,consume=%d,outputLength=%d", inputLength, consume, *outputSize);
+        return consume;
     }
     ALOGW("BliSrc::process src not initialized");
     return 0;
@@ -1385,11 +1555,13 @@ size_t  AudioMTKStreamOut::BliSrc::process(const void *inbuffer, size_t inBytes,
 
 status_t  AudioMTKStreamOut::BliSrc::close(void)
 {
-    if (mHandle) {
+    if (mHandle)
+    {
         BLI_Close(mHandle, NULL);
         mHandle = NULL;
     }
-    if (mBuffer) {
+    if (mBuffer)
+    {
         delete []mBuffer;
         mBuffer = NULL;
     }
@@ -1408,32 +1580,35 @@ int AudioMTKStreamOut::GetChannel(void)
 
 bool AudioMTKStreamOut::EffectMutexLock(void)
 {
-    return mEffectLock.lock ();
+    return mEffectLock.lock();
 }
 bool AudioMTKStreamOut::EffectMutexUnlock(void)
 {
-    mEffectLock.unlock ();
+    mEffectLock.unlock();
     return true;
 }
 
 void AudioMTKStreamOut::add_echo_reference(struct echo_reference_itfe *reference)
 {
     Mutex::Autolock _l(mEffectLock);
-    ALOGD("add_echo_reference %p",reference);
+    ALOGD("add_echo_reference %p", reference);
     mEcho_reference = reference;
 
 }
 void AudioMTKStreamOut::remove_echo_reference(struct echo_reference_itfe *reference)
 {
     Mutex::Autolock _l(mEffectLock);
-    ALOGD("remove_echo_reference %p",reference);
-    if (mEcho_reference == reference) {
+    ALOGD("remove_echo_reference %p", reference);
+    if (mEcho_reference == reference)
+    {
         /* stop writing to echo reference */
         reference->write(reference, NULL);
         mEcho_reference = NULL;
     }
     else
-        ALOGW("remove wrong echo reference %p",reference);
+    {
+        ALOGW("remove wrong echo reference %p", reference);
+    }
     ALOGD("remove_echo_reference ---");
 }
 
@@ -1445,163 +1620,213 @@ int AudioMTKStreamOut::get_playback_delay(size_t frames, struct echo_reference_b
     //FIXME:: calculate for more precise time delay
 
     int rc = clock_gettime(CLOCK_MONOTONIC, &tstamp);
-    if (rc != 0) {
+    if (rc != 0)
+    {
         buffer->time_stamp.tv_sec  = 0;
         buffer->time_stamp.tv_nsec = 0;
         buffer->delay_ns           = 0;
         ALOGW("get_playback_delay(): pcm_get_htimestamp error,"
-                "setting playbackTimestamp to 0");
+              "setting playbackTimestamp to 0");
         return 0;
     }
 
     /* adjust render time stamp with delay added by current driver buffer.
      * Add the duration of current frame as we want the render time of the last
      * sample being written. */
-    buffer->delay_ns = (long)(((int64_t)(frames)* 1000000000)/
-                            mDL1Attribute->mSampleRate);
+    buffer->delay_ns = (long)(((int64_t)(frames) * 1000000000) /
+                              mDL1Attribute->mSampleRate);
 
     buffer->time_stamp = tstamp;
 
-//    ALOGD("get_playback_delay time_stamp = [%ld].[%ld], delay_ns: [%d]",buffer->time_stamp.tv_sec , buffer->time_stamp.tv_nsec, buffer->delay_ns);
+    //    ALOGD("get_playback_delay time_stamp = [%ld].[%ld], delay_ns: [%d]",buffer->time_stamp.tv_sec , buffer->time_stamp.tv_nsec, buffer->delay_ns);
     return 0;
 }
 
-size_t AudioMTKStreamOut::writeDataToEchoReference(const void* buffer, size_t bytes)
+size_t AudioMTKStreamOut::writeDataToEchoReference(const void *buffer, size_t bytes, int remain_ms, struct timespec TimeInfo)
 {
-#ifdef NATIVE_AUDIO_PREPROCESS_ENABLE
     //push the output data to echo reference
     EffectMutexLock();
-    if (mEcho_reference != NULL) {
-        ALOGV("writeDataToEchoReference echo_reference %p",mEcho_reference);
+    if (mEcho_reference != NULL)
+    {
+        ALOGV("writeDataToEchoReference echo_reference %p", mEcho_reference);
         struct echo_reference_buffer b;
         b.raw = (void *)buffer;
-        b.frame_count = bytes/sizeof(int16_t)/mDL1Attribute->mChannels;
+        b.frame_count = bytes / sizeof(int16_t) / mDL1Attribute->mChannels;
 
-       get_playback_delay(b.frame_count, &b);
-       mEcho_reference->write(mEcho_reference, &b);
+        get_playback_delay(b.frame_count, &b);
+        mEcho_reference->write(mEcho_reference, &b);
     }
     EffectMutexUnlock();
-#endif
 
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
+
     Mutex::Autolock _l(mSPEVoIPLock);
     //do the resample and queue to the SPE buffer queue
-    if(mAudioSpeechEnhanceInfoInstance->IsInputStreamAlive())
+    if (mAudioSpeechEnhanceInfoInstance->IsInputStreamAlive())
     {
-        setCPU_MIN_Freq("1209000","0",true);
+        //do not queue to echo reference if FM/mATV enalbed
+        if (AudioFMController::GetInstance()->GetFmEnable() == true ||
+            AudioMATVController::GetInstance()->GetMatvEnable() == true)
+        {
+            return bytes;
+        }
+
+#ifndef MTK_VOIP_ENHANCEMENT_SUPPORT
+        bool bSkipVoIP = true;
+        if (bSkipVoIP)
+        {
+            return bytes;
+        }
+#endif
+
+        setCPU_MIN_Freq("1209000", "0", true);
         size_t outputSize = 0;
         uint8_t *outbuffer;
 
         struct InBufferInfo BInfo;
-        //ALOGD("writeDataToEchoReference");
-        BInfo.time_stamp_queued= GetSystemTime();
-        
+        //remain_ms = NO_REMAIN_DATA_INFO;
+
+        if (remain_ms == NO_REMAIN_DATA_INFO)
+        {
+            BInfo.bHasRemainInfo = false;
+            BInfo.time_stamp_queued = TimeInfo;
+        }
+        else
+        {
+            BInfo.bHasRemainInfo = true;
+            //BInfo.time_stamp_queued= GetSystemTime();
+            BInfo.time_stamp_queued = TimeInfo;
+            if (remain_ms == 0)
+            {
+                BInfo.time_stamp_predict = BInfo.time_stamp_queued;
+            }
+            else
+            {
+                if ((BInfo.time_stamp_queued.tv_nsec + remain_ms * 1000000) >= 1000000000)
+                {
+                    BInfo.time_stamp_predict.tv_nsec = BInfo.time_stamp_queued.tv_nsec + remain_ms * 1000000 - 1000000000;
+                    BInfo.time_stamp_predict.tv_sec = BInfo.time_stamp_queued.tv_sec + 1;
+                }
+                else
+                {
+                    BInfo.time_stamp_predict.tv_sec = BInfo.time_stamp_queued.tv_sec;
+                    BInfo.time_stamp_predict.tv_nsec = BInfo.time_stamp_queued.tv_nsec + remain_ms * 1000000;
+                }
+            }
+            //ALOGD("output time_stamp_predict sec= %ld, nsec=%ld,remain_ms=%d" , BInfo.time_stamp_predict.tv_sec, BInfo.time_stamp_predict.tv_nsec, remain_ms);
+        }
+
         outputSize = DoVoIPSRC(buffer, bytes, (void **)&outbuffer);
         //write data to SPElayer
-        
+
         BInfo.pBufBase = (short *)outbuffer;
         BInfo.BufLen = outputSize;
-        
+
         mAudioSpeechEnhanceInfoInstance->WriteReferenceBuffer(&BInfo);
         return outputSize;
     }
     else
     {
-        setCPU_MIN_Freq("497250","1",false);
+        setCPU_MIN_Freq("497250", "1", false);
     }
-#endif    
     return bytes;
 }
 
 void AudioMTKStreamOut::StopWriteDataToEchoReference()
 {
     /* stop writing to echo reference */
-#ifdef NATIVE_AUDIO_PREPROCESS_ENABLE
     Mutex::Autolock _l(mEffectLock);
-    ALOGD("StopWriteDataToEchoReference %p",mEcho_reference);
-    if (mEcho_reference != NULL) {
+    ALOGD("StopWriteDataToEchoReference %p", mEcho_reference);
+    if (mEcho_reference != NULL)
+    {
         mEcho_reference->write(mEcho_reference, NULL);
         mEcho_reference = NULL;
     }
     ALOGD("StopWriteDataToEchoReference ---");
-#endif
 }
 
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
 /*  //89 frequency level
 #define DVFS_F1     (1209000)   // KHz
 #define DVFS_F2     ( 988000)   // KHz
 #define DVFS_F3     ( 754000)   // KHz
 #define DVFS_F4     ( 497250)   // KHz
 */
-void AudioMTKStreamOut::setCPU_MIN_Freq(const char *pfreq, const char *pGenable,bool bhigh)
-{    
-    if(mCPUAdjustEnable==bhigh)
+void AudioMTKStreamOut::setCPU_MIN_Freq(const char *pfreq, const char *pGenable, bool bhigh)
+{
+    if (mCPUAdjustEnable == bhigh)
     {
         return;
     }
-    ALOGD("setCPU_MIN_Freq bEnable+++ %d, mCPUAdjustEnable=%d",bhigh,mCPUAdjustEnable);
+    ALOGD("setCPU_MIN_Freq bEnable+++ %d, mCPUAdjustEnable=%d", bhigh, mCPUAdjustEnable);
     mCPUAdjustEnable = bhigh;
-    FILE *fpCPU0= fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq", "w");
-    FILE *fpCPU1= fopen("/sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq", "w");
-    
-    FILE *fpGEnable= fopen("/sys/module/mt_hotplug_mechanism/parameters/g_enable", "w");
-    
-    
-    if(fpCPU0==NULL)
+    FILE *fpCPU0 = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq", "w");
+    FILE *fpCPU1 = fopen("/sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq", "w");
+
+    FILE *fpGEnable = fopen("/sys/module/mt_hotplug_mechanism/parameters/g_enable", "w");
+
+
+    if (fpCPU0 == NULL)
+    {
         ALOGE("setCPU_MIN_Freq fpCPU0 open fail");
+    }
     else
     {
-        fputs(pfreq,fpCPU0);
+        fputs(pfreq, fpCPU0);
         fclose(fpCPU0);
     }
 
-    if(fpCPU1==NULL)
+    if (fpCPU1 == NULL)
+    {
         ALOGE("setCPU_MIN_Freq fpCPU1 open fail");
+    }
     else
     {
-        fputs(pfreq,fpCPU1);
+        fputs(pfreq, fpCPU1);
         fclose(fpCPU1);
-    }    
+    }
 
-    if(fpGEnable==NULL)
+    if (fpGEnable == NULL)
+    {
         ALOGE("setCPU_MIN_Freq fpGEnable open fail");
+    }
     else
     {
-        fputs(pGenable,fpGEnable);
+        fputs(pGenable, fpGEnable);
         fclose(fpGEnable);
-    }    
+    }
     ALOGD("setCPU_MIN_Freq bEnable---");
 }
-#endif
 
 void AudioMTKStreamOut::SetMusicPlusStatus(bool bEnable)
 {
-    #if defined(MTK_AUDENH_SUPPORT)
+#if defined(MTK_AUDENH_SUPPORT)
 
     mUseAudCompFltHeadphoneWithFixedParameter = bEnable;
-    #if 0
-    if(bEnable)
+#if 0
+    if (bEnable)
+    {
         property_set("persist.af.audenh.ctrl", "1");
+    }
     else
+    {
         property_set("persist.af.audenh.ctrl", "0");
-    #else
+    }
+#else
     AUDIO_AUDENH_CONTROL_OPTION_STRUCT audioParam;
-    audioParam.u32EnableFlg = bEnable?1:0;
+    audioParam.u32EnableFlg = bEnable ? 1 : 0;
     SetAudEnhControlOptionParamToNV(&audioParam);
-    #endif
+#endif
 
-    ALOGD("AudEnh: Set Control [%d]\n",bEnable);
-    #else
+    ALOGD("AudEnh: Set Control [%d]\n", bEnable);
+#else
     ALOGW("System Unsupport AudEnh Feature\n");
-    #endif
+#endif
 
     return;
 }
 
 bool AudioMTKStreamOut::GetMusicPlusStatus(void)
 {
-    ALOGD("AudEnh: Get Control [%d]\n",mUseAudCompFltHeadphoneWithFixedParameter);
+    ALOGD("AudEnh: Get Control [%d]\n", mUseAudCompFltHeadphoneWithFixedParameter);
     return mUseAudCompFltHeadphoneWithFixedParameter;
 }
 
@@ -1609,51 +1834,61 @@ size_t AudioMTKStreamOut::WriteDataToAudioHW(const void *buffer, size_t bytes)
 {
     const uint32_t current_device = mAudioResourceManager->getDlOutputDevice();
     size_t outputSize = 0;
-    void * inbuffer = (void *)buffer; // mSwapBufferOne  or mixerbufer of audioflinger
-    void * outbuffer =mSwapBufferTwo;
-    void * outbuffer2 =mSwapBufferThree;
-    AudioVUnlockDL* VUnlockhdl = AudioVUnlockDL::getInstance();
+    int ret_ms = 0;
+    int RemainSize = 0;
+    void *inbuffer = (void *)buffer;  // mSwapBufferOne  or mixerbufer of audioflinger
+    void *outbuffer = mSwapBufferTwo;
+    void *outbuffer2 = mSwapBufferThree;
+    AudioVUnlockDL *VUnlockhdl = AudioVUnlockDL::getInstance();
     audio_mode_t Mode = mAudioResourceManager->GetAudioMode();
 #ifndef DMNR_TUNNING_AT_MODEMSIDE
     //bypass CompFlt if tuning DMNR in AP side
     const bool bAPDMNRTuningEnable = mAudioSpeechEnhanceInfoInstance->IsAPDMNRTuningEnable();
-#endif    
+#endif
 
-#ifndef DMNR_TUNNING_AT_MODEMSIDE    
-    if((Mode == AUDIO_MODE_IN_COMMUNICATION)||bAPDMNRTuningEnable)
+#ifndef DMNR_TUNNING_AT_MODEMSIDE
+    if ((Mode == AUDIO_MODE_IN_COMMUNICATION) || bAPDMNRTuningEnable)
 #else
-    if(Mode == AUDIO_MODE_IN_COMMUNICATION)
-#endif    
+    if (Mode == AUDIO_MODE_IN_COMMUNICATION)
+#endif
     {
         outbuffer = (void *)buffer;
     }
     //Remove All Filter Definition for Clear trace. However it won't affect Performance if the define is disabled (Return from process function,right now)
     else if (current_device & AUDIO_DEVICE_OUT_SPEAKER)
     {
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDIO,true);
-        outputSize = StreamOutCompFltProcess(AUDIO_COMP_FLT_AUDIO,inbuffer,bytes,outbuffer);
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_HEADPHONE,false);
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDENH,false);
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDIO, true);
+        outputSize = StreamOutCompFltProcess(AUDIO_COMP_FLT_AUDIO, inbuffer, bytes, outbuffer);
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_HEADPHONE, false);
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDENH, false);
     }
     else if ((current_device & AUDIO_DEVICE_OUT_WIRED_HEADSET) || (current_device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE))
     {
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_HEADPHONE,true);
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_HEADPHONE, true);
 
         if (true == mUseAudCompFltHeadphoneWithFixedParameter)
-            SetStreamOutCompFltApplyStauts(AUDIO_COMP_FLT_AUDENH,true);
+        {
+            SetStreamOutCompFltApplyStauts(AUDIO_COMP_FLT_AUDENH, true);
+        }
         else
-            SetStreamOutCompFltApplyStauts(AUDIO_COMP_FLT_AUDENH,false);
+        {
+            SetStreamOutCompFltApplyStauts(AUDIO_COMP_FLT_AUDENH, false);
+        }
 
-        outputSize = StreamOutCompFltProcess(AUDIO_COMP_FLT_AUDENH,inbuffer,bytes,outbuffer2);
+        outputSize = StreamOutCompFltProcess(AUDIO_COMP_FLT_AUDENH, inbuffer, bytes, outbuffer2);
 
-        if(outputSize==0)
+        if (outputSize == 0)
+        {
             outputSize = bytes;
+        }
         else
+        {
             inbuffer = outbuffer2;
+        }
 
-        outputSize = StreamOutCompFltProcess(AUDIO_COMP_FLT_HEADPHONE,inbuffer,outputSize,outbuffer);
+        outputSize = StreamOutCompFltProcess(AUDIO_COMP_FLT_HEADPHONE, inbuffer, outputSize, outbuffer);
 
-        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDIO,false);
+        SetStreamOutCompFltStatus(AUDIO_COMP_FLT_AUDIO, false);
 
     }
     else//Other ?
@@ -1661,42 +1896,72 @@ size_t AudioMTKStreamOut::WriteDataToAudioHW(const void *buffer, size_t bytes)
         outbuffer = (void *)buffer;
     }
 
-    if(outputSize==0)
+    if (outputSize == 0)
     {
-        outbuffer=inbuffer; //acf not handle inbuffer;
+        outbuffer = inbuffer; //acf not handle inbuffer;
         outputSize = bytes;
     }
     if (mPFinalPCMDumpFile)
     {
-         long int position =0;
-         position = ftell (mPFinalPCMDumpFile);
-         if(position> MAX_FILE_LENGTH)
-         {
-             rewind(mPFinalPCMDumpFile);
-         }
-         int written_data = fwrite((void *)outbuffer, 1, outputSize, mPFinalPCMDumpFile);
-         ALOGV("position = %d written_data = %d",position,written_data);
+        long int position = 0;
+        position = ftell(mPFinalPCMDumpFile);
+        if (position > MAX_FILE_LENGTH)
+        {
+            rewind(mPFinalPCMDumpFile);
+        }
+        int written_data = fwrite((void *)outbuffer, 1, outputSize, mPFinalPCMDumpFile);
+        ALOGV("position = %d written_data = %d", position, written_data);
     }
+    RemainSize = ::ioctl(mFd, AUDDRV_GET_DL1_REMAINDATA_TIME, NULL);
+    ret_ms =  CalRemaintime(RemainSize);
+
+    //============Voice UI&Unlock REFERECE=============
+    if (VUnlockhdl != NULL)
+    {
+        VUnlockhdl->SetDownlinkStartTime(ret_ms);
+    }
+    //===========================================
+
+    struct timespec TimeInfo = GetSystemTime(false);
     outputSize =::write(mFd, outbuffer, outputSize);
 
-    writeDataToEchoReference(outbuffer, outputSize);
-    if(VUnlockhdl != NULL)
+    writeDataToEchoReference(outbuffer, outputSize, ret_ms < 0 ? 0 : ret_ms, TimeInfo);
+
+    //============Voice UI&Unlock REFERECE=============
+    if (VUnlockhdl != NULL)
     {
         //VUnlockhdl->SetInputStandBy(false);
-         if ((current_device & AUDIO_DEVICE_OUT_WIRED_HEADSET) || (current_device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE))
+        if ((current_device & AUDIO_DEVICE_OUT_WIRED_HEADSET) || (current_device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE))
         {
-            memset(outbuffer, 0,outputSize);
+            memset(outbuffer, 0, outputSize);
         }
         VUnlockhdl->WriteStreamOutToRing(outbuffer, outputSize);
     }
+    //===========================================
+
+    mPresentedBytes += outputSize;
+    clock_gettime(CLOCK_MONOTONIC, &mPresentedTime);
 
     return  outputSize;
 }
 
+int AudioMTKStreamOut::CalRemaintime(int buffersize)
+{
+    int retms = 0;
+    if (buffersize >= 0)
+    {
+        retms = (buffersize * 1000) / (mDL1Attribute->mSampleRate * mDL1Attribute->mChannels *
+                                       (mDL1Attribute->mFormat == AUDIO_FORMAT_PCM_8_BIT ? 1 :    //8  1byte/frame
+                                        (mDL1Attribute->mFormat == AUDIO_FORMAT_PCM_32_BIT ? 4 :   //24bit 3bytes/frame
+                                         2)));   //default 2bytes/sample
+    }
+    //ALOGD("CalRemaintime buffersize=%d, retms=%d", buffersize, retms);
+    return retms;
+}
 void AudioMTKStreamOut::setFsync()
 {
     FysncFlag = false;
-    if(mFd >= 0 )
+    if (mFd >= 0)
     {
         ALOGD("callback hw setFSync");
         memset(&action, 0, sizeof(action));
@@ -1704,14 +1969,14 @@ void AudioMTKStreamOut::setFsync()
         action.sa_flags = 0;
         sigaction(SIGIO, &action, NULL); //set up async handler
         fcntl(mFd, F_SETOWN, gettid()); //enable async notification
-        fcntl(mFd, F_SETFL, fcntl(mFd, F_GETFL) | FASYNC|FD_CLOEXEC);
+        fcntl(mFd, F_SETFL, fcntl(mFd, F_GETFL) | FASYNC | FD_CLOEXEC);
     }
 }
 
-bool AudioMTKStreamOut::FysncFlag =false;
+bool AudioMTKStreamOut::FysncFlag = false;
 void AudioMTKStreamOut::FsyncCallback(int signal)
 {
-    if (signal==SIGIO)
+    if (signal == SIGIO)
     {
         FysncFlag = true;
         ALOGD("FsyncCallback");

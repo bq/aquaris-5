@@ -20,9 +20,7 @@
 void set_kpd_pmic_mode();
 void disable_PMIC_kpd_clock();
 void enable_PMIC_kpd_clock();
-
-
-//extern bool mt6577_detect_key(unsigned short key);
-//extern bool mt6577_detect_pmic_just_rst(void);
+BOOL mtk_detect_key(unsigned short key);
+BOOL mtk_detect_pmic_just_rst(void);
 
 #endif /* __MT6577_KEY_H__ */

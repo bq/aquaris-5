@@ -16,3 +16,5 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_MODULE:= pq
 
 include $(BUILD_EXECUTABLE)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

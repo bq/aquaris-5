@@ -15,6 +15,7 @@ class SpeechLoopbackController : public SpeechPhoneCallController // class adapt
 
         status_t OpenModemLoopbackControlFlow(const modem_index_t modem_index, const audio_devices_t input_device, const audio_devices_t output_device);
         status_t CloseModemLoopbackControlFlow(const modem_index_t modem_index);
+        status_t SetModemBTCodec(bool enable_codec);
 
     protected:
         SpeechLoopbackController();
@@ -23,6 +24,9 @@ class SpeechLoopbackController : public SpeechPhoneCallController // class adapt
 
     private:
         static SpeechLoopbackController *mSpeechLoopbackController; // singleton
+
+        //for BT SW BT CVSD loopback test
+        bool mUseBtCodec;
 };
 
 } // end namespace android

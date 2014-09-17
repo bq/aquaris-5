@@ -45,6 +45,7 @@ LOCAL_SRC_FILES := meta_nfc.c
 LOCAL_CFLAGS += -O0 -g
 
 LOCAL_C_INCLUDES += $(MTK_PATH_SOURCE)/external/meta/common/inc
+LOCAL_C_INCLUDES += $(MTK_PATH_SOURCE)/external/mtknfc/inc
 LOCAL_C_INCLUDES += $(MY_LOCAL_PATH)/
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libmeta_nfc
@@ -62,6 +63,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := meta_nfc_test.c
 LOCAL_CFLAGS += -O0 -g
 LOCAL_C_INCLUDES += $(MTK_PATH_SOURCE)/external/meta/common/inc
+LOCAL_C_INCLUDES += $(MTK_PATH_SOURCE)/external/mtknfc/inc
 LOCAL_C_INCLUDES += $(MY_LOCAL_PATH)/
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := meta_nfc_test

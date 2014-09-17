@@ -42,15 +42,15 @@ const NVRAM_LENS_PARA_STRUCT OV12830AF_LENS_PARA_DEFAULT_VALUE =
     // AF NVRAM
     {
         // -------- AF ------------
-        {100, // i4Offset
-          21, // i4NormalNum
-          21, // i4MacroNum
+        {150, // i4Offset
+          16, // i4NormalNum
+          16, // i4MacroNum
          0,  // i4InfIdxOffset
          0,  // i4MacroIdxOffset
         {
-                 0,  30,  60,  90,  120,  150, 180,  210, 240, 270,
-               300, 330, 360, 390,  420,  450, 480,  510, 540, 570,
-               600,   0,   0,   0,   0,   0,   0,   0,   0,   0
+                 0,  19,  38,  59,  82,  107, 135,  165, 198, 234,
+               274, 317, 364, 416,  473,  543, 0,  0, 0, 0,
+               0,   0,   0,   0,   0,   0,   0,   0,   0,   0
         },
           15, // i4THRES_MAIN;
           10, // i4THRES_SUB;            

@@ -1,21 +1,3 @@
-/***
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK-DISTRIBUTED SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER
- * ON AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL
- * WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR
- * NONINFRINGEMENT. NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH
- * RESPECT TO THE SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY,
- * INCORPORATED IN, OR SUPPLIED WITH THE MEDIATEK-DISTRIBUTED SOFTWARE, AND RECEIVER AGREES
- * TO LOOK ONLY TO SUCH THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO.
- * RECEIVER EXPRESSLY ACKNOWLEDGES THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO
- * OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES CONTAINED IN MEDIATEK-DISTRIBUTED
- * SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK-DISTRIBUTED SOFTWARE
- * RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM.
- */
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/dmi.h>
@@ -337,19 +319,19 @@ static struct thermal_zone_device_ops mtktstdpa_dev_ops = {
  * cooling device callback functions (mtktstdpa_cooling_sysrst_ops)
  * 1 : ON and 0 : OFF
  */
-static int sysrst_get_max_state(struct thermal_cooling_device *cdev,
+static int tstdpa_sysrst_get_max_state(struct thermal_cooling_device *cdev,
          unsigned long *state)
 {        
 	*state = 1;    
 	return 0;
 }
-static int sysrst_get_cur_state(struct thermal_cooling_device *cdev,
+static int tstdpa_sysrst_get_cur_state(struct thermal_cooling_device *cdev,
          unsigned long *state)
 {        
 	*state = cl_dev_sysrst_state;
 	return 0;
 }
-static int sysrst_set_cur_state(struct thermal_cooling_device *cdev,
+static int tstdpa_sysrst_set_cur_state(struct thermal_cooling_device *cdev,
          unsigned long state)
 {
 	cl_dev_sysrst_state = state;
@@ -368,9 +350,9 @@ static int sysrst_set_cur_state(struct thermal_cooling_device *cdev,
 
 /* bind fan callbacks to fan device */
 static struct thermal_cooling_device_ops mtktstdpa_cooling_sysrst_ops = {
-	.get_max_state = sysrst_get_max_state,
-	.get_cur_state = sysrst_get_cur_state,
-	.set_cur_state = sysrst_set_cur_state,
+	.get_max_state = tstdpa_sysrst_get_max_state,
+	.get_cur_state = tstdpa_sysrst_get_cur_state,
+	.set_cur_state = tstdpa_sysrst_set_cur_state,
 };
 
 int mtktstdpa_register_thermal(void);
@@ -502,6 +484,8 @@ int mtktstdpa_register_thermal(void)
 	/* trips */
 	thz_dev = mtk_thermal_zone_device_register("mtktstdpa", num_trip, NULL,
 		&mtktstdpa_dev_ops, 0, 0, 0, interval*1000);
+
+	mtk_mdm_set_md2_signal_period(interval);
 
 	return 0;
 }

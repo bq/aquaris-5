@@ -757,8 +757,6 @@ typedef enum _ENUM_CMD_ID_T {
 #if CFG_SUPPORT_BUILD_DATE_CODE
     CMD_ID_GET_BUILD_DATE_CODE = 0xF8,
 #endif
-    CMD_ID_GET_BSS_INFO = 0xF9
-
 } ENUM_CMD_ID_T, *P_ENUM_CMD_ID_T;
 
 typedef enum _ENUM_EVENT_ID_T {
@@ -816,8 +814,6 @@ typedef enum _ENUM_EVENT_ID_T {
 #if CFG_SUPPORT_BUILD_DATE_CODE
     EVENT_ID_BUILD_DATE_CODE = 0xF8,
 #endif
-    EVENT_ID_GET_AIS_BSS_INFO = 0xF9
-
 } ENUM_EVENT_ID_T, *P_ENUM_EVENT_ID_T;
 
 
@@ -1649,13 +1645,6 @@ typedef struct _EVENT_RDD_STATUS_T {
 } EVENT_RDD_STATUS_T, *P_EVENT_RDD_STATUS_T;
 #endif
 
-typedef struct _EVENT_AIS_BSS_INFO_T{
-    ENUM_PARAM_MEDIA_STATE_T eConnectionState; /* Connected Flag used in AIS_NORMAL_TR */
-    ENUM_OP_MODE_T eCurrentOPMode; /* Current Operation Mode - Infra/IBSS */
-    BOOLEAN fgIsNetActive; /* TRUE if this network has been actived */
-    UINT_8 ucReserved[3];
-}EVENT_AIS_BSS_INFO_T, *P_EVENT_AIS_BSS_INFO_T;
-
 typedef struct _CMD_SET_TXPWR_CTRL_T{
     INT_8    c2GLegacyStaPwrOffset;  /* Unit: 0.5dBm, default: 0*/
     INT_8    c2GHotspotPwrOffset;
@@ -1686,6 +1675,52 @@ typedef struct _EVENT_BUILD_DATE_CODE {
     UINT_8      aucDateCode[16];
 } EVENT_BUILD_DATE_CODE, *P_EVENT_BUILD_DATE_CODE;
 #endif
+
+typedef struct _CMD_GET_STA_STATISTICS_T {
+    UINT_8  ucIndex;
+    UINT_8  ucFlags;
+    UINT_8  ucReadClear;
+    UINT_8  aucReserved0[1];
+    UINT_8  aucMacAddr[MAC_ADDR_LEN];
+    UINT_8  aucReserved1[2];
+    UINT_8  aucReserved2[16];
+} CMD_GET_STA_STATISTICS_T, *P_CMD_GET_STA_STATISTICS_T;
+
+/* CFG_SUPPORT_WFD */
+typedef struct _EVENT_STA_STATISTICS_T {
+    /* Event header */
+    //UINT_16     u2Length;
+    //UINT_16     u2Reserved1;    /* Must be filled with 0x0001 (EVENT Packet) */
+    //UINT_8		ucEID;
+    //UINT_8      ucSeqNum;
+    //UINT_8		aucReserved2[2];
+
+    /* Event Body */
+    UINT_8      ucVersion;
+    UINT_8		aucReserved1[3];
+    UINT_32     u4Flags; /* Bit0: valid */
+
+    UINT_8      ucStaRecIdx;
+    UINT_8      ucNetworkTypeIndex;
+    UINT_8      ucWTEntry;
+    UINT_8		aucReserved4[1];
+
+    UINT_8      ucMacAddr[MAC_ADDR_LEN];
+    UINT_8      ucPer;          /* base: 128 */
+    UINT_8      ucRcpi;
+
+    UINT_32     u4PhyMode;          /* SGI BW */
+    UINT_16     u2LinkSpeed;       /* unit is 0.5 Mbits*/
+    UINT_8      ucLinkQuality;          
+    UINT_8      ucLinkReserved;            
+
+    UINT_32      u4TxCount;
+    UINT_32      u4TxFailCount;
+    UINT_32      u4TxLifeTimeoutCount;
+    UINT_32      u4TxDoneAirTime;
+    
+    UINT_8      aucReserved[64];
+} EVENT_STA_STATISTICS_T, *P_EVENT_STA_STATISTICS_T;
 
 /*******************************************************************************
 *                            P U B L I C   D A T A
@@ -1920,12 +1955,11 @@ nicCmdEventBuildDateCode (
 #endif
 
 VOID
-nicCmdEventGetBSSInfo (
+nicCmdEventQueryStaStatistics (
     IN P_ADAPTER_T  prAdapter,
     IN P_CMD_INFO_T prCmdInfo,
     IN PUINT_8      pucEventBuf
     );
-
 
 /*******************************************************************************
 *                              F U N C T I O N S

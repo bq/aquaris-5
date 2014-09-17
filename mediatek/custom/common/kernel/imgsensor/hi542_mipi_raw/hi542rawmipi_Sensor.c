@@ -1,72 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
-/*****************************************************************************
-*  Copyright Statement:
-*  --------------------
-*  This software is protected by Copyright and the information contained
-*  herein is confidential. The software may not be copied and the information
-*  contained herein may not be used or disclosed except with the written
-*  permission of MediaTek Inc. (C) 2008
-*
-*  BY OPENING THIS FILE, BUYER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
-*  THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
-*  RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO BUYER ON
-*  AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
-*  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
-*  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
-*  NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
-*  SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
-*  SUPPLIED WITH THE MEDIATEK SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH
-*  THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO
-*  NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S
-*  SPECIFICATION OR TO CONFORM TO A PARTICULAR STANDARD OR OPEN FORUM.
-*
-*  BUYER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND CUMULATIVE
-*  LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
-*  AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
-*  OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY BUYER TO
-*  MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
-*
-*  THE TRANSACTION CONTEMPLATED HEREUNDER SHALL BE CONSTRUED IN ACCORDANCE
-*  WITH THE LAWS OF THE STATE OF CALIFORNIA, USA, EXCLUDING ITS CONFLICT OF
-*  LAWS PRINCIPLES.  ANY DISPUTES, CONTROVERSIES OR CLAIMS ARISING THEREOF AND
-*  RELATED THERETO SHALL BE SETTLED BY ARBITRATION IN SAN FRANCISCO, CA, UNDER
-*  THE RULES OF THE INTERNATIONAL CHAMBER OF COMMERCE (ICC).
-*
-*****************************************************************************/
 /*****************************************************************************
 
  *============================================================================
@@ -226,7 +157,7 @@ void HI542MIPI_write_shutter(kal_uint16 shutter)
 			CurrentFps = (10 * 84000000) /LinesOneframe / PixelsOneline;
 		else
 			CurrentFps = (10 * 84000000) / shutter / PixelsOneline;
-		printk("[HI542YUV]:currentFps :%d\n", CurrentFps);
+		printk("[HI542raw]:currentFps :%d\n", CurrentFps);
 
 		//Change frame 29.5fps ~ 29.8fps to do auto flick
 		if(300 == CurrentFps)
@@ -302,17 +233,17 @@ void HI542MIPI_write_shutter(kal_uint16 shutter)
 		
 
 /*
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0115 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0115));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0116 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0116));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0117 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0117));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0118 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0118));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0115 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0115));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0116 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0116));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0117 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0117));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0118 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0118));
     
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0129 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0129));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0129 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0129));
 
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0040 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0040));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0041 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0041));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0042 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0042));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0043 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0043));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0040 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0040));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0041 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0041));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0042 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0042));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0043 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0043));
 */
  
 	spin_lock_irqsave(&hi542mipi_drv_lock,flags);
@@ -341,7 +272,7 @@ static kal_uint16 HI542MIPIGain2Reg(const kal_uint8 iGain)
     kal_uint8 iReg;
 	kal_uint8 iBaseGain = 64;
 
-	printk("[HI542YUV]:HI542MIPIGain2Reg iGain :0x%x\n", iGain); 
+	printk("[HI542raw]:HI542MIPIGain2Reg iGain :0x%x\n", iGain); 
 
     //! For HI542 sensor, AG is common gain for R,G and B channel 
     //!AG = 256/(B[7:0] + 32)  of 0x0129 
@@ -374,7 +305,7 @@ static kal_uint16 HI542MIPIGain2Reg(const kal_uint8 iGain)
 	kal_uint8 iBaseGain = 64;
  
 	mdelay(5);
-	printk("[HI542YUV FUNCTION TEST]:HI542MIPI_SetGain iGain :0x%x\n", iGain); 
+	printk("[HI542raw FUNCTION TEST]:HI542MIPI_SetGain iGain :0x%x\n", iGain); 
 
     //! For HI542 sensor, AG is common gain for R,G and B channel 
     //!AG = 256/(B[7:0] + 32)  of 0x0129 
@@ -522,7 +453,7 @@ void HI542MIPI_get_sensor_item_info(kal_uint16 group_idx,kal_uint16 item_idx, MS
     kal_int16 temp_reg=0;
     kal_uint16 temp_gain=0, temp_addr=0, temp_para=0;
 
-	printk("[HI542YUV FUNCTION TEST]:HI542MIPI_get_sensor_item_info group_idx: Ox%x\n .........................",group_idx);
+	printk("[HI542raw FUNCTION TEST]:HI542MIPI_get_sensor_item_info group_idx: Ox%x\n .........................",group_idx);
 	
     switch (group_idx)
     {
@@ -653,7 +584,7 @@ kal_bool HI542MIPI_set_sensor_item_info(kal_uint16 group_idx, kal_uint16 item_id
 //   kal_int16 temp_reg;
    kal_uint16 temp_addr=0, temp_para=0;
    
-   printk("[HI542YUV FUNCTION TEST]:HI542MIPI_set_sensor_item_info group_idx: Ox%x\n .........................",group_idx);
+   printk("[HI542raw FUNCTION TEST]:HI542MIPI_set_sensor_item_info group_idx: Ox%x\n .........................",group_idx);
 
    switch (group_idx)
     {
@@ -770,7 +701,7 @@ static void HI542MIPI_SetDummy(const kal_uint16 iPixels, const kal_uint16 iLines
 	HI542MIPI_write_cmos_sensor(0x0042, (ExtraLinesOneframe >> 8) & 0xFF);
     HI542MIPI_write_cmos_sensor(0x0043, ExtraLinesOneframe & 0xFF);
 
-    printk("[HI542YUV FUNCTION TEST]:HI542MIPI_SetDummy PixelsOneline :0x%x,LinesOneframe :0x%x\n", ExtraPixelsOneline,ExtraLinesOneframe);
+    printk("[HI542raw FUNCTION TEST]:HI542MIPI_SetDummy PixelsOneline :0x%x,LinesOneframe :0x%x\n", ExtraPixelsOneline,ExtraLinesOneframe);
 
 }   /*  HI542_SetDummy */
 
@@ -1653,7 +1584,7 @@ void HI542MIPI_set_video30fps(void)
 void HI542MIPI_set_video_1080P()
 {
 	SENSORDB("Set fixed 1080P video\n");
-	HI542MIPI_write_cmos_sensor(0x0011,0x04);
+	HI542MIPI_write_cmos_sensor(0x0011,0x07);
 	HI542MIPI_write_cmos_sensor(0x0013,0x40);
 	HI542MIPI_write_cmos_sensor(0x0120,0x00);
 	HI542MIPI_write_cmos_sensor(0x0121,0x54);
@@ -1799,7 +1730,7 @@ UINT32 HI542MIPIOpen(void)
     if (HI542MIPI_sensor_id != HI542MIPI_SENSOR_ID)
         return ERROR_SENSOR_CONNECT_FAIL;
 	
-	printk("[HI542YUV]:HI542Open Read Sensor ID :0x%x\n", HI542MIPI_sensor_id);  
+	printk("[HI542raw]:HI542Open Read Sensor ID :0x%x\n", HI542MIPI_sensor_id);  
 
     HI542MIPI_Sensor_Init();
 
@@ -1809,12 +1740,12 @@ UINT32 HI542MIPIOpen(void)
     HI542MIPI_sensor_gain_base = temp_data;
 	spin_unlock(&hi542mipi_drv_lock);
 
-    printk("[HI542YUV]:HI542Open Read Sensor BaseGain :0x%x\n", HI542MIPI_sensor_gain_base); 
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0024 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0024));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0025 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0025));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0026 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0026));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0027 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0027));
-	printk("[HI542YUV]:HI542Open Read Sensor REG 0x0500 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0500));
+    printk("[HI542raw]:HI542Open Read Sensor BaseGain :0x%x\n", HI542MIPI_sensor_gain_base); 
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0024 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0024));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0025 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0025));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0026 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0026));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0027 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0027));
+	printk("[HI542raw]:HI542Open Read Sensor REG 0x0500 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0500));
 
 	spin_lock(&hi542mipi_drv_lock);
     HI542MIPI_g_iBackupExtraExp = 0;
@@ -1867,7 +1798,7 @@ UINT32 HI542MIPIGetSensorID(UINT32 *sensorID)
     } while (retry > 0);
 
 
-	printk("[HI542YUV]:HI542OMIPIpen Read Sensor ID :0x%x\n", HI542MIPI_sensor_id);  
+	printk("[HI542raw]:HI542OMIPIpen Read Sensor ID :0x%x\n", HI542MIPI_sensor_id);  
 	
     *sensorID = HI542MIPI_sensor_id;
 
@@ -1902,7 +1833,7 @@ void HI542MIPI_SetShutter(kal_uint16 iShutter)
     if (realshutter < 4 )
         realshutter = 4;
 
-    printk("[HI542YUV FUNCTION TEST]:HI542_SetShutter iShutter :0x%x\n", realshutter);
+    printk("[HI542raw FUNCTION TEST]:HI542_SetShutter iShutter :0x%x\n", realshutter);
 
     spin_lock_irqsave(&hi542mipi_drv_lock,flags);
     HI542MIPI_pv_exposure_lines = realshutter;
@@ -1967,7 +1898,7 @@ UINT16 HI542MIPI_read_shutter(void)
     if (iExp < 4 )
         iExp = 4;
 
-	printk("[HI542YUV]:HI542MIPI_read_shutter iExp :0x%x\n",iExp);
+	printk("[HI542raw]:HI542MIPI_read_shutter iExp :0x%x\n",iExp);
 
     return iExp;
 }
@@ -1991,7 +1922,7 @@ UINT16 HI542MIPI_read_shutter(void)
 void HI542MIPI_NightMode(kal_bool bEnable)
 {
 
-printk("[HI542YUV FUNCTION TEST]:HI542_NightMode .........................");
+printk("[HI542raw FUNCTION TEST]:HI542_NightMode .........................");
 
 #if 0
     /************************************************************************/
@@ -2186,13 +2117,13 @@ UINT32 HI542MIPIPreview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
     
         HI542MIPI_MPEG4_encode_mode = KAL_TRUE;
 		Fix_framerate=1;
-		printk("[HI542YUV FUNCTION TEST]:HI542 video mode...................\n"); 
+		printk("[HI542raw FUNCTION TEST]:HI542 video mode...................\n"); 
     }
     else
     {
         HI542MIPI_MPEG4_encode_mode = KAL_FALSE;
 		Fix_framerate=0;
-		printk("[HI542YUV FUNCTION TEST]:HI542 Preview mode..................\n"); 
+		printk("[HI542raw FUNCTION TEST]:HI542 Preview mode..................\n"); 
     }
 	spin_unlock(&hi542mipi_drv_lock);
 
@@ -2233,7 +2164,7 @@ UINT32 HI542MIPICapture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
     kal_uint32 shutter=HI542MIPI_pv_exposure_lines;
     kal_uint16 iStartX = 0, iStartY = 0;
 
-    printk("[HI542YUV FUNCTION TEST]:HI542Capture before calc...................shutter= 0x%x\n",shutter);  
+    printk("[HI542raw FUNCTION TEST]:HI542Capture before calc...................shutter= 0x%x\n",shutter);  
 	
 	spin_lock(&hi542mipi_drv_lock);
     g_iHI542MIPI_Mode = HI542MIPI_MODE_CAPTURE;
@@ -2261,7 +2192,7 @@ UINT32 HI542MIPICapture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
         iStartX = 2* HI542MIPI_IMAGE_SENSOR_PV_STARTX;
         iStartY = 2* HI542MIPI_IMAGE_SENSOR_PV_STARTY;
 		
-        printk("[HI542YUV FUNCTION TEST]:HI542Capture full size mode...................shutter= 0x%x\n",shutter);
+        printk("[HI542raw FUNCTION TEST]:HI542Capture full size mode...................shutter= 0x%x\n",shutter);
 		
 
     // config flashlight preview setting
@@ -2281,7 +2212,7 @@ UINT32 HI542MIPICapture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
    mdelay(300);
 
 
-   printk("[HI542YUV FUNCTION TEST]:HI542Capture full size mode...................shutter= 0x%x\n",shutter);
+   printk("[HI542raw FUNCTION TEST]:HI542Capture full size mode...................shutter= 0x%x\n",shutter);
    
    image_window->GrabStartX=iStartX;
    image_window->GrabStartY=iStartY;
@@ -2289,11 +2220,11 @@ UINT32 HI542MIPICapture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
    image_window->ExposureWindowHeight=HI542MIPI_IMAGE_SENSOR_FULL_HEIGHT-2*iStartY;
 
  /*  
-   printk("[HI542YUV]:HI542Open Read Sensor REG 0x0115 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0115));
-   printk("[HI542YUV]:HI542Open Read Sensor REG 0x0116 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0116));
-   printk("[HI542YUV]:HI542Open Read Sensor REG 0x0117 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0117));
-   printk("[HI542YUV]:HI542Open Read Sensor REG 0x0118 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0118));
-   printk("[HI542YUV]:HI542Open Read Sensor REG 0x0129 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0129));
+   printk("[HI542raw]:HI542Open Read Sensor REG 0x0115 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0115));
+   printk("[HI542raw]:HI542Open Read Sensor REG 0x0116 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0116));
+   printk("[HI542raw]:HI542Open Read Sensor REG 0x0117 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0117));
+   printk("[HI542raw]:HI542Open Read Sensor REG 0x0118 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0118));
+   printk("[HI542raw]:HI542Open Read Sensor REG 0x0129 :0x%x\n", HI542MIPI_read_cmos_sensor(0x0129));
    */
 
     return ERROR_NONE;
@@ -2410,8 +2341,8 @@ UINT32 HI542MIPIGetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
             pSensorInfo->SensorClockFallingCount= 2;
             pSensorInfo->SensorPixelClockCount= 3;
             pSensorInfo->SensorDataLatchCount= 2;
-            pSensorInfo->SensorGrabStartX = 2; 
-            pSensorInfo->SensorGrabStartY = 2;             
+            pSensorInfo->SensorGrabStartX = 1; 
+            pSensorInfo->SensorGrabStartY = 1;             
             break;
     }
 
@@ -2457,7 +2388,7 @@ UINT32 HI542MIPISetVideoMode(UINT16 u2FrameRate)
 	spin_lock(&hi542mipi_drv_lock);
     HI542MIPI_MPEG4_encode_mode = KAL_TRUE; 
 	spin_unlock(&hi542mipi_drv_lock);
-	printk("[HI542YUV FUNCTION TEST]:HI542SetVideoMode :u2FrameRate= Ox%x\n...................\n",u2FrameRate); 
+	printk("[HI542raw FUNCTION TEST]:HI542SetVideoMode :u2FrameRate= Ox%x\n...................\n",u2FrameRate); 
 
 	if(u2FrameRate >30 || u2FrameRate <5)
 	    SENSORDB("Error frame rate seting");
@@ -2563,7 +2494,7 @@ UINT32 HI542MIPISetVideoMode(UINT16 u2FrameRate)
 UINT32 HI542MIPISetAutoFlickerMode(kal_bool bEnable, UINT16 u2FrameRate)
 {
 
-    printk("[HI542YUV FUNCTION TEST]:HI542SetAutoFlickerMode :bEnable = %x,u2FrameRate= Ox%x\n...................\n",bEnable,u2FrameRate); 
+    printk("[HI542raw FUNCTION TEST]:HI542SetAutoFlickerMode :bEnable = %x,u2FrameRate= Ox%x\n...................\n",bEnable,u2FrameRate); 
  
     if(bEnable)
     {
@@ -2631,7 +2562,7 @@ UINT32 HI542MIPISetTestPatternMode(kal_bool bEnable)
 
 UINT32 HI542MIPISetSoftwarePWDNMode(kal_bool bEnable)
 {
-    printk("[HI542YUV FUNCTION TEST]:HI542SetSoftwarePWDNMode :bEnable = %x\n...................\n",bEnable); 
+    printk("[HI542raw FUNCTION TEST]:HI542SetSoftwarePWDNMode :bEnable = %x\n...................\n",bEnable); 
     
     if(bEnable) {   // enable software power down mode   
 	 HI542MIPI_write_cmos_sensor(0x3008, 0x40);
@@ -2711,7 +2642,7 @@ UINT32 HI542MIPIFeatureControl(MSDK_SENSOR_FEATURE_ENUM FeatureId,
             pSensorRegData->RegData = HI542MIPI_read_cmos_sensor(pSensorRegData->RegAddr);
             break;
         case SENSOR_FEATURE_SET_CCT_REGISTER:
-			printk("[HI542YUV FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_SET_CCT_REGISTER .........................");
+			printk("[HI542raw FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_SET_CCT_REGISTER .........................");
             SensorRegNumber=FACTORY_END_ADDR;
             for (i=0;i<SensorRegNumber;i++)
             {
@@ -2722,7 +2653,7 @@ UINT32 HI542MIPIFeatureControl(MSDK_SENSOR_FEATURE_ENUM FeatureId,
             }
             break;
         case SENSOR_FEATURE_GET_CCT_REGISTER:
-			printk("[HI542YUV FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_GET_CCT_REGISTER .........................");
+			printk("[HI542raw FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_GET_CCT_REGISTER .........................");
             SensorRegNumber=FACTORY_END_ADDR;
             if (*pFeatureParaLen<(SensorRegNumber*sizeof(SENSOR_REG_STRUCT)+4))
                 return FALSE;
@@ -2735,7 +2666,7 @@ UINT32 HI542MIPIFeatureControl(MSDK_SENSOR_FEATURE_ENUM FeatureId,
             break;
         case SENSOR_FEATURE_SET_ENG_REGISTER:
 			
-			printk("[HI542YUV FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_SET_ENG_REGISTER .........................");
+			printk("[HI542raw FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_SET_ENG_REGISTER .........................");
             SensorRegNumber=ENGINEER_END;
             for (i=0;i<SensorRegNumber;i++)
             {
@@ -2747,7 +2678,7 @@ UINT32 HI542MIPIFeatureControl(MSDK_SENSOR_FEATURE_ENUM FeatureId,
             break;
         case SENSOR_FEATURE_GET_ENG_REGISTER:
 			
-			printk("[HI542YUV FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_GET_ENG_REGISTER .........................");
+			printk("[HI542raw FUNCTION TEST]:HI542FeatureControl : SENSOR_FEATURE_GET_ENG_REGISTER .........................");
             SensorRegNumber=ENGINEER_END;
             if (*pFeatureParaLen<(SensorRegNumber*sizeof(SENSOR_REG_STRUCT)+4))
                 return FALSE;

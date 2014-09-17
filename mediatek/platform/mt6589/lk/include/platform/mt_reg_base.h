@@ -298,7 +298,7 @@
 #define COMMANDLINE_TO_KERNEL  "console=tty0 console=ttyMT3,921600n1 root=/dev/ram"
 #endif
 #define CFG_FACTORY_NAME	"factory.img"
-//#define HAVE_LK_TEXT_MENU
+#define HAVE_LK_TEXT_MENU
 
 #ifdef CONFIG_MTK_USB_UNIQUE_SERIAL
 #define EFUSE_CTR_BASE		0xC1019000	/* IO_PHYS + 0x01019000 */

@@ -1,73 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
-/*****************************************************************************
-*  Copyright Statement:
-*  --------------------
-*  This software is protected by Copyright and the information contained
-*  herein is confidential. The software may not be copied and the information
-*  contained herein may not be used or disclosed except with the written
-*  permission of MediaTek Inc. (C) 2008
-*
-*  BY OPENING THIS FILE, BUYER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
-*  THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
-*  RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO BUYER ON
-*  AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
-*  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
-*  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
-*  NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
-*  SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
-*  SUPPLIED WITH THE MEDIATEK SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH
-*  THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO
-*  NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S
-*  SPECIFICATION OR TO CONFORM TO A PARTICULAR STANDARD OR OPEN FORUM.
-*
-*  BUYER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND CUMULATIVE
-*  LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
-*  AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
-*  OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY BUYER TO
-*  MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
-*
-*  THE TRANSACTION CONTEMPLATED HEREUNDER SHALL BE CONSTRUED IN ACCORDANCE
-*  WITH THE LAWS OF THE STATE OF CALIFORNIA, USA, EXCLUDING ITS CONFLICT OF
-*  LAWS PRINCIPLES.  ANY DISPUTES, CONTROVERSIES OR CLAIMS ARISING THEREOF AND
-*  RELATED THERETO SHALL BE SETTLED BY ARBITRATION IN SAN FRANCISCO, CA, UNDER
-*  THE RULES OF THE INTERNATIONAL CHAMBER OF COMMERCE (ICC).
-*
-*****************************************************************************/
-
 #ifndef BUILD_LK
 #include <linux/string.h>
 #endif
@@ -201,11 +131,17 @@ static struct LCM_setting_table lcm_sleep_out_setting[] = {
 static struct LCM_setting_table lcm_deep_sleep_mode_in_setting[] = {
 	// Display off sequence
 	{0x28, 1, {0x00}},
-
-    // Sleep Mode On
-	{0x10, 1, {0x00}},
-
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
+	
+	{REGFLAG_DELAY, 50, {}},
+	
+	 // Sleep Mode On
+	 {0x10, 1, {0x00}},
+	
+	 {REGFLAG_DELAY, 100, {}},
+	
+	 {0x4F, 1, {0x01}},
+	
+	 {REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 /*
 static struct LCM_setting_table lcm_compare_id_setting[] = {
@@ -272,12 +208,6 @@ static void lcm_set_util_funcs(const LCM_UTIL_FUNCS *util)
 
 static void lcm_get_params(LCM_PARAMS *params)
 {
-		//unsigned int div2_real=0;
-		//unsigned int cycle_time = 0;
-		//unsigned int ui = 0;
-		//unsigned int hs_trail_m, hs_trail_n;
-		//#define NS_TO_CYCLE(n, c)	((n) / c + (( (n) % c) ? 1 : 0))
-
 		memset(params, 0, sizeof(LCM_PARAMS));
 	
 		params->type   = LCM_TYPE_DSI;
@@ -285,81 +215,22 @@ static void lcm_get_params(LCM_PARAMS *params)
 		params->width  = FRAME_WIDTH;
 		params->height = FRAME_HEIGHT;
 
-		// enable tearing-free
-		params->dbi.te_mode 				= LCM_DBI_TE_MODE_DISABLED;
-		params->dbi.te_edge_polarity		= LCM_POLARITY_RISING;
-
 #if (LCM_DSI_CMD_MODE)
 		params->dsi.mode   = CMD_MODE;
 #else
 		params->dsi.mode   = BURST_VDO_MODE;
 #endif
-	
 		// DSI
 		/* Command mode setting */
 		params->dsi.LANE_NUM				= LCM_THREE_LANE;
 		//The following defined the fomat for data coming from LCD engine.
-		params->dsi.data_format.color_order = LCM_COLOR_ORDER_RGB;
-		params->dsi.data_format.trans_seq   = LCM_DSI_TRANS_SEQ_MSB_FIRST;
-		params->dsi.data_format.padding     = LCM_DSI_PADDING_ON_LSB;
 		params->dsi.data_format.format      = LCM_DSI_FORMAT_RGB888;
 
-		params->dsi.intermediat_buffer_num = 0;//because DSI/DPI HW design change, this parameters should be 0 when video mode in MT658X; or memory leakage
-
 		params->dsi.PS=LCM_PACKED_PS_24BIT_RGB888;
+    params->dsi.CLK_HS_POST=26;
 
-		params->dsi.word_count=720*3;	//DSI CMD mode need set these two bellow params, different to 6577
-		params->dsi.vertical_active_line=1280;
-
-		params->dsi.intermediat_buffer_num = 0;//because DSI/DPI HW design change, this parameters should be 0 when video mode in MT658X; or memory leakage
-		params->dsi.pll_select=1;	//0: MIPI_PLL; 1: LVDS_PLL
-		// Bit rate calculation, calculation forma be different to mt657x
-#ifdef CONFIG_MT6589_FPGA
-		params->dsi.pll_div1=2;		// div1=0,1,2,3;div1_real=1,2,4,4
-		params->dsi.pll_div2=2;		// div2=0,1,2,3;div1_real=1,2,4,4
-		params->dsi.fbk_div =8;		// fref=26MHz, fvco=fref*(fbk_div+1)*2/(div1_real*div2_real)
-#else
-		params->dsi.pll_div1=0;		// div1=0,1,2,3;div1_real=1,2,4,4
-		params->dsi.pll_div2=1;		// div2=0,1,2,3;div1_real=1,2,4,4
-		params->dsi.fbk_div =20;		// fref=26MHz, fvco=fref*(fbk_div+1)*2/(div1_real*div2_real)		
-#endif
-
-#if 0
-		div2_real=params->dsi.pll_div2 ? params->dsi.pll_div2*0x02 : 0x1;
-		cycle_time = (8 * 1000 * div2_real)/ (26 * (params->dsi.pll_div1+0x01));
-		ui = (1000 * div2_real)/ (26 * (params->dsi.pll_div1+0x01)) + 1;
-		
-		hs_trail_m=params->dsi.LANE_NUM;
-		hs_trail_n=NS_TO_CYCLE(((params->dsi.LANE_NUM * 4 * ui) + 60), cycle_time);
-
-		params->dsi.HS_TRAIL	= ((hs_trail_m > hs_trail_n) ? hs_trail_m : hs_trail_n);//min max(n*8*UI, 60ns+n*4UI)
-		params->dsi.HS_ZERO 	= NS_TO_CYCLE((105 + 6 * ui), cycle_time);//min 105ns+6*UI
-		params->dsi.HS_PRPR 	= NS_TO_CYCLE((40 + 4 * ui), cycle_time);//min 40ns+4*UI; max 85ns+6UI
-		// HS_PRPR can't be 1.
-		if (params->dsi.HS_PRPR < 2)
-			params->dsi.HS_PRPR = 2;
-
-		params->dsi.LPX 		= NS_TO_CYCLE(50, cycle_time);//min 50ns
-		
-		params->dsi.TA_SACK 	= 1;
-		params->dsi.TA_GET		= 5 * NS_TO_CYCLE(50, cycle_time);//5*LPX
-		params->dsi.TA_SURE 	= 3 * NS_TO_CYCLE(50, cycle_time) / 2;//min LPX; max 2*LPX;
-		params->dsi.TA_GO		= 4 * NS_TO_CYCLE(50, cycle_time);//4*LPX
-	
-		params->dsi.CLK_TRAIL	= NS_TO_CYCLE(60, cycle_time);//min 60ns
-		// CLK_TRAIL can't be 1.
-		if (params->dsi.CLK_TRAIL < 2)
-			params->dsi.CLK_TRAIL = 2;
-		params->dsi.CLK_ZERO	= NS_TO_CYCLE((300-38), cycle_time);//min 300ns-38ns
-		params->dsi.LPX_WAIT	= 1;
-		params->dsi.CONT_DET	= 0;
-		
-		params->dsi.CLK_HS_PRPR = NS_TO_CYCLE((38 + 95) / 2, cycle_time);//min 38ns; max 95ns
-
-#endif		
-
+    	params->dsi.PLL_CLOCK = 286;//dsi clock customization: should config clock value directly
 }
-
 
 static void lcm_init(void)
 {
@@ -368,16 +239,36 @@ static void lcm_init(void)
 	//unsigned int  array[16];
 	unsigned int data_array[16];
 
-    SET_RESET_PIN(1);
-    SET_RESET_PIN(0);
-    MDELAY(1);
-    SET_RESET_PIN(1);
-    MDELAY(20);
-
+		MDELAY(40); 
+		SET_RESET_PIN(1);
+		MDELAY(5); 
+	
+		data_array[0] = 0x00023902;
+		data_array[1] = 0x0000EEFF; 				
+		dsi_set_cmdq(data_array, 2, 1);
+		MDELAY(2); 
+		data_array[0] = 0x00023902;
+		data_array[1] = 0x00000826; 				
+		dsi_set_cmdq(data_array, 2, 1);
+		MDELAY(2); 
+		data_array[0] = 0x00023902;
+		data_array[1] = 0x00000026; 				
+		dsi_set_cmdq(data_array, 2, 1);
+		MDELAY(2); 
+		data_array[0] = 0x00023902;
+		data_array[1] = 0x000000FF; 				
+		dsi_set_cmdq(data_array, 2, 1);
+		
+		MDELAY(20); 
+		SET_RESET_PIN(0);
+		MDELAY(1); 
+		SET_RESET_PIN(1);
+		MDELAY(40); 
+	
+	
 	data_array[0]=0x00023902;
 	data_array[1]=0x000008C2;//cmd mode
 	dsi_set_cmdq(data_array, 2, 1);
-
 
 	data_array[0]=0x00023902;
 	data_array[1]=0x000002BA;//MIPI lane
@@ -394,25 +285,93 @@ static void lcm_init(void)
 
 	data_array[0]=0x00110500;
 	dsi_set_cmdq(data_array, 1, 1);
-	MDELAY(120);
+	MDELAY(120); 
+
 	data_array[0]=0x00290500;
 	dsi_set_cmdq(data_array, 1, 1);
 	
+	//MDELAY(50);
 //	push_table(lcm_initialization_setting, sizeof(lcm_initialization_setting) / sizeof(struct LCM_setting_table), 1);
 }
 
 
 static void lcm_suspend(void)
 {
-	push_table(lcm_deep_sleep_mode_in_setting, sizeof(lcm_deep_sleep_mode_in_setting) / sizeof(struct LCM_setting_table), 1);
+	unsigned int data_array[16];
+
+	data_array[0]=0x00280500;
+	dsi_set_cmdq(data_array, 1, 1);
+	MDELAY(120);
+	
+	data_array[0]=0x00100500;
+	dsi_set_cmdq(data_array, 1, 1);
+	MDELAY(50);
+
+	data_array[0]=0x00023902;
+	data_array[1]=0x0000014F;
+	dsi_set_cmdq(data_array, 2, 1);
+
 }
 
 
 static void lcm_resume(void)
 {
-	lcm_init();
-	
-	push_table(lcm_sleep_out_setting, sizeof(lcm_sleep_out_setting) / sizeof(struct LCM_setting_table), 1);
+	unsigned int data_array[16];
+		
+	SET_RESET_PIN(1);
+	MDELAY(10);
+	SET_RESET_PIN(0);
+	MDELAY(10);
+	SET_RESET_PIN(1);
+	MDELAY(50);
+
+    data_array[0] = 0x00023902;
+	data_array[1] = 0x0000EEFF; 				
+	dsi_set_cmdq(data_array, 2, 1);
+	MDELAY(2); 
+	data_array[0] = 0x00023902;
+	data_array[1] = 0x00000826; 				
+	dsi_set_cmdq(data_array, 2, 1);
+	MDELAY(2); 
+	data_array[0] = 0x00023902;
+	data_array[1] = 0x00000026; 				
+	dsi_set_cmdq(data_array, 2, 1);
+	MDELAY(2); 
+	data_array[0] = 0x00023902;
+	data_array[1] = 0x000000FF; 				
+	dsi_set_cmdq(data_array, 2, 1);
+		
+	MDELAY(20); 
+	SET_RESET_PIN(0);
+	MDELAY(1); 
+	SET_RESET_PIN(1);
+	MDELAY(40); 
+
+    data_array[0]=0x00023902;
+    data_array[1]=0x000008C2;//cmd mode
+    //data_array[1]=0x000003C2;//vdo mode
+    dsi_set_cmdq(data_array, 2, 1);
+
+    data_array[0]=0x00023902;
+    data_array[1]=0x000002BA;//MIPI lane
+    dsi_set_cmdq(data_array, 2, 1);
+
+    //{0x44,	2,	{((FRAME_HEIGHT/2)>>8), ((FRAME_HEIGHT/2)&0xFF)}},
+    data_array[0] = 0x00033902;
+    data_array[1] = (((FRAME_HEIGHT/2)&0xFF) << 16) | (((FRAME_HEIGHT/2)>>8) << 8) | 0x44;
+    dsi_set_cmdq(data_array, 2, 1);
+
+    data_array[0] = 0x00351500;// TE ON
+    dsi_set_cmdq(data_array, 1, 1);
+    //MDELAY(10);
+
+    data_array[0]=0x00110500;
+    dsi_set_cmdq(data_array, 1, 1);
+    MDELAY(120);
+
+    data_array[0]=0x00290500;
+    dsi_set_cmdq(data_array, 1, 1);
+
 }
 
 
@@ -445,9 +404,6 @@ static void lcm_update(unsigned int x, unsigned int y,
 	data_array[2]= (y1_LSB);
 	dsi_set_cmdq(data_array, 3, 1);
 
-	data_array[0]= 0x00290508; //HW bug, so need send one HS packet
-	dsi_set_cmdq(data_array, 1, 1);
-	
 	data_array[0]= 0x002c3909;
 	dsi_set_cmdq(data_array, 1, 0);
 
@@ -554,12 +510,29 @@ static unsigned int lcm_compare_id(void)
 }
 */
 #endif
+
+void lcm_read_fb(unsigned char *buffer)
+{
+	  unsigned int array[2];
+
+   array[0] = 0x000A3700;// read size
+   dsi_set_cmdq(array, 1, 1);
+   
+   read_reg_v2(0x2E,buffer,10);
+   read_reg_v2(0x3E,buffer+10,10);
+   read_reg_v2(0x3E,buffer+10*2,10);
+   read_reg_v2(0x3E,buffer+10*3,10);
+   read_reg_v2(0x3E,buffer+10*4,10);
+   read_reg_v2(0x3E,buffer+10*5,10);
+}
+
+
 // ---------------------------------------------------------------------------
 //  Get LCM Driver Hooks
 // ---------------------------------------------------------------------------
 LCM_DRIVER nt35590_hd720_dsi_cmd_auo_fwvga_lcm_drv = 
 {
-    .name			= "nt35590_AUO_fwvga",
+    .name			= "nt35590_AUO",
 	.set_util_funcs = lcm_set_util_funcs,
 	.get_params     = lcm_get_params,
 	.init           = lcm_init,
@@ -573,5 +546,6 @@ LCM_DRIVER nt35590_hd720_dsi_cmd_auo_fwvga_lcm_drv =
 	//.esd_check   = lcm_esd_check,
     //.esd_recover   = lcm_esd_recover,
 	//.compare_id    = lcm_compare_id,
+    .read_fb = lcm_read_fb,
 #endif
 };

@@ -15,7 +15,7 @@
 #include "../camera/kd_camera_hw.h"
 
 #define LENS_I2C_BUSNUM 1
-//static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("OV5647AF", 0x18)};
+static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("OV5647AF", 0x1A)};
 
 
 #define OV5647AF_DRVNAME "OV5647AF"
@@ -52,9 +52,9 @@ unsigned long g_u4PrePosition_Offset = 0;
 unsigned long g_Pre_u4Src   = 7;
 
 
-extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
-extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
-extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
+//extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
+//extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
+//extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
 
 
 static int s4OV5647AF_ReadReg(unsigned short * a_pu2Result)
@@ -503,7 +503,7 @@ static struct platform_driver g_stOV5647AF_Driver = {
 
 static int __init OV5647AF_i2C_init(void)
 {
-//    i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
+    i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
 	
     if(platform_driver_register(&g_stOV5647AF_Driver)){
         OV5647AFDB("failed to register OV5647AF driver\n");

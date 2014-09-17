@@ -2,16 +2,16 @@
 NUM_LDO = 0
 
 
+[LDO_APPNAME_DEFAULT]
+MT6323_POWER_LDO_DEFAULT
+
 [pmic_drv.h_HEADER]
-#ifndef _PMIC_DRV_H
-#define _PMIC_DRV_H
 
 [pmic_drv.h_TAILER]
-#endif /* _PMIC_DRV_H */
 
 [pmic_drv.c_HEADER]
-#ifdef __CUST_NEW__
-#include "pmic_drv.h"
+#include <linux/types.h>
+#include <mach/mt_typedefs.h>
+#include <mach/mt_pm_ldo.h>
 
 [pmic_drv.c_TAILER]
-#endif /* __CUST_NEW__ */

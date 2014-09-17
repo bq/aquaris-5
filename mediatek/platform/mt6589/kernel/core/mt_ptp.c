@@ -1085,13 +1085,13 @@ u32 PTP_MON_MODE(void)
 
 u32 PTP_get_ptp_level(void)
 {
-    u32 ptp_level_temp;
-
-    #if defined(MTK_FORCE_CPU_89T)
+    #if defined (CONFIG_MTK_FORCE_CPU_89T)
         return 3; // 1.5GHz
     #else
+        u32 ptp_level_temp;
+
         ptp_level_temp = get_devinfo_with_index(3) & 0x7;
-    
+
         if( ptp_level_temp == 0 ) // free mode
         {
             return ((get_devinfo_with_index(10) >> 4) & 0x7);

@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
@@ -101,7 +66,9 @@
 #include <asm/system.h>
 //#include <linux/mm.h>
 #include <linux/pagemap.h>
-
+#ifndef GFMT_DEV
+#include <linux/proc_fs.h>
+#endif
 
 
 
@@ -145,10 +112,12 @@
 extern kal_uint32 _gfmt_only_int_status;
 
 
+#ifdef GFMT_DEV
 // device and driver
 static dev_t gfmt_devno;
 static struct cdev *gfmt_cdev;
 static struct class *gfmt_class = NULL;
+#endif
 
 // gfmt
 static wait_queue_head_t gfmt_wait_queue;
@@ -889,8 +858,7 @@ static struct file_operations gfmt_fops = {
 
 static int gfmt_probe(struct platform_device *pdev)
 {
-    struct class_device;
-    
+#ifdef GFMT_DEV
 	int ret;
     struct class_device *class_dev = NULL;
     
@@ -914,7 +882,11 @@ static int gfmt_probe(struct platform_device *pdev)
 
     gfmt_class = class_create(THIS_MODULE, GFMT_DEVNAME);
     class_dev = (struct class_device *)device_create(gfmt_class, NULL, gfmt_devno, NULL, GFMT_DEVNAME);
+#else
 
+    proc_create("mtk_gfmt", 0, NULL, &gfmt_fops);
+
+#endif
     spin_lock_init(&gdma_fmt_lock);
 
     // initial , register ISR
@@ -933,7 +905,9 @@ static int gfmt_probe(struct platform_device *pdev)
 #endif
 	GFMT_MSG("GFMT Probe Done\n");
 
+#ifdef GFMT_DEV
 	NOT_REFERENCED(class_dev);
+#endif
 	return 0;
 }
 
@@ -1025,16 +999,20 @@ static int __init gfmt_init(void)
 
 static void __exit gfmt_exit(void)
 {
+#ifdef GFMT_DEV
     cdev_del(gfmt_cdev);
     unregister_chrdev_region(gfmt_devno, 1);
-	  //GFMT_MSG("Unregistering driver\n");
+
+    device_destroy(gfmt_class, gfmt_devno);
+    class_destroy(gfmt_class);
+#else
+    remove_proc_entry("mtk_gfmt", NULL);
+#endif
+    //GFMT_MSG("Unregistering driver\n");
     platform_driver_unregister(&gfmt_driver);
-	  platform_device_unregister(&gfmt_device);
-	
-	  device_destroy(gfmt_class, gfmt_devno);
-	  class_destroy(gfmt_class);
-	  
-	  GFMT_MSG("Done\n");
+    platform_device_unregister(&gfmt_device);
+  
+    GFMT_MSG("Done\n");
 }
 
 module_init(gfmt_init);

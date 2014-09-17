@@ -368,7 +368,7 @@ u32 mmc_get_device_id(u8 *id, u32 len,u32 *fw_len)
 	buf[14] =(card->raw_cid[3] >> 8 ) & 0xFF; /* Manufacturer date */
 	buf[15] =(card->raw_cid[3] >> 0 ) & 0xFF; /* CRC7 + stuff bit*/
 	*fw_len = 1;
-	if(buf[0] == 0x45){
+	if( (buf[0] == 0x45) && (card->raw_ext_csd[EXT_CSD_REV]<=5) ){
 		if (0 == mmc_get_sandisk_fwid(MMC_HOST_ID,buf_sanid)){
 			*fw_len = 6;
 		}	

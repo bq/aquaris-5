@@ -111,20 +111,6 @@ __RCSID("$NetBSD: res_init.c,v 1.8 2006/03/19 03:10:08 christos Exp $");
 /* ensure that sockaddr_in6 and IN6ADDR_ANY_INIT are declared / defined */
 #ifdef ANDROID_CHANGES
 #include "resolv_private.h"
-#define MAX_DNS_PROPERTIES 8
-#define DNS_PROP_NAME_PREFIX "net.dns"
-
-extern char	*__progname;
-
-#ifdef MTK_IPV6_SUPPORT
-#define IPV6_DNS_PROP_NAME_PREFIX "net.ipv6.dns"
-#endif
-
-#define DNS_CHANGE_PROP_NAME "net.dnschange"
-#define DNS_SEARCH_PROP_NAME "net.dns.search"
-static const prop_info *dns_change_prop;
-static int dns_last_change_counter;
-static int _get_dns_change_count();
 #else
 #include <resolv.h>
 #endif
@@ -178,41 +164,6 @@ res_ninit(res_state statp) {
 	return (__res_vinit(statp, 0));
 }
 
-#ifdef ANDROID_CHANGES
-static int load_domain_search_list(res_state statp) {
-	char propvalue[PROP_VALUE_MAX];
-	register char *cp, **pp;
-
-	if(__system_property_get(DNS_SEARCH_PROP_NAME, propvalue) >= 1) {
-		strlcpy(statp->defdname, propvalue, sizeof(statp->defdname));
-		if ((cp = strchr(statp->defdname, '\n')) != NULL)
-			*cp = '\0';
-		cp = statp->defdname;
-		pp = statp->dnsrch;
-		while ( pp < statp->dnsrch + MAXDNSRCH ) {
-			while (*cp == ' ' || *cp == '\t') /* skip leading white space */
-				cp++;
-			if (*cp == '\0')  /* stop if nothing more */
-				break;
-			*pp++ = cp;  /* record this search domain */
-			while (*cp) { /* zero-terminate it */
-				if (*cp == ' ' || *cp == '\t') {
-					*cp++ = '\0';
-					break;
-				}
-				cp++;
-			}
-		}
-		*pp = NULL; /* statp->dnsrch has MAXDNSRCH+1 items */
-		if (pp > statp->dnsrch)
-			return 1;
-	}
-	statp->defdname[0] = '\0';  /* no default domain name on Android */
-	statp->dnsrch[0] = NULL;
-	return 0;
-}
-#endif
-
 /* This function has to be reachable by res_data.c but not publicly. */
 int
 __res_vinit(res_state statp, int preinit) {
@@ -227,16 +178,6 @@ __res_vinit(res_state statp, int preinit) {
 	char *net;
 	int dots;
 	union res_sockaddr_union u[2];
-#ifdef ANDROID_CHANGES
-        pid_t mypid = getpid();
-        int use_proc_props = 0;
-        int found_prop;
-#ifdef MTK_IPV6_SUPPORT
-        int v4_n;
-        int found_ipv6_props;
-#endif
-	char dnsProperty[PROP_VALUE_MAX];
-#endif
 
         if ((statp->options & RES_INIT) != 0U)
                 res_ndestroy(statp);
@@ -329,162 +270,8 @@ __res_vinit(res_state statp, int preinit) {
 	if (nserv > 0)
 		statp->nscount = nserv;
 #endif
-#ifdef ANDROID_CHANGES /* READ FROM SYSTEM PROPERTIES */
-	dns_last_change_counter = _get_dns_change_count();
 
-	nserv = 0;
-	
-#ifdef MTK_IPV6_SUPPORT
-    v4_n = 1;
-	for(n = 1; n <= MAX_DNS_PROPERTIES && nserv < MAXNS; n++) {
-		char propname[PROP_NAME_MAX];
-		char propvalue[PROP_VALUE_MAX];
-
-		struct addrinfo hints, *ai;
-		char sbuf[NI_MAXSERV];
-		const size_t minsiz = sizeof(statp->_u._ext.ext->nsaddrs[0]);
-
-		/*
-		 * Check first for process-specific properties, and if those don't
-		 * exist, try the generic properties.
-		 */
-		found_prop = 0;
-		found_ipv6_props = 0;
-		if (n == 1 || use_proc_props) {
-			snprintf(propname, sizeof(propname), "%s%d.%s", IPV6_DNS_PROP_NAME_PREFIX, n, __progname);
-			if(__system_property_get(propname, propvalue) < 1) {
-				if (use_proc_props) {
-					/* continue */
-				}
-			} else {
-				found_ipv6_props = 1;
-				use_proc_props = 1;
-			}
-		}
-        if(!found_ipv6_props){
-		    if (n == 1 || use_proc_props) {
-				snprintf(propname, sizeof(propname), "%s%d.%s", DNS_PROP_NAME_PREFIX, v4_n, __progname);
-			    if(__system_property_get(propname, propvalue) < 1) {
-				    if (use_proc_props) {
-					    break;
-				    }
-			    } else {
-                    v4_n++;
-				    found_prop = 1;
-				    use_proc_props = 1;
-			    }
-		    }
-        }
-        if (!found_ipv6_props && !found_prop) {
-            snprintf(propname, sizeof(propname), "%s%d", IPV6_DNS_PROP_NAME_PREFIX, n);
-            if(__system_property_get(propname, propvalue) < 1) {
-					    /*if we also use ipv4 dns, continue */
-            } else {
-                found_ipv6_props = 1;
-            }
-        }
-
-		if (!found_ipv6_props && !found_prop) {
-			snprintf(propname, sizeof(propname), "%s%d", DNS_PROP_NAME_PREFIX, v4_n++);
-			if(__system_property_get(propname, propvalue) < 1) {
-				break;
-			}
-		}
-
-		cp = propvalue;
-
-		while (*cp == ' ' || *cp == '\t')
-			cp++;
-		cp[strcspn(cp, ";# \t\n")] = '\0';
-		if ((*cp != '\0') && (*cp != '\n')) {
-			memset(&hints, 0, sizeof(hints));
-			hints.ai_family = PF_UNSPEC;
-			hints.ai_socktype = SOCK_DGRAM;	/*dummy*/
-			hints.ai_flags = AI_NUMERICHOST;
-			sprintf(sbuf, "%u", NAMESERVER_PORT);
-			if (getaddrinfo(cp, sbuf, &hints, &ai) == 0 &&
-			    (size_t)ai->ai_addrlen <= minsiz) {
-				if (statp->_u._ext.ext != NULL) {
-					memcpy(&statp->_u._ext.ext->nsaddrs[nserv],
-					       ai->ai_addr, ai->ai_addrlen);
-				}
-				if ((size_t)ai->ai_addrlen <=
-				    sizeof(statp->nsaddr_list[nserv])) {
-					memcpy(&statp->nsaddr_list[nserv],
-					       ai->ai_addr, ai->ai_addrlen);
-				} else {
-					statp->nsaddr_list[nserv].sin_family = 0;
-				}
-				freeaddrinfo(ai);
-				nserv++;
-			}
-		}
-	}
-#else
-	for(n = 1; n <= MAX_DNS_PROPERTIES && nserv < MAXNS; n++) {
-		char propname[PROP_NAME_MAX];
-		char propvalue[PROP_VALUE_MAX];
-
-		struct addrinfo hints, *ai;
-		char sbuf[NI_MAXSERV];
-		const size_t minsiz = sizeof(statp->_u._ext.ext->nsaddrs[0]);
-
-		/*
-		 * Check first for process-specific properties, and if those don't
-		 * exist, try the generic properties.
-		 */
-		found_prop = 0;
-		if (n == 1 || use_proc_props) {
-			snprintf(propname, sizeof(propname), "%s%d.%s", DNS_PROP_NAME_PREFIX, n, __progname);
-			if(__system_property_get(propname, propvalue) < 1) {
-				if (use_proc_props) {
-					break;
-				}
-			} else {
-				found_prop = 1;
-				use_proc_props = 1;
-			}
-		}
-		if (!found_prop) {
-			snprintf(propname, sizeof(propname), "%s%d", DNS_PROP_NAME_PREFIX, n);
-			if(__system_property_get(propname, propvalue) < 1) {
-				break;
-			}
-		}
-
-		cp = propvalue;
-
-		while (*cp == ' ' || *cp == '\t')
-			cp++;
-		cp[strcspn(cp, ";# \t\n")] = '\0';
-		if ((*cp != '\0') && (*cp != '\n')) {
-			memset(&hints, 0, sizeof(hints));
-			hints.ai_family = PF_UNSPEC;
-			hints.ai_socktype = SOCK_DGRAM;	/*dummy*/
-			hints.ai_flags = AI_NUMERICHOST;
-			sprintf(sbuf, "%u", NAMESERVER_PORT);
-			if (getaddrinfo(cp, sbuf, &hints, &ai) == 0 &&
-			    (size_t)ai->ai_addrlen <= minsiz) {
-				if (statp->_u._ext.ext != NULL) {
-					memcpy(&statp->_u._ext.ext->nsaddrs[nserv],
-					       ai->ai_addr, ai->ai_addrlen);
-				}
-				if ((size_t)ai->ai_addrlen <=
-				    sizeof(statp->nsaddr_list[nserv])) {
-					memcpy(&statp->nsaddr_list[nserv],
-					       ai->ai_addr, ai->ai_addrlen);
-				} else {
-					statp->nsaddr_list[nserv].sin_family = 0;
-				}
-				freeaddrinfo(ai);
-				nserv++;
-			}
-		}
-	}
-#endif
-	/* Add the domain search list */
-	havesearch = load_domain_search_list(statp);
-#else /* !ANDROID_CHANGES - IGNORE resolv.conf in Android */
+#ifndef ANDROID_CHANGES /* !ANDROID_CHANGES - IGNORE resolv.conf in Android */
 #define	MATCH(line, name) \
 	(!strncmp(line, name, sizeof(name) - 1) && \
 	(line[sizeof(name) - 1] == ' ' || \
@@ -1006,32 +793,24 @@ res_getservers(res_state statp, union res_sockaddr_union *set, int cnt) {
 }
 
 #ifdef ANDROID_CHANGES
-static int _get_dns_change_count()
+void res_setiface(res_state statp, const char* iface)
 {
-	if (dns_change_prop == NULL) {
-		dns_change_prop = __system_property_find(DNS_CHANGE_PROP_NAME);
-	}
-	if (dns_change_prop != NULL) {
-		char propvalue[PROP_VALUE_MAX];
-		if (__system_property_read(dns_change_prop, NULL, propvalue) >= 1) {
-			return atoi(propvalue);
+	if (statp != NULL) {
+		// set interface
+		if (iface && iface[0] != '\0') {
+			int len = sizeof(statp->iface);
+			strncpy(statp->iface, iface, len - 1);
+			statp->iface[len - 1] = '\0';
+		} else {
+			statp->iface[0] = '\0';
 		}
 	}
-	return -1;
 }
 
-int res_get_dns_changed()
+void res_setmark(res_state statp, int mark)
 {
-	int change_count;
-
-	change_count = _get_dns_change_count();
-	if (change_count != dns_last_change_counter) {
-		if (change_count != -1) {
-			dns_last_change_counter = change_count;
-		}
-		return 1;
-	} else {
-		return 0;
+	if (statp != NULL) {
+		statp->_mark = mark;
 	}
 }
 #endif /* ANDROID_CHANGES */

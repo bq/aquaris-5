@@ -40,6 +40,9 @@ class SpeechEnhancementController
         void SetMagicConferenceCallOn(const bool magic_conference_call_on);
 
 
+        bool GetBtHeadsetNrecOn() const { return mBtHeadsetNrecOn; }
+        void SetBtHeadsetNrecOnToAllModem(const bool bt_headset_nrec_on);
+
     private:
         SpeechEnhancementController();
         static SpeechEnhancementController *mSpeechEnhancementController; // singleton
@@ -47,6 +50,8 @@ class SpeechEnhancementController
         sph_enh_mask_struct_t mSpeechEnhancementMask;
 
         bool mMagicConferenceCallOn;
+
+        bool mBtHeadsetNrecOn;
 };
 
 

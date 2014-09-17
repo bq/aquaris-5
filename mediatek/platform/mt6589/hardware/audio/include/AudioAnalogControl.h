@@ -164,7 +164,8 @@ class AudioAnalogControl : public AudioAnalogControlInterface
         * a function to GetPinmuxinverse
         * @return bool
         */
-        virtual bool GetAnalogPinmuxInverse(void);\
+        virtual bool GetAnalogPinmuxInverse(void);
+        \
 
         /**
         * a function to setmode to tell analogcontrol
@@ -180,6 +181,10 @@ class AudioAnalogControl : public AudioAnalogControlInterface
         virtual status_t FadeOutDownlink(uint16_t sample_rate);
         virtual status_t FadeInDownlink(uint16_t sample_rate);
 
+        virtual status_t SetDcCalibration(AudioAnalogType::DEVICE_TYPE DeviceType, int dc_cali_value);
+        virtual bool GetAnalogSpkOCState(void);
+        virtual status_t AnalogOpenForAddSPK(AudioAnalogType::DEVICE_TYPE DeviceType, AudioAnalogType::DEVICE_TYPE_SETTING Type_setting);
+        virtual status_t AnalogCloseForSubSPK(AudioAnalogType::DEVICE_TYPE DeviceType, AudioAnalogType::DEVICE_TYPE_SETTING Type_setting);
     private:
 
         /**

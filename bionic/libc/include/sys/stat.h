@@ -112,6 +112,13 @@ struct stat {
 #define  st_mtimensec  st_mtime_nsec
 #define  st_ctimensec  st_ctime_nsec
 
+#ifdef __USE_BSD
+/* Permission macros provided by glibc for compatibility with BSDs. */
+#define ACCESSPERMS (S_IRWXU | S_IRWXG | S_IRWXO) /* 0777 */
+#define ALLPERMS    (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO) /* 07777 */
+#define DEFFILEMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) /* 0666 */
+#endif
+
 extern int    chmod(const char *, mode_t);
 extern int    fchmod(int, mode_t);
 extern int    mkdir(const char *, mode_t);
@@ -121,6 +128,28 @@ extern int    fstat(int, struct stat *);
 extern int    lstat(const char *, struct stat *);
 extern int    mknod(const char *, mode_t, dev_t);
 extern mode_t umask(mode_t);
+
+#if defined(__BIONIC_FORTIFY)
+
+extern mode_t __umask_chk(mode_t);
+extern mode_t __umask_real(mode_t)
+    __asm__(__USER_LABEL_PREFIX__ "umask");
+__errordecl(__umask_invalid_mode, "umask called with invalid mode");
+
+__BIONIC_FORTIFY_INLINE
+mode_t umask(mode_t mode) {
+#if !defined(__clang__)
+  if (__builtin_constant_p(mode)) {
+    if ((mode & 0777) != mode) {
+      __umask_invalid_mode();
+    }
+    return __umask_real(mode);
+  }
+#endif
+  return __umask_chk(mode);
+}
+#endif /* defined(__BIONIC_FORTIFY) */
+
 
 #define  stat64    stat
 #define  fstat64   fstat
@@ -139,7 +168,8 @@ extern int renameat(int olddirfd, const char *oldpath, int newdirfd, const char 
 
 # define UTIME_NOW      ((1l << 30) - 1l)
 # define UTIME_OMIT     ((1l << 30) - 2l)
-extern int utimensat (int fd, const char *path, const struct timespec times[2], int flags);
+extern int utimensat(int fd, const char *path, const struct timespec times[2], int flags);
+extern int futimens(int fd, const struct timespec times[2]);
 
 __END_DECLS
 

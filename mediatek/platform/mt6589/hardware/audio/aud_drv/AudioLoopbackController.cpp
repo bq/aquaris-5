@@ -1,28 +1,30 @@
 #include "AudioLoopbackController.h"
 
+#include "WCNChipController.h"
+
 #define LOG_TAG "AudioLoopbackController"
 #ifndef ANDROID_DEFAULT_CODE
-    #include <cutils/xlog.h>
-    #ifdef ALOGE
-    #undef ALOGE
-    #endif
-    #ifdef ALOGW
-    #undef ALOGW
-    #endif ALOGI
-    #undef ALOGI
-    #ifdef ALOGD
-    #undef ALOGD
-    #endif
-    #ifdef ALOGV
-    #undef ALOGV
-    #endif
-    #define ALOGE XLOGE
-    #define ALOGW XLOGW
-    #define ALOGI XLOGI
-    #define ALOGD XLOGD
-    #define ALOGV XLOGV
+#include <cutils/xlog.h>
+#ifdef ALOGE
+#undef ALOGE
+#endif
+#ifdef ALOGW
+#undef ALOGW
+#endif ALOGI
+#undef ALOGI
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#ifdef ALOGV
+#undef ALOGV
+#endif
+#define ALOGE XLOGE
+#define ALOGW XLOGW
+#define ALOGI XLOGI
+#define ALOGD XLOGD
+#define ALOGV XLOGV
 #else
-    #include <utils/Log.h>
+#include <utils/Log.h>
 #endif
 
 // for use max gain for audio loopback
@@ -36,7 +38,8 @@ static const float kMaxMasterVolume = 1.0;
 // too big gain might cause "Bee~" tone due to the output sound is collected by input
 static const int kPreAmpGainMapValue[] = {30, 24, 18, 12, 6, 0}; // Map to AUDPREAMPGAIN: (000) 2dB, (001) 8dB, (010) 14dB, ..., (101) 32dB
 
-enum preamp_gain_index_t {
+enum preamp_gain_index_t
+{
     PREAMP_GAIN_2_DB  = 0,
     PREAMP_GAIN_8_DB  = 1,
     PREAMP_GAIN_14_DB = 2,
@@ -50,7 +53,8 @@ enum preamp_gain_index_t {
 AudioLoopbackController *AudioLoopbackController::mAudioLoopbackController = NULL;
 AudioLoopbackController *AudioLoopbackController::GetInstance()
 {
-    if (mAudioLoopbackController == NULL) {
+    if (mAudioLoopbackController == NULL)
+    {
         mAudioLoopbackController = new AudioLoopbackController();
     }
     ASSERT(mAudioLoopbackController != NULL);
@@ -86,13 +90,31 @@ status_t AudioLoopbackController::OpenAudioLoopbackControlFlow(const audio_devic
 
     // check BT device
     const bool bt_device_on = android_audio_legacy::AudioSystem::isBluetoothScoDevice((android_audio_legacy::AudioSystem::audio_devices)output_device);
+    int  sample_rate;
 
     // set sample rate
+
+    if (bt_device_on == true)
+    {
+        if (WCNChipController::GetInstance()->BTChipSamplingRate() == 0)
+        {
+            sample_rate = 8000;
+
+        }
+        else
+        {
+            sample_rate = 16000;
+        }
+    }
+    else
+    {
 #if defined(MTK_DIGITAL_MIC_SUPPORT)
-    const int  sample_rate  = (bt_device_on == true) ? 8000 : 32000;
+        sample_rate  = 32000;
 #else
-    const int  sample_rate  = (bt_device_on == true) ? 8000 : 48000;
+        sample_rate  = 48000;
 #endif
+    }
+
 
     // enable clock
     mAudioResourceManager->EnableAudioClock(AudioResourceManagerInterface::CLOCK_AUD_AFE, true);
@@ -107,14 +129,16 @@ status_t AudioLoopbackController::OpenAudioLoopbackControlFlow(const audio_devic
     mAudioResourceManager->setUlInputDevice(input_device);
 
     // Open ADC/DAC I2S, or DAIBT
-    if (bt_device_on == true) { // DAIBT
+    if (bt_device_on == true)   // DAIBT
+    {
         mAudioDigitalInstance->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I02, AudioDigitalType::O02); // DAIBT_IN -> DAIBT_OUT
 
         SetDAIBTAttribute(sample_rate);
 
         mAudioDigitalInstance->SetDAIBTEnable(true);
     }
-    else { // ADC/DAC I2S
+    else   // ADC/DAC I2S
+    {
         mAudioDigitalInstance->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I03, AudioDigitalType::O03); // ADC_I2S_IN_L -> DAC_I2S_OUT_L
         mAudioDigitalInstance->SetinputConnection(AudioDigitalType::Connection, AudioDigitalType::I03, AudioDigitalType::O04); // ADC_I2S_IN_L -> DAC_I2S_OUT_R
 
@@ -144,11 +168,13 @@ status_t AudioLoopbackController::OpenAudioLoopbackControlFlow(const audio_devic
     // adjust uplink volume for current mode and routes
     mMicAmpLchGainCopy = mAudioAnalogInstance->GetAnalogGain(AudioAnalogType::VOLUME_MICAMPL);
     mMicAmpRchGainCopy = mAudioAnalogInstance->GetAnalogGain(AudioAnalogType::VOLUME_MICAMPR);
-    if (output_device == AUDIO_DEVICE_OUT_SPEAKER) {
+    if (output_device == AUDIO_DEVICE_OUT_SPEAKER)
+    {
         mAudioAnalogInstance->SetAnalogGain(AudioAnalogType::VOLUME_MICAMPL, kPreAmpGainMapValue[PREAMP_GAIN_2_DB]);
         mAudioAnalogInstance->SetAnalogGain(AudioAnalogType::VOLUME_MICAMPR, kPreAmpGainMapValue[PREAMP_GAIN_2_DB]);
     }
-    else {
+    else
+    {
         mAudioAnalogInstance->SetAnalogGain(AudioAnalogType::VOLUME_MICAMPL, kPreAmpGainMapValue[PREAMP_GAIN_20_DB]);
         mAudioAnalogInstance->SetAnalogGain(AudioAnalogType::VOLUME_MICAMPR, kPreAmpGainMapValue[PREAMP_GAIN_20_DB]);
     }
@@ -169,12 +195,14 @@ status_t AudioLoopbackController::CloseAudioLoopbackControlFlow()
     // Stop AP side digital part
     const audio_devices_t output_device = (audio_devices_t)mAudioResourceManager->getDlOutputDevice();
     const bool bt_device_on = android_audio_legacy::AudioSystem::isBluetoothScoDevice((android_audio_legacy::AudioSystem::audio_devices)output_device);
-    if (bt_device_on) {
+    if (bt_device_on)
+    {
         mAudioDigitalInstance->SetDAIBTEnable(false);
 
         mAudioDigitalInstance->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I02, AudioDigitalType::O02); // DAIBT_IN -> DAIBT_OUT
     }
-    else {
+    else
+    {
         mAudioDigitalInstance->SetI2SDacEnable(false);
         mAudioDigitalInstance->SetI2SAdcEnable(false);
 
@@ -246,16 +274,19 @@ status_t AudioLoopbackController::SetDAIBTAttribute(int sample_rate)
     AudioDigitalDAIBT daibt_attribute;
     memset((void *)&daibt_attribute, 0, sizeof(daibt_attribute));
 
-#if defined(MTK_MERGE_INTERFACE_SUPPORT)
-    daibt_attribute.mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_MGRIF;
-#else
-    daibt_attribute.mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_BT;
-#endif
+    if (WCNChipController::GetInstance()->IsBTMergeInterfaceSupported() == true)
+    {
+        daibt_attribute.mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_MGRIF;
+    }
+    else
+    {
+        daibt_attribute.mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_BT;
+    }
     daibt_attribute.mDAI_BT_MODE = (sample_rate == 8000) ? AudioDigitalDAIBT::Mode8K : AudioDigitalDAIBT::Mode16K;
     daibt_attribute.mDAI_DEL = AudioDigitalDAIBT::HighWord; // suggest always HighWord
-    daibt_attribute.mBT_LEN  = 0;
+    daibt_attribute.mBT_LEN  = WCNChipController::GetInstance()->BTChipSyncLength();
     daibt_attribute.mDATA_RDY = true;
-    daibt_attribute.mBT_SYNC = AudioDigitalDAIBT::Short_Sync;
+    daibt_attribute.mBT_SYNC = WCNChipController::GetInstance()->BTChipSyncFormat();
     daibt_attribute.mBT_ON = true;
     daibt_attribute.mDAIBT_ON = false;
     mAudioDigitalInstance->SetDAIBBT(&daibt_attribute);

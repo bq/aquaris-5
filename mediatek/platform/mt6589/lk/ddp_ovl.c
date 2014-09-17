@@ -3,8 +3,7 @@
 #include <platform/ddp_ovl.h>
 #include <platform/ddp_matrix_para.h>
 #ifndef ASSERT
-//#define ASSERT(expr) do {printf("ASSERT error func=%s, line=%d\n", __FUNC__, __LINE__);} while (!(expr))
-#define ASSERT(expr) do {printf("ASSERT error %s,%d\n", __func__, __LINE__);} while (!(expr))
+#define ASSERT(expr) do { if(!(expr)) printf("ASSERT error func: %s, line: %d\n", __func__, __LINE__);} while (0)
 #endif
 
 enum OVL_COLOR_SPACE {
@@ -28,41 +27,16 @@ int OVLStop() {
 }
 
 int OVLReset() {
-   
-   DISP_REG_SET(DISP_REG_OVL_RST         , 0x1);              // soft reset
-   DISP_REG_SET(DISP_REG_OVL_RST         , 0x0);
-   
-   DISP_REG_SET(DISP_REG_OVL_ROI_SIZE    , 0x00);           // clear regs
-   DISP_REG_SET(DISP_REG_OVL_ROI_BGCLR   , 0xffffffff);
-   DISP_REG_SET(DISP_REG_OVL_SRC_CON     , 0x00);
-   
-   DISP_REG_SET(DISP_REG_OVL_L0_CON      , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L0_SRCKEY   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L0_SRC_SIZE , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L0_OFFSET   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L0_ADDR     , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L0_PITCH    , 0x00);
-   
-   DISP_REG_SET(DISP_REG_OVL_L1_CON      , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L1_SRCKEY   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L1_SRC_SIZE , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L1_OFFSET   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L1_ADDR     , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L1_PITCH    , 0x00);
-   
-   DISP_REG_SET(DISP_REG_OVL_L2_CON      , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L2_SRCKEY   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L2_SRC_SIZE , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L2_OFFSET   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L2_ADDR     , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L2_PITCH    , 0x00);
-   
-   DISP_REG_SET(DISP_REG_OVL_L3_CON      , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L3_SRCKEY   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L3_SRC_SIZE , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L3_OFFSET   , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L3_ADDR     , 0x00);
-   DISP_REG_SET(DISP_REG_OVL_L3_PITCH    , 0x00);
+	unsigned int delay_cnt = 0;
+	DISP_REG_SET(DISP_REG_OVL_RST, 0x1);              // soft reset
+	while((DISP_REG_GET(DISP_REG_OVL_INTSTA)&0x1)!=0) {
+		delay_cnt++;
+		if(delay_cnt > 10000) {
+			printf("[DDP] error, OVLReset() timeout! \n");
+			break;
+		}
+	}
+	DISP_REG_SET(DISP_REG_OVL_RST, 0x0);
 
     return 0;
 }
@@ -71,11 +45,7 @@ int OVLROI(unsigned int bgW,
            unsigned int bgH,
            unsigned int bgColor) 
 {
-    if((bgW > OVL_MAX_WIDTH) || (bgH > OVL_MAX_HEIGHT))
-    {
-        printf("error: OVLROI(), exceed OVL max size, w=%d, h=%d \n", bgW, bgH);		
-        ASSERT(0);
-    }
+    ASSERT( (bgW <= OVL_MAX_WIDTH) && (bgH <= OVL_MAX_HEIGHT) );
 
     DISP_REG_SET(DISP_REG_OVL_ROI_SIZE, bgH<<16 | bgW);
 
@@ -85,9 +55,9 @@ int OVLROI(unsigned int bgW,
 }
 
 int OVLLayerSwitch(unsigned layer, BOOL en) {
-    
-    ASSERT(layer<=3);
-    
+
+	ASSERT(layer<=3);
+
     switch(layer) {
         case 0:
             DISP_REG_SET_FIELD(SRC_CON_FLD_L0_EN, DISP_REG_OVL_SRC_CON, en);

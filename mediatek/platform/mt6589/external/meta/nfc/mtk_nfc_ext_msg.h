@@ -52,7 +52,9 @@
 #ifndef _MTK_NFC_EXT_MSG_H_
 #define _MTK_NFC_EXT_MSG_H_
 
-//#include "kal_public_defs.h"
+
+#include "./../../../external/mtknfc/inc/mtk_nfc_sys_type_ext.h"
+
  
 #define MTK_NFC_SUCCESS    (0)
 #define MTK_NFC_FAIL       (1)
@@ -195,6 +197,7 @@ typedef enum
 /* The Interlayer Message structure, which is exchaged between modules. */
 
 /* Tag TYPE */
+#if 0
 typedef enum nfc_tag_type{
     nfc_tag_DEFAULT    = 0,
     nfc_tag_MIFARE_UL  = 1,
@@ -207,7 +210,7 @@ typedef enum nfc_tag_type{
     nfc_tag_ISO15693   = 8,
     nfc_NDEF           = 9
 }nfc_tag_type;
-
+#endif
 typedef enum nfc_ndef_type{
     nfc_ndef_DEFAULT   = 0,
     nfc_ndef_URI       = 1,
@@ -219,14 +222,14 @@ typedef enum nfc_ndef_type{
     nfc_ndef_ForumExternal = 7,    
     nfc_ndef_OTHERS    = 8
 }nfc_ndef_type;
-
+#if 0
 typedef enum nfc_ndef_lang_type{
     nfc_ndef_lang_DEFAULT = 0,
     nfc_ndef_lang_DE = 1,
     nfc_ndef_lang_EN = 2,
     nfc_ndef_lang_FR = 3
 }nfc_ndef_lang_type;
-
+#endif
 typedef enum ndef_url_type
 {
     ndef_url_DEFAULT = 0,
@@ -313,6 +316,9 @@ typedef struct nfc_tag_det_response{
   unsigned int    maxdatarate;    /* card maxdatarate */
 } nfc_tag_det_response;
 
+
+typedef e_mtk_nfc_tag_type nfc_tag_type;
+
 /*NFC Tag Read Request*/
 //nfc_tag_read_request
 typedef struct nfc_tag_read_request{
@@ -397,6 +403,7 @@ typedef struct nfc_tag_write_typeISO15693{
   unsigned char   data[MIFARE4K_LEN];
 } nfc_tag_write_typeISO15693;
 
+#if 0
 typedef struct Vcard
 {
     char Name[64];
@@ -438,7 +445,6 @@ typedef struct EXTTag
     unsigned short EXTLength;
 }EXTTag_t;
 
-
 typedef union nfc_tag_write_ndef_data
 {
     SmartPoster_t  SP_Data;
@@ -447,6 +453,10 @@ typedef union nfc_tag_write_ndef_data
     URL_t          URL_Data;
     EXTTag_t       EXT_Data;    
 }nfc_tag_write_ndef_data;
+#endif
+typedef e_mtk_nfc_ndef_lang_type nfc_ndef_lang_type;
+typedef s_mtk_nfc_tag_write_ndef_data  nfc_tag_write_ndef_data;
+
 
 typedef struct nfc_tag_write_ndef{
   nfc_ndef_type      ndef_type;

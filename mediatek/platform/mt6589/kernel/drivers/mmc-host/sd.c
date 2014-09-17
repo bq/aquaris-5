@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- *
- * MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 #include <linux/autoconf.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -105,6 +70,10 @@
 #ifdef MTK_EMMC_SUPPORT
 #define MTK_EMMC_ETT_TO_DRIVER  /* for eMMC off-line apply to driver */
 #endif
+
+unsigned long long msdc_print_start_time;
+unsigned long long msdc_print_end_time;
+unsigned int print_nums;
 
 #define UNSTUFF_BITS(resp,start,size)					\
 	({								\
@@ -808,7 +777,7 @@ EXPORT_SYMBOL(msdc_get_dma_status);
 struct dma_addr* msdc_get_dma_address(int host_id)
 {
    bd_t* bd; 
-   int i;
+   int i = 0;
    int mode = -1;
    struct msdc_host *host;
    u32 base;
@@ -1352,13 +1321,8 @@ static void msdc_emmc_power(struct msdc_host *host,u32 on)
 	switch(host->id){
 		case 0:
 			msdc_set_smt(host,1);
-			if (host->mmc->card && !on && (host->mmc->card->raw_cid[0] == 0x90014a20) && (host->mmc->card->raw_cid[1] == 0x58494e59) && ( (host->mmc->card->raw_cid[2]&0xffff0000) == 0x48150000) ) {
-				//if Hynix H9TP32A8JDMCPR-KGM FW=0x15, sleep&awake flow: CMD7 -> NO power off -> CMD7
-				//else: CMD7 -> CMD5 -> power off -> power on -> CMD5 -> CMD7
-			} else {
-				//msdc_ldo_power(on, MT65XX_POWER_LDO_VEMC_1V8, VOL_1800, &g_msdc0_io); default on
-				msdc_ldo_power(on, MT65XX_POWER_LDO_VEMC_3V3, VOL_3300, &g_msdc0_flash);
-			}
+			//msdc_ldo_power(on, MT65XX_POWER_LDO_VEMC_1V8, VOL_1800, &g_msdc0_io); default on
+			msdc_ldo_power(on, MT65XX_POWER_LDO_VEMC_3V3, VOL_3300, &g_msdc0_flash);
 			break;
 		case 4:
 			msdc_set_smt(host,1);
@@ -1966,7 +1930,7 @@ static u32 msdc_power_tuning(struct msdc_host *host)
 }
 
 
-void msdc_send_stop(struct msdc_host *host)
+static void msdc_send_stop(struct msdc_host *host)
 {
     struct mmc_command stop = {0};    
     struct mmc_request mrq = {0};
@@ -2354,7 +2318,7 @@ static void msdc_pin_config(struct msdc_host *host, int mode)
         mode, MSDC_PIN_PULL_DOWN, MSDC_PIN_PULL_UP);
 }
 
-void msdc_pin_reset(struct msdc_host *host, int mode)
+static void msdc_pin_reset(struct msdc_host *host, int mode)
 {
     struct msdc_hw *hw = (struct msdc_hw *)host->hw;
     u32 base = host->base;
@@ -2803,7 +2767,6 @@ static void msdc_pm(pm_message_t state, void *data)
 			msdc_pin_reset (host, MSDC_PIN_PULL_UP);
 			msdc_pin_config(host, MSDC_PIN_PULL_UP);
 			host->power_control(host,1);
-			mdelay(10);
 			msdc_restore_emmc_setting(host);
 		}
             (void)mmc_resume_host(host->mmc);
@@ -3001,6 +2964,7 @@ u64 msdc_get_capacity(int get_emmc_total)
 EXPORT_SYMBOL(msdc_get_capacity);
 u32 erase_start = 0;
 u32 erase_end = 0;
+u32 erase_bypass = 0;
 extern 	int mmc_erase_group_aligned(struct mmc_card *card, unsigned int from,unsigned int nr);
 /*--------------------------------------------------------------------------*/
 /* mmc_host_ops members                                                      */
@@ -3154,23 +3118,29 @@ static unsigned int msdc_command_start(struct msdc_host   *host,
 			if(cmd->opcode == MMC_ERASE_GROUP_END)
 				erase_end = rawarg;
         }	
-		if(cmd->opcode == MMC_ERASE
-			&& (cmd->arg == MMC_SECURE_ERASE_ARG || cmd->arg == MMC_ERASE_ARG)
-			&& host->mmc->card 
-			&& host->hw->host_function == MSDC_EMMC 
-			&& host->hw->boot == MSDC_BOOT_EN
-			&& (!mmc_erase_group_aligned(host->mmc->card,erase_start,erase_end))){
-				if(cmd->arg == MMC_SECURE_ERASE_ARG && mmc_can_secure_erase_trim(host->mmc->card))
-			  		rawarg = MMC_SECURE_TRIM1_ARG;
-				else if(cmd->arg == MMC_ERASE_ARG 
-				   ||(cmd->arg == MMC_SECURE_ERASE_ARG && !mmc_can_secure_erase_trim(host->mmc->card)))
-					rawarg = MMC_TRIM_ARG;
-			}
+		if(cmd->opcode == MMC_ERASE                                          && 
+         (cmd->arg == MMC_SECURE_ERASE_ARG || cmd->arg == MMC_ERASE_ARG) && 
+           host->mmc->card                                               && 
+           host->hw->host_function == MSDC_EMMC                          &&
+           host->hw->boot == MSDC_BOOT_EN                                && 
+           (!mmc_erase_group_aligned(host->mmc->card, erase_start, erase_end - erase_start + 1))){
+        if(mmc_can_trim(host->mmc->card)){
+            if(cmd->arg == MMC_SECURE_ERASE_ARG && mmc_can_secure_erase_trim(host->mmc->card))
+                rawarg = MMC_SECURE_TRIM1_ARG;
+            else if(cmd->arg == MMC_ERASE_ARG ||(cmd->arg == MMC_SECURE_ERASE_ARG && !mmc_can_secure_erase_trim(host->mmc->card)))
+                rawarg = MMC_TRIM_ARG;
+        }else {
+            erase_bypass = 1; 
+            ERR_MSG("cancel format,cmd<%d> arg=0x%x, start=0x%x, end=0x%x, size=%d, erase_bypass=%d", 
+                    cmd->opcode, rawarg, erase_start, erase_end, (erase_end - erase_start + 1), erase_bypass); 
+            goto end; 
+        }
+    }
 #endif
 	
     sdc_send_cmd(rawcmd, rawarg);        
       
-//end:    	
+end:    	
     return 0;  // irq too fast, then cmd->error has value, and don't call msdc_command_resp, don't tune. 
 }
 
@@ -3184,9 +3154,14 @@ static unsigned int msdc_command_resp_polling(struct msdc_host   *host,
     u32 resp;
     //u32 status;
     unsigned long tmo;
-    //struct mmc_data   *data = host->data;
-    
+    //struct mmc_data   *data = host->data;    
     u32 cmdsts = MSDC_INT_CMDRDY  | MSDC_INT_RSPCRCERR  | MSDC_INT_CMDTMO;     
+    
+    if(erase_bypass && (cmd->opcode == MMC_ERASE)){
+        erase_bypass = 0; 
+        ERR_MSG("bypass cmd<%d>, erase_bypass=%d", cmd->opcode, erase_bypass); 
+        goto out; 
+    }
     
     resp = host->cmd_rsp;
 
@@ -3512,16 +3487,24 @@ static void msdc_dma_stop(struct msdc_host *host)
     u32 base = host->base;
 	int retry = 30;
 	int count = 1000;
+    int sdio_retry = 1, i;
     //u32 retries=500;
     u32 wints = MSDC_INTEN_XFER_COMPL | MSDC_INTEN_DATTMO | MSDC_INTEN_DATCRCERR ; 
     if(host->autocmd == MSDC_AUTOCMD12)
 		wints |= MSDC_INT_ACMDCRCERR | MSDC_INT_ACMDTMO | MSDC_INT_ACMDRDY; 
     N_MSG(DMA, "DMA status: 0x%.8x",sdr_read32(MSDC_DMA_CFG));
     //while (sdr_read32(MSDC_DMA_CFG) & MSDC_DMA_CFG_STS);
-
-    sdr_set_field(MSDC_DMA_CTRL, MSDC_DMA_CTRL_STOP, 1);
-    //while (sdr_read32(MSDC_DMA_CFG) & MSDC_DMA_CFG_STS);
-    msdc_retry((sdr_read32(MSDC_DMA_CFG) & MSDC_DMA_CFG_STS),retry,count,host->id);
+    
+    if(host->hw->host_function == MSDC_SDIO)
+        sdio_retry = 10;
+    for(i=0; i<sdio_retry; i++){
+        sdr_set_field(MSDC_DMA_CTRL, MSDC_DMA_CTRL_STOP, 1);
+        //while (sdr_read32(MSDC_DMA_CFG) & MSDC_DMA_CFG_STS);
+        msdc_retry((sdr_read32(MSDC_DMA_CFG) & MSDC_DMA_CFG_STS),retry,count,host->id);
+        if(retry > 0)
+            break;
+        printk(KERN_ERR "dma_stop error[%d]", i);
+    }
 	if(retry == 0){
 		ERR_MSG("!!ASSERT!!");
 		BUG();
@@ -3799,7 +3782,7 @@ static int msdc_do_request(struct mmc_host*mmc, struct mmc_request*mrq)
     
     cmd  = mrq->cmd;
     data = mrq->cmd->data;
-	
+
     /* check msdc is work ok. rule is RX/TX fifocnt must be zero after last request 
      * if find abnormal, try to reset msdc first
      */
@@ -4424,7 +4407,7 @@ done:
 	spin_unlock(&host->lock);
     return host->error;
 }
-
+#if 0
 #ifdef MTK_EMMC_SUPPORT
 //need debug the interface for kernel panic
 static unsigned int msdc_command_start_simple(struct msdc_host   *host, 
@@ -4814,7 +4797,7 @@ done:
     return host->error;
 }
 #endif
-
+#endif
 static int msdc_app_cmd(struct mmc_host *mmc, struct msdc_host *host)
 {
     struct mmc_command cmd = {0};    
@@ -5395,6 +5378,8 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc, struct mmc_request *mr
     struct msdc_host *host = mmc_priv(mmc);
     struct mmc_command *cmd;    
     struct mmc_data *data;
+    struct mmc_command err_cmd;
+    struct mmc_data err_data;
     struct mmc_command *stop = NULL;
 	int data_abort = 0;
 	int got_polarity = 0;
@@ -5429,16 +5414,16 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc, struct mmc_request *mr
     if (mrq->cmd->opcode == 53 && host->sdio_error == -EIO){    // sdio error bypass
         if((sdio_error_count++)%SDIO_ERROR_OUT_INTERVAL == 0){  
             if(host->sdio_error_rec.cmd.opcode == 53){
-                spin_lock(&host->lock);
-                struct mmc_command err_cmd = host->sdio_error_rec.cmd;
-                struct mmc_data err_data = host->sdio_error_rec.data;
+                 spin_lock(&host->lock);
+                err_cmd = host->sdio_error_rec.cmd;
+                err_data = host->sdio_error_rec.data;
                 ERR_MSG("[BYPS]XXX CMD<%d><0x%x> Error<%d> Resp<0x%x>", err_cmd.opcode, err_cmd.arg, err_cmd.error, err_cmd.resp[0]); 
                 if(err_data.error)
                     ERR_MSG("[BYPS]XXX DAT block<%d> Error<%d>", err_data.blocks, err_data.error);
                 spin_unlock(&host->lock);        
             }
        }
-       goto sdio_error_out;    
+       goto sdio_error_out;  
     }
 #endif
         
@@ -5522,6 +5507,10 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc, struct mmc_request *mr
 			else
 				goto out;
         } 
+
+        if ( cmd->error == (unsigned int)-ENOMEDIUM ) {
+            goto out;
+        }
 
         // [ALPS114710] Patch for data timeout issue.
         if (data && (data->error == (unsigned int)-ETIMEDOUT)) {  
@@ -5766,6 +5755,10 @@ static void msdc_tune_async_request(struct mmc_host *mmc, struct mmc_request *mr
 			else
 				goto out;
         } 
+
+        if ( cmd->error == (unsigned int)-ENOMEDIUM ) {
+            goto out;
+        }
 
         // [ALPS114710] Patch for data timeout issue.
         if (data && (data->error == (unsigned int)-ETIMEDOUT)) {  
@@ -6176,7 +6169,7 @@ static void msdc_ops_enable_sdio_irq(struct mmc_host *mmc, int enable)
         sdr_write32(SDC_CFG, tmp);      
     }
 }
-int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
+static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 {
     struct msdc_host *host = mmc_priv(mmc);
     u32 base = host->base;
@@ -6950,47 +6943,6 @@ done:
 
 
 
-#if defined(MTK_EMMC_SUPPORT)
-#include <linux/syscalls.h>
-
-void emmc_create_sys_symlink (struct mmc_card *card)
-{
-	int i = 0;
-	struct disk_part_iter piter;
-	struct hd_struct *part;
-	struct msdc_host *host;
-	struct gendisk *disk;
-	char link_target[256];
-	char link_name[256];
-
-    /* emmc always in slot0 */
-	host = msdc_get_host(MSDC_EMMC,MSDC_BOOT_EN,0);
-	BUG_ON(!host);
-
-	if (host != (struct msdc_host *)card->host->private) {
-            printk(KERN_INFO DRV_NAME "%s: NOT emmc card,  \n", __func__);
-		return;
-	}
-	
-	disk = mmc_get_disk(card);
-	
-	disk_part_iter_init(&piter, disk, 0);
-	while ((part = disk_part_iter_next(&piter))){
-	  for (i = 0; i < PART_NUM; i++) {
-		if (PartInfo[i].partition_idx != 0 && PartInfo[i].partition_idx == part->partno) {
-			sprintf(link_target, "/dev/block/%sp%d", disk->disk_name, part->partno);
-			sprintf(link_name, "/emmc@%s", PartInfo[i].name);
-			printk(KERN_INFO DRV_NAME "%s: target=%s, name=%s  \n", __func__, link_target, link_name);
-			sys_symlink(link_target, link_name);
-			break;
-	    }
-      }			
-	}
-	disk_part_iter_exit(&piter);
-
-}
-
-#endif /* MTK_EMMC_SUPPORT */
 
 /* This is called by run_timer_softirq */
 static void msdc_timer_pm(unsigned long data)
@@ -7142,7 +7094,7 @@ static void msdc_register_emi_mpu_callback(int id)
 
 #ifdef CONFIG_MTK_HIBERNATION
 extern unsigned int mt_eint_get_polarity(unsigned int eint_num);
-int msdc_drv_pm_restore_noirq(struct device *device)
+static int msdc_drv_pm_restore_noirq(struct device *device)
 {
     struct platform_device *pdev = to_platform_device(device);
 	struct mmc_host *mmc = NULL;
@@ -7508,7 +7460,7 @@ static int msdc_drv_suspend(struct platform_device *pdev, pm_message_t state)
             host->error = 0;
         }
     }
-      
+
     if (is_card_sdio(host)) 
     {
         if(host->clk_gate_count > 0){
@@ -7516,7 +7468,7 @@ static int msdc_drv_suspend(struct platform_device *pdev, pm_message_t state)
             return -EBUSY;
         }
         
-        if (host->saved_para.suspend_flag==0 )
+        if (host->saved_para.suspend_flag==0)
         {
             host->saved_para.hz = host->mclk;
             if (host->saved_para.hz)

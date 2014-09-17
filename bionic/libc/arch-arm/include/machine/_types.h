@@ -35,17 +35,6 @@
 #ifndef _ARM__TYPES_H_
 #define _ARM__TYPES_H_
 
-
-#if !defined(__ARM_EABI__)
-/* the kernel defines size_t as unsigned int, but g++ wants it to be unsigned long */
-#define _SIZE_T
-#define _SSIZE_T
-#define _PTRDIFF_T
-typedef unsigned long  size_t;
-typedef long           ssize_t;
-typedef long           ptrdiff_t;
-#endif
-
 /* 7.18.1.1 Exact-width integer types */
 typedef	__signed char		__int8_t;
 typedef	unsigned char		__uint8_t;
@@ -98,6 +87,8 @@ typedef unsigned long		__psize_t;
 /* Standard system types */
 typedef int			__clock_t;
 typedef int			__clockid_t;
+typedef double			__double_t;
+typedef float			__float_t;
 typedef long			__ptrdiff_t;
 typedef	int			__time_t;
 typedef int			__timer_t;
@@ -115,11 +106,5 @@ typedef int			__wint_t;
 typedef	int			__rune_t;
 typedef	void *			__wctrans_t;
 typedef	void *			__wctype_t;
-
-#ifdef __ARMEB__
-#define _BYTE_ORDER _BIG_ENDIAN
-#else
-#define _BYTE_ORDER _LITTLE_ENDIAN
-#endif
 
 #endif	/* _ARM__TYPES_H_ */

@@ -143,6 +143,9 @@ static struct LCM_setting_table lcm_initialization_setting[] =
 	{0x6F,1,{ 0x0A}},
 	{0xFA,1,{ 0x03}},
 	
+	{0x6F,1,{ 0x14}},
+	{0xF2,1,{ 0xff}},
+	
 	{0xF0,5,{ 0x55, 0xAA, 0x52, 0x08, 0x00}},
 	//{0xb2,3,{ 0x54, 0x01, 0x82}},
 	{0xC9,6,{ 0x61, 0x06, 0x0D, 0x1A, 0x17, 0x00}},
@@ -199,7 +202,7 @@ static struct LCM_setting_table lcm_initialization_setting[] =
 	{0xEA,16,{ 0x03, 0x20, 0x03, 0x4A, 0x03, 0x64, 0x03, 0x84, 0x03, 0x97, 0x03, 0xB0, 0x03, 0xC5, 0x03, 0xD4}},
 	{0xEB,4,{0x03, 0xEA, 0x03, 0xF8}},
 	
-			
+	//{0x36,1,{0xC8 }},		
 	{0x11,0,{ }},
 	{REGFLAG_DELAY, 150, {}},
 	{0x29,0,{ }},
@@ -365,17 +368,64 @@ static void lcm_get_params(LCM_PARAMS *params)
 
 static void lcm_init(void)
 {
-
-    SET_RESET_PIN(1);
+	char  buffer[10];
+	unsigned int array[16];  
+	
+       SET_RESET_PIN(1);
 	MDELAY(10);	
-    SET_RESET_PIN(0);
+       SET_RESET_PIN(0);
 	MDELAY(10);
 	
-    SET_RESET_PIN(1);
+       SET_RESET_PIN(1);
 	MDELAY(100);      
 
 	init_lcm_registers();
 
+	array[0] = 0x00063902;
+	array[1] = 0x52aa55f0;	
+	array[2] = 0x00000008;	
+	dsi_set_cmdq(&array, 3, 1);	
+
+	array[0] = 0x00073700;// return byte number
+	dsi_set_cmdq(&array, 1, 1);
+	MDELAY(10);
+	
+	read_reg_v2(0xc9, buffer, 7);
+	#ifdef BUILD_LK
+	printf("zhuoshineng c9 buffer[0]=0x%x\n",buffer[0]);
+	printf("zhuoshineng c9 buffer[1]=0x%x\n",buffer[1]);	
+	printf("zhuoshineng c9 buffer[2]=0x%x\n",buffer[2]);
+	printf("zhuoshineng c9 buffer[3]=0x%x\n",buffer[3]);
+	printf("zhuoshineng c9 buffer[4]=0x%x\n",buffer[4]);
+	printf("zhuoshineng c9 buffer[5]=0x%x\n",buffer[5]);	
+	printf("zhuoshineng c9 buffer[6]=0x%x\n",buffer[6]);
+	#else
+	printk("zhuoshineng c9 buffer[0]=0x%x\n",buffer[0]);
+	printk("zhuoshineng c9 buffer[1]=0x%x\n",buffer[1]);	
+	printk("zhuoshineng c9 buffer[2]=0x%x\n",buffer[2]);
+	printk("zhuoshineng c9 buffer[3]=0x%x\n",buffer[3]);
+	printk("zhuoshineng c9 buffer[4]=0x%x\n",buffer[4]);
+	printk("zhuoshineng c9 buffer[5]=0x%x\n",buffer[5]);	
+	printk("zhuoshineng c9 buffer[6]=0x%x\n",buffer[6]);
+	#endif
+
+	array[0] = 0x00043700;// return byte number
+	dsi_set_cmdq(&array, 1, 1);
+	MDELAY(10);
+	
+	read_reg_v2(0xb8, buffer, 4);	
+	#ifdef BUILD_LK
+	printf("zhuoshineng 0xb8 buffer[0]=0x%x\n",buffer[0]);
+	printf("zhuoshineng 0xb8 buffer[1]=0x%x\n",buffer[1]);	
+	printf("zhuoshineng 0xb8 buffer[2]=0x%x\n",buffer[2]);
+	printf("zhuoshineng 0xb8 buffer[3]=0x%x\n",buffer[3]);	
+	#else
+	printk("zhuoshineng 0xb8 buffer[0]=0x%x\n",buffer[0]);
+	printk("zhuoshineng 0xb8 buffer[1]=0x%x\n",buffer[1]);	
+	printk("zhuoshineng 0xb8 buffer[2]=0x%x\n",buffer[2]);
+	printk("zhuoshineng 0xb8 buffer[3]=0x%x\n",buffer[3]);
+	#endif
+	
 }
 
 

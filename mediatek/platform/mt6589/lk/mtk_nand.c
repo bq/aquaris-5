@@ -602,7 +602,7 @@ static bool nand_ready_for_read(struct nand_chip *nand, u32 u4RowAddr, u32 u4Col
     if (bFull)
         ECC_Decode_Start();
 
-    if (!nand_set_command(NAND_CMD_READ0))
+    if (!nand_set_command(NAND_CMD_READ_0))
     {
         goto cleanup;
     }
@@ -611,7 +611,7 @@ static bool nand_ready_for_read(struct nand_chip *nand, u32 u4RowAddr, u32 u4Col
         goto cleanup;
     }
 
-    if (!nand_set_command(NAND_CMD_READSTART))
+    if (!nand_set_command(NAND_CMD_READ_START))
     {
         goto cleanup;
     }
@@ -974,7 +974,7 @@ static bool nand_exec_write_page(struct nand_chip *nand, u32 u4RowAddr, u32 u4Pa
             bRet = false;
         }
         nand_stop_write();
-        nand_set_command(NAND_CMD_PAGEPROG);
+        nand_set_command(NAND_CMD_PAGE_PROG);
         while (DRV_Reg32(NFI_STA_REG32) & STA_NAND_BUSY) ;
     }
     return bRet;
@@ -1066,9 +1066,9 @@ static int nand_part_write(part_dev_t * dev, uchar * src, ulong dst, int size)
             MSG(OPS, "Erase the block of 0x%08x\n", u4BlkAddr);
             nand_reset();
             nand_set_mode(CNFG_OP_ERASE);
-            nand_set_command(NAND_CMD_ERASE1);
+            nand_set_command(NAND_CMD_ERASE_1);
             nand_set_address(0, u4RowAddr, 0, 3);
-            nand_set_command(NAND_CMD_ERASE2);
+            nand_set_command(NAND_CMD_ERASE_2);
             while (DRV_Reg32(NFI_STA_REG32) & STA_NAND_BUSY) ;
         }
 
@@ -1171,7 +1171,7 @@ static void nand_command_bp(struct nand_chip *nand_chip, unsigned command, int c
           g_kCMD.u4RowAddr = page_addr;
           g_kCMD.u4ColAddr = column;
           break;
-      case NAND_CMD_PAGEPROG:
+      case NAND_CMD_PAGE_PROG:
           if (g_kCMD.pDataBuf || (0xFF != g_kCMD.au1OOB[0]))
           {
               u8 *pDataBuf = g_kCMD.pDataBuf ? g_kCMD.pDataBuf : nand->buffers->databuf;
@@ -1181,27 +1181,27 @@ static void nand_command_bp(struct nand_chip *nand_chip, unsigned command, int c
           }
           break;
 
-      case NAND_CMD_READOOB:
+      case NAND_CMD_READ_OOB:
           g_kCMD.u4RowAddr = page_addr;
           g_kCMD.u4ColAddr = column + nand->writesize;
           g_i4ErrNum = 0;
           break;
 
-      case NAND_CMD_READ0:
+      case NAND_CMD_READ_0:
           g_kCMD.u4RowAddr = page_addr;
           g_kCMD.u4ColAddr = column;
           g_i4ErrNum = 0;
           break;
 
-      case NAND_CMD_ERASE1:
+      case NAND_CMD_ERASE_1:
           nand_reset();
           nand_set_mode(CNFG_OP_ERASE);
-          nand_set_command(NAND_CMD_ERASE1);
+          nand_set_command(NAND_CMD_ERASE_1);
           nand_set_address(0, page_addr, 0, devinfo.addr_cycle - 2);
           break;
 
-      case NAND_CMD_ERASE2:
-          nand_set_command(NAND_CMD_ERASE2);
+      case NAND_CMD_ERASE_2:
+          nand_set_command(NAND_CMD_ERASE_2);
           while (DRV_Reg32(NFI_STA_REG32) & STA_NAND_BUSY) ;
           break;
 
@@ -1217,7 +1217,7 @@ static void nand_command_bp(struct nand_chip *nand_chip, unsigned command, int c
       case NAND_CMD_RESET:
           nand_reset();
           break;
-      case NAND_CMD_READID:
+      case NAND_CMD_READ_ID:
           NFI_ISSUE_COMMAND(NAND_CMD_RESET, 0, 0, 0, 0);
           timeout = TIMEOUT_4;
           while (timeout)
@@ -1230,7 +1230,7 @@ static void nand_command_bp(struct nand_chip *nand_chip, unsigned command, int c
           NFI_CLN_REG16(NFI_PAGEFMT_REG16, PAGEFMT_DBYTE_EN);
           NFI_SET_REG16(NFI_CNFG_REG16, CNFG_READ_EN | CNFG_BYTE_RW);
           nand_set_mode(CNFG_OP_SRD);
-          nand_set_command(NAND_CMD_READID);
+          nand_set_command(NAND_CMD_READ_ID);
           nand_set_address(0, 0, 1, 0);
           DRV_WriteReg16(NFI_CON_REG16, CON_NFI_SRD);
           while (DRV_Reg32(NFI_STA_REG32) & STA_DATAR_STATE) ;
@@ -1329,7 +1329,7 @@ int nand_init_device(struct nand_chip *nand)
     nand_reset();
 
     nand->nand_ecc_mode = NAND_ECC_HW;
-    nand_command_bp(&g_nand_chip, NAND_CMD_READID, 0, 0);
+    nand_command_bp(&g_nand_chip, NAND_CMD_READ_ID, 0, 0);
     MSG(INFO, "NAND ID: ");
     for (index = 0; index < NAND_MAX_ID; index++)
     {
@@ -1640,10 +1640,10 @@ bool nand_erase_hw (u32 offset)
 	}
     nand_reset ();
     nand_set_mode (CNFG_OP_ERASE);
-    nand_set_command (NAND_CMD_ERASE1);
+    nand_set_command (NAND_CMD_ERASE_1);
     nand_set_address (0, page_addr, 0, rownob);
 
-    nand_set_command (NAND_CMD_ERASE2);
+    nand_set_command (NAND_CMD_ERASE_2);
     if (!nand_status_ready(STA_NAND_BUSY))
     {
         return FALSE;

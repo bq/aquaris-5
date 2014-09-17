@@ -93,12 +93,12 @@
 #include <pthread.h>
 #include "AudioDef.h"
 
+#include "AudioFtmBase.h"
+
 #include "AudioVolumeFactory.h"
 #include "AudioAnalogControlFactory.h"
 #include "AudioDigitalControlFactory.h"
 
-//#include "AudioMTKStreamOut.h"    //ship marked
-//#include "AudioMTKStreamIn.h"
 #include "AudioMTKStreamInManager.h"
 #include "AudioDigitalType.h"
 #include "AudioAnalogType.h"
@@ -131,39 +131,13 @@
 namespace android
 {
 
-enum FMTX_Command {
-    FREQ_NONE = 0,
-    FREQ_1K_HZ,
-    FREQ_2K_HZ,
-    FREQ_3K_HZ,
-    FREQ_4K_HZ,
-    FREQ_5K_HZ,
-    FREQ_6K_HZ,
-    FREQ_7K_HZ,
-    FREQ_8K_HZ,
-    FREQ_9K_HZ,
-    FREQ_10K_HZ,
-    FREQ_11K_HZ,
-    FREQ_12K_HZ,
-    FREQ_13K_HZ,
-    FREQ_14K_HZ,
-    FREQ_15K_HZ
-};
-
-enum UL_SAMPLERATE_INDEX {
-    UPLINK8K = 0,
-    UPLINK16K,
-    UPLINK32K,
-    UPLINK48K,
-    UPLINK_UNDEF
-};
 
 /*****************************************************************************
 *                        C L A S S   D E F I N I T I O N
 ******************************************************************************
 */
 
-class AudioFtm
+class AudioFtm : public AudioFtmBase
 {
     public:
         static AudioFtm *getInstance();
@@ -200,11 +174,14 @@ class AudioFtm
         int RecieverTest(char receiver_test);
         int LouderSPKTest(char left_channel, char right_channel);
         int EarphoneTest(char bEnable);
+        int EarphoneTestLR(char bLR);
         int Pmic_I2s_out(char echoflag);
 
-        // FM loopbacvk test
+        // FM loopback test
         int FMLoopbackTest(char bEnable);
         int Audio_FM_I2S_Play(char bEnable);
+        int Audio_MATV_I2S_Play(char bEnable);
+
         // speaker OC test
         int Audio_READ_SPK_OC_STA(void);
         int LouderSPKOCTest(char left_channel, char right_channel);
@@ -214,6 +191,21 @@ class AudioFtm
         void FTMPMICLoopbackTest(bool bEnable);
         void FTMPMICEarpieceLoopbackTest(bool bEnable);
         void FTMPMICDualModeLoopbackTest(bool bEnable);
+        int HDMI_SineGenPlayback(bool bEnable, int dSamplingRate);
+
+
+        /// Loopback
+        int PhoneMic_Receiver_Loopback(char echoflag);
+        int PhoneMic_EarphoneLR_Loopback(char echoflag);
+        int PhoneMic_SpkLR_Loopback(char echoflag);
+        int HeadsetMic_EarphoneLR_Loopback(char bEnable, char bHeadsetMic);
+        int HeadsetMic_SpkLR_Loopback(char echoflag);
+
+        int PhoneMic_Receiver_Acoustic_Loopback(int Acoustic_Type, int *Acoustic_Status_Flag, int bHeadset_Output);
+
+
+
+    private:
 
         int RequestClock(void);
         int ReleaseClock(void);
@@ -225,14 +217,12 @@ class AudioFtm
         unsigned int SizeAudioPattern;
         unsigned char *g_i2VDL_DATA;
         char *mAudioBuffer;
-
-    private:
         AudioMTKVolumeInterface *mAudioVolumeInstance;
         AudioAnalogControlInterface *mAudioAnalogInstance;
+        AudioAnalogReg *mAudioAnalogReg;
         AudioDigitalControlInterface *mAudioDigitalInstance;
         //AudioMTKStreamInManager *mStreamInManager;    //ship marked
         AudioResourceManagerInterface *mAudioResourceManager;
-        AudioAnalogReg *mAudioAnalogReg;
 
         static AudioFtm *UniqueAudioFtmInstance;
         AudioFtm();

@@ -31,14 +31,16 @@
 
 #include <stdio.h>
 
-#ifndef LINKER_DEBUG
-#error LINKER_DEBUG should be defined to either 1 or 0 in Android.mk
-#endif
+// You can increase the verbosity of debug traces by defining the LD_DEBUG
+// environment variable to a numeric value from 0 to 2 (corresponding to
+// INFO, TRACE, and DEBUG calls in the source). This will only
+// affect new processes being launched.
 
-/* set LINKER_DEBUG_TO_LOG to 1 to send the logs to logcat,
- * or 0 to use stdout instead.
- */
+// By default, traces are sent to logcat, with the "linker" tag. You can
+// change this to go to stdout instead by setting the definition of
+// LINKER_DEBUG_TO_LOG to 0.
 #define LINKER_DEBUG_TO_LOG  1
+
 #define TRACE_DEBUG          1
 #define DO_TRACE_LOOKUP      1
 #define DO_TRACE_RELO        1
@@ -56,47 +58,25 @@
 
 /*********************************************************************/
 
-/* Only use printf() during debugging.  We have seen occasional memory
- * corruption when the linker uses printf().
- */
-#if LINKER_DEBUG
-#include "linker_format.h"
+#include "private/libc_logging.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__LIBC_HIDDEN__ extern int gLdDebugVerbosity;
 
-extern int debug_verbosity;
 #if LINKER_DEBUG_TO_LOG
-extern int format_log(int, const char *, const char *, ...);
-#define _PRINTVF(v,x...)                                        \
-    do {                                                          \
-        if (debug_verbosity > (v)) format_log(5-(v),"linker",x);  \
+#define _PRINTVF(v,x...) \
+    do { \
+      if (gLdDebugVerbosity > (v)) __libc_format_log(5-(v),"linker",x); \
     } while (0)
 #else /* !LINKER_DEBUG_TO_LOG */
-extern int format_fd(int, const char *, ...);
-#define _PRINTVF(v,x...)                           \
-    do {                                             \
-        if (debug_verbosity > (v)) format_fd(1, x);  \
+#define _PRINTVF(v,x...) \
+    do { \
+      if (gLdDebugVerbosity > (v)) { __libc_format_fd(1, x); write(1, "\n", 1); } \
     } while (0)
 #endif /* !LINKER_DEBUG_TO_LOG */
-
-#ifdef __cplusplus
-};
-#endif
-
-#else /* !LINKER_DEBUG */
-#define _PRINTVF(v,f,x...)   do {} while(0)
-#endif /* LINKER_DEBUG */
 
 #define PRINT(x...)          _PRINTVF(-1, x)
 #define INFO(x...)           _PRINTVF(0, x)
 #define TRACE(x...)          _PRINTVF(1, x)
-#define WARN(fmt,args...)    \
-        _PRINTVF(-1, "%s:%d| WARNING: " fmt, __FILE__, __LINE__, ## args)
-#define ERROR(fmt,args...)    \
-        _PRINTVF(-1, "%s:%d| ERROR: " fmt, __FILE__, __LINE__, ## args)
-
 
 #if TRACE_DEBUG
 #define DEBUG(x...)          _PRINTVF(2, "DEBUG: " x)
@@ -104,26 +84,6 @@ extern int format_fd(int, const char *, ...);
 #define DEBUG(x...)          do {} while (0)
 #endif /* TRACE_DEBUG */
 
-#if LINKER_DEBUG
 #define TRACE_TYPE(t,x...)   do { if (DO_TRACE_##t) { TRACE(x); } } while (0)
-#else  /* !LINKER_DEBUG */
-#define TRACE_TYPE(t,x...)   do {} while (0)
-#endif /* LINKER_DEBUG */
-
-#if TIMING
-#undef WARN
-#define WARN(x...)           do {} while (0)
-#endif /* TIMING */
-
-#define DEBUG_DUMP_PHDR(phdr, name, pid) do { \
-        DEBUG("%5d %s (phdr = 0x%08x)\n", (pid), (name), (unsigned)(phdr));   \
-        DEBUG("\t\tphdr->offset   = 0x%08x\n", (unsigned)((phdr)->p_offset)); \
-        DEBUG("\t\tphdr->p_vaddr  = 0x%08x\n", (unsigned)((phdr)->p_vaddr));  \
-        DEBUG("\t\tphdr->p_paddr  = 0x%08x\n", (unsigned)((phdr)->p_paddr));  \
-        DEBUG("\t\tphdr->p_filesz = 0x%08x\n", (unsigned)((phdr)->p_filesz)); \
-        DEBUG("\t\tphdr->p_memsz  = 0x%08x\n", (unsigned)((phdr)->p_memsz));  \
-        DEBUG("\t\tphdr->p_flags  = 0x%08x\n", (unsigned)((phdr)->p_flags));  \
-        DEBUG("\t\tphdr->p_align  = 0x%08x\n", (unsigned)((phdr)->p_align));  \
-    } while (0)
 
 #endif /* _LINKER_DEBUG_H_ */

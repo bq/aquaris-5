@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
     XLOGD("PQ init start...");
     if(drvID == -1) //initial
-        drvID = open("/dev/mtk_disp", O_RDONLY, 0);
+        drvID = open("/proc/mtk_disp", O_RDONLY, 0);
 
     XLOGD("PQ test...");
     ioctl(drvID, DISP_IOCTL_SET_PQINDEX, &pqindex);

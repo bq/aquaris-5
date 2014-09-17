@@ -1,44 +1,9 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2011. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 #ifndef MT8193_CKGEN_H
 #define MT8193_CKGEN_H
 
 /*
 
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 #include <linux/mm.h>
 #include <linux/init.h>
 #include <linux/fb.h>
@@ -73,7 +38,7 @@
 #include <asm/uaccess.h>
 #include <linux/slab.h>
 
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/init.h>
@@ -102,6 +67,9 @@
 */
 
 #define MT8193_CKGEN_VFY 1
+
+#define MT8193_DISABLE_DCXO 0
+
 
 #define CKGEN_IOW(num, dtype)     _IOW('H', num, dtype)
 #define CKGEN_IOR(num, dtype)     _IOR('H', num, dtype)
@@ -195,6 +163,7 @@
 
 #define REG_RW_PLLGP_ANACFG0              0x34c
 #define PLLGP_ANACFG0_PLL1_RESERVED             1
+#define PLLGP_ANACFG0_PLL1_NFIPLL_EN      (1U<<1)
 #define PLLGP_ANACFG0_PLL1_EN             (1U<<31)
 
 
@@ -205,6 +174,30 @@
 #define REG_RW_DCXO_ANACFG9              0x388
 #define DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT   9
 #define DCXO_ANACFG9_BUS_CK_SOURCE_SEL_MASK    0x7
+#define DCX0_ANACFG9_VALUE               0x801025  
+
+
+/* DCXO */
+
+#define REG_RW_DCXO_ANACFG2              0x308
+#define DCXO_ANACFG2_LDO4_EN             (1U<<2)
+#define DCXO_ANACFG2_LDO4_MAN_EN         (1U<<3)
+#define DCXO_ANACFG2_LDO3_EN             (1U<<4)
+#define DCXO_ANACFG2_LDO3_MAN_EN         (1U<<5)
+#define DCXO_ANACFG2_LDO2_EN             (1U<<6)
+#define DCXO_ANACFG2_LDO2_MAN_EN         (1U<<7)
+#define DCXO_ANACFG2_LDO1_EN             (1U<<8)
+#define DCXO_ANACFG2_LDO1_MAN_EN         (1U<<9)
+#define DCXO_ANACFG2_PO_MAN              (1U<<29)
+
+
+
+
+#define REG_RW_DCXO_ANACFG4              0x370
+#define DCXO_ANACFG4_BT_MAN             (1U<<18)
+#define DCXO_ANACFG4_EXT2_MAN           (1U<<19)
+#define DCXO_ANACFG4_EXT1_MAN           (1U<<20)
+
 
 
 

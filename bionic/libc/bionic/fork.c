@@ -9,7 +9,7 @@
  *    notice, this list of conditions and the following disclaimer.
  *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the 
+ *    the documentation and/or other materials provided with the
  *    distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -19,7 +19,7 @@
  * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
  * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED 
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
  * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
@@ -42,19 +42,15 @@ int  fork(void)
      * of error, or in the parent process
      */
     __timer_table_start_stop(1);
-#if SUPPORT_PTHREAD_ATFORK
     __bionic_atfork_run_prepare();
-#endif
 
     ret = __fork();
     if (ret != 0) {  /* not a child process */
         __timer_table_start_stop(0);
-#if SUPPORT_PTHREAD_ATFORK
         __bionic_atfork_run_parent();
-#endif
     } else {
-        /* Adjusting the kernel id after a fork */
-        (void)__pthread_settid(pthread_self(), gettid());
+        // Fix the tid in the pthread_internal_t struct after a fork.
+        __pthread_settid(pthread_self(), gettid());
 
         /*
          * Newly created process must update cpu accounting.
@@ -63,9 +59,7 @@ int  fork(void)
          * as a parameter.
          */
         cpuacct_add(getuid());
-#if SUPPORT_PTHREAD_ATFORK
         __bionic_atfork_run_child();
-#endif
     }
     return ret;
 }

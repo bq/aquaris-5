@@ -2,27 +2,27 @@
 #include <stdio.h>
 
 #ifndef ANDROID_DEFAULT_CODE
-    #include <cutils/xlog.h>
-    #ifdef ALOGE
-    #undef ALOGE
-    #endif
-    #ifdef ALOGW
-    #undef ALOGW
-    #endif ALOGI
-    #undef ALOGI
-    #ifdef ALOGD
-    #undef ALOGD
-    #endif
-    #ifdef ALOGV
-    #undef ALOGV
-    #endif
-    #define ALOGE XLOGE
-    #define ALOGW XLOGW
-    #define ALOGI XLOGI
-    #define ALOGD XLOGD
-    #define ALOGV XLOGV
+#include <cutils/xlog.h>
+#ifdef ALOGE
+#undef ALOGE
+#endif
+#ifdef ALOGW
+#undef ALOGW
+#endif ALOGI
+#undef ALOGI
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#ifdef ALOGV
+#undef ALOGV
+#endif
+#define ALOGE XLOGE
+#define ALOGW XLOGW
+#define ALOGI XLOGI
+#define ALOGD XLOGD
+#define ALOGV XLOGV
 #else
-    #include <utils/Log.h>
+#include <utils/Log.h>
 #endif
 
 #define LOG_TAG "AudioAnalogReg"
@@ -34,7 +34,8 @@ AudioAnalogReg *AudioAnalogReg::UniqueAnalogRegInstance = 0;
 
 AudioAnalogReg *AudioAnalogReg::getInstance()
 {
-    if (UniqueAnalogRegInstance == 0) {
+    if (UniqueAnalogRegInstance == 0)
+    {
         printf("+UniqueAfeRegInstance\n");
         UniqueAnalogRegInstance = new AudioAnalogReg();
         printf("-UniqueAfeRegInstance\n");
@@ -53,22 +54,25 @@ AudioAnalogReg::AudioAnalogReg()
     mFd = 0;
     // here open audio hardware for register setting
     mFd = ::open(kAudioDeviceName, O_RDWR);
-    if (mFd == 0) {
+    if (mFd == 0)
+    {
         ALOGE("AudioAfeReg open mFd fail");
     }
 }
 
 status_t AudioAnalogReg::SetAnalogReg(uint32 offset, uint32 value, uint32 mask)
 {
+    Register_Control Reg_Data;
     // here need to set reg to analog part
-    if (!CheckAnaRegRange(offset)) {
+    if (!CheckAnaRegRange(offset))
+    {
         return INVALID_OPERATION;
     }
-    mReg_Control.offset = offset;
-    mReg_Control.value = value;
-    mReg_Control.mask = mask | 0xffff0000;
-    ALOGV("SetAnalogReg offet = 0x%x value = 0x%x mask = 0x%x", offset, value, mReg_Control.mask);
-    ::ioctl(mFd, SET_ANAAFE_REG, &mReg_Control);
+    Reg_Data.offset = offset;
+    Reg_Data.value = value;
+    Reg_Data.mask = mask | 0xffff0000;
+    ALOGV("SetAnalogReg offet = 0x%x value = 0x%x mask = 0x%x", offset, value, Reg_Data.mask);
+    ::ioctl(mFd, SET_ANAAFE_REG, &Reg_Data);
     return NO_ERROR;
 }
 

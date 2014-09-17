@@ -25,6 +25,8 @@
 #include <debug.h>
 #include <err.h>
 #include <reg.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <platform/mt_typedefs.h>
 #include <platform/boot_mode.h>
@@ -33,6 +35,7 @@
 #include <target/cust_key.h>
 #include <platform/recovery.h>
 #include <platform/mt_rtc.h>
+#include <platform/mt_gpt.h>
 #include <mt_partition.h>
 
 
@@ -69,7 +72,7 @@ BOOL recovery_check_key_trigger(void)
 	{
 	  return false;
 	}
-	
+
 #ifdef MT65XX_RECOVERY_KEY
     while(get_timer(begin)<50)
     {
@@ -115,10 +118,11 @@ BOOL recovery_check_command_trigger(void)
 #else
 	memcpy(pmisc_msg, pdata, sizeof(misc_msg));
 #endif
+#ifdef LOG_VERBOSE
 	MSG("Boot command: %.*s\n", sizeof(misc_msg.command), misc_msg.command);
 	MSG("Boot status: %.*s\n", sizeof(misc_msg.status), misc_msg.status);
 	MSG("Boot message\n\"%.20s\"\n", misc_msg.recovery);
-
+#endif
 	if(strcmp(misc_msg.command, "boot-recovery")==0)
 	{
 	  g_boot_mode = RECOVERY_BOOT;

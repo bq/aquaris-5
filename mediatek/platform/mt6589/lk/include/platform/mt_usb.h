@@ -75,7 +75,6 @@
 #define USB_DMA_INTR (USB_BASE + 0x0200)
 #define USB_DMA_INTR_UNMASK_SET_OFFSET (24)
 
-#define USB_DMA_ADDR(chan)	(USB_BASE + 0x0200 + 0x10*(chan-1))
 #define USB_DMA_CNTL(chan)	(USB_BASE + 0x0204 + 0x10*(chan-1))
 #define USB_DMA_ADDR(chan)	(USB_BASE + 0x0208 + 0x10*(chan-1))
 #define USB_DMA_COUNT(chan)	(USB_BASE + 0x020c + 0x10*(chan-1))

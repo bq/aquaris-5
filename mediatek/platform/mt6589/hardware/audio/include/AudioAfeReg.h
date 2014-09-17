@@ -19,6 +19,7 @@
 
 //---------- register define ------------------------------------------------------------
 #define AUDIO_TOP_CON0  (0x0000)
+#define AUDIO_TOP_CON1  (0x0004)
 #define AUDIO_TOP_CON3  (0x000c)
 #define AFE_DAC_CON0    (0x0010)
 #define AFE_DAC_CON1    (0x0014)

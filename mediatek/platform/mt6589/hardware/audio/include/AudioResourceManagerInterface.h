@@ -8,7 +8,8 @@ class AudioResourceManagerInterface
 {
     public:
 
-        enum AUDIO_LOCK_TYPE {
+        enum AUDIO_LOCK_TYPE
+        {
             AUDIO_HARDWARE_LOCK = 0,
             AUDIO_MODE_LOCK,
             AUDIO_VOLUME_LOCK,
@@ -18,7 +19,8 @@ class AudioResourceManagerInterface
             NUM_OF_AUDIO_LOCK
         };
 
-        enum AUDIO_CLOCK_TYPE {
+        enum AUDIO_CLOCK_TYPE
+        {
             CLOCK_AUD_CORE = 0,
             CLOCK_AUD_AFE ,
             CLOCK_AUD_ADC,
@@ -29,6 +31,13 @@ class AudioResourceManagerInterface
             CLOCK_TYPE_MAX
         };
 
+
+        enum DEVICE_SAMPLERATE_TYPE
+        {
+            DEVICE_OUT_DAC,
+            DEVICE_IN_ADC,
+            DEVICE_INOUT_MAX
+        };
         /**
         * a function for ~AudioResourceManagerInterface destructor
         */
@@ -123,7 +132,7 @@ class AudioResourceManagerInterface
          * a function for tell AudioResourceManager to requset clock
          * @param AudioLockType
          */
-        virtual status_t EnableAudioClock(int AudioLockType, bool Enable) = 0;
+        virtual status_t EnableAudioClock(int AudioClockType, bool Enable) = 0;
 
         /**
         * a  function to setParameters , provide wide usage of analog control
@@ -164,37 +173,42 @@ class AudioResourceManagerInterface
         virtual bool IsWiredHeadsetOn(void) = 0;
 
         /**
-        * a function to set audiohardawre pointer , audioresource manager will save this hardware pointer.
-        * @param command1
-        * @param command2
-        */
-        virtual void SetHardwarePointer(void *paudioHardware) = 0;
-
-        /**
         * a function to return Mode Incall
         */
         virtual bool IsModeIncall(void) = 0;
 
-		/**
+        /**
         * a function for to get MIC digital gain for HD Record
         */
         virtual long GetSwMICDigitalGain(void) = 0;
 
         /**
-        * a function for doing setMode()
+        * a function for to get UL total gain for BesRecord
         */
-        virtual status_t doSetMode() = 0;
+        virtual uint8_t GetULTotalGainValue(void) = 0;
 
-       /**
-        * a function for set mic inverse
-        */
+        /**
+         * a function for set mic inverse
+         */
         virtual status_t SetMicInvserse(bool bEnable) = 0;
 
-       /**
-        * a function for set hardware mute
-        */
+        /**
+         * a function for set hardware mute
+         */
         virtual status_t SetHardwareMute(bool bEnable) = 0;
 
+        /**
+        * a function for set AFE_ON
+        */
+        virtual status_t SetAfeEnable(const bool bEnable) = 0;
+
+        /*
+        * a function for set Analog Frequence
+        */
+        virtual status_t SetFrequency(int DeviceType, unsigned int frequency) = 0;
+
+
+        virtual status_t AddSubSPKToOutputDevice() = 0;
 };
 
 #endif

@@ -19,7 +19,7 @@ class SpeechDriverFactory
 
         modem_index_t               GetActiveModemIndex() const;
         status_t                    SetActiveModemIndex(const modem_index_t modem_index);
-        status_t                    SetActiveModemIndexByAudioMode(int mode);
+        status_t                    SetActiveModemIndexByAudioMode(const audio_mode_t audio_mode);
 
     protected:
         SpeechDriverFactory();
@@ -39,6 +39,7 @@ class SpeechDriverFactory
 
         SpeechDriverInterface *mSpeechDriver1; // for modem 1
         SpeechDriverInterface *mSpeechDriver2; // for modem 2
+        SpeechDriverInterface *mSpeechDriverExternal; // for modem External
 
     private:
         /**

@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- *
- * MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
- 
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -227,7 +192,7 @@ extern u32  msdc_get_tune(struct msdc_host *host);
 extern void msdc_set_tune(struct msdc_host *host,u32 value);
 #endif
 
-void msdc_dump_reg(unsigned int base)
+static void msdc_dump_reg(unsigned int base)
 {
 	u32 id = 0;
 	switch(base){
@@ -294,7 +259,7 @@ void msdc_dump_reg(unsigned int base)
     printk(KERN_ERR "[SD_Debug][Host%d]Rg[100] MAIN_VER       = 0x%.8x\n", id,sdr_read32(base + 0x100));     
     printk(KERN_ERR "[SD_Debug][Host%d]Rg[104] ECO_VER        = 0x%.8x\n", id,sdr_read32(base + 0x104));
 }
-void msdc_set_field(unsigned int address,unsigned int start_bit,unsigned int len,unsigned int value)
+static void msdc_set_field(unsigned int address,unsigned int start_bit,unsigned int len,unsigned int value)
 {
 	unsigned long field;
 	if(start_bit > 31 || start_bit < 0|| len > 32 || len <= 0)
@@ -307,7 +272,7 @@ void msdc_set_field(unsigned int address,unsigned int start_bit,unsigned int len
 		printk("[****SD_Debug****]Modified:0x%x (0x%x)\n",address,sdr_read32(address));
 	}
 }
-void msdc_get_field(unsigned int address,unsigned int start_bit,unsigned int len,unsigned int value)
+static void msdc_get_field(unsigned int address,unsigned int start_bit,unsigned int len,unsigned int value)
 {
 	unsigned long field;
 	if(start_bit > 31 || start_bit < 0|| len > 32 || len <= 0)
@@ -318,7 +283,7 @@ void msdc_get_field(unsigned int address,unsigned int start_bit,unsigned int len
 		printk("[****SD_Debug****]Reg:0x%x start_bit(%d)len(%d)(0x%x)\n",address,start_bit,len,value);
 		}
 }
-void msdc_init_gpt(void)
+static void msdc_init_gpt(void)
 {
 #if 0
     GPT_CONFIG config;	

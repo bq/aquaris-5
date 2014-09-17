@@ -787,13 +787,13 @@ static ssize_t show_status_value(struct device_driver *ddri, char *buf)
 
 static DRIVER_ATTR(chipinfo,             S_IRUGO, show_chipinfo_value,      NULL);
 static DRIVER_ATTR(sensordata,           S_IRUGO, show_sensordata_value,    NULL);
-//static DRIVER_ATTR(trace,       S_IRUGO, show_trace_value,         store_trace_value);
+static DRIVER_ATTR(trace,      			 S_IRUGO, show_trace_value,         store_trace_value);
 static DRIVER_ATTR(status,               S_IRUGO, show_status_value,        NULL);
 /*----------------------------------------------------------------------------*/
 static struct driver_attribute *L3G4200D_attr_list[] = {
 	&driver_attr_chipinfo,     /*chip information*/
 	&driver_attr_sensordata,   /*dump sensor data*/	
-//	&driver_attr_trace,        /*trace log*/
+	&driver_attr_trace,        /*trace log*/
 	&driver_attr_status,        
 };
 /*----------------------------------------------------------------------------*/

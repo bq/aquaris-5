@@ -361,10 +361,6 @@ const LCM_DRIVER *disp_drv_get_lcm_driver(const char *lcm_name)
 			}
 			else 
 			{
-			// feng add 
-				isLCMFound = TRUE;
-				lcm_drv = lcm;
-			// feng add end	
 				if(LCM_TYPE_DSI == lcm_params->type){
 					init_dsi(FALSE);
 					dsi_enable_power(TRUE);
@@ -383,8 +379,8 @@ const LCM_DRIVER *disp_drv_get_lcm_driver(const char *lcm_name)
 				
 					lcm_drv = lcm;
 					if(LCM_TYPE_DSI == lcm_params->type)
-						DSI_Deinit();
-//						dsi_enable_power(FALSE);
+//						DSI_Deinit();
+						dsi_enable_power(FALSE);
 					printk("\t\t[fail]\n");
 				}
 			}
@@ -765,7 +761,7 @@ DISP_STATUS DISP_PanelEnable(BOOL enable)
 			//DPI_CHECK_RET(DPI_EnableClk());
 			//DSI_CHECK_RET(DSI_EnableClk());
 
-			msleep(200);
+			//msleep(200);
 		}
 	}
 	else if (!enable && s_enabled)

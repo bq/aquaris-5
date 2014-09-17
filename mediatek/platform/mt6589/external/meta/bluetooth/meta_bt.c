@@ -42,15 +42,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <termios.h>
 #include <pthread.h>
 #include <dlfcn.h>
 
 #include <stdbool.h>
 #include "meta_bt.h"
-
 #include "cutils/misc.h"
-#include "cust_bt.h"
 
 
 typedef unsigned long DWORD;
@@ -92,28 +89,9 @@ typedef unsigned char* LPBYTE;
 #define PKT_TYPE_ACL        3
 
 
-struct uart_t {
-    char *type;
-    int  m_id;
-    int  p_id;
-    int  proto;
-    int  init_speed;
-    int  speed;
-    int  flags;
-    int  pm;
-    char *bdaddr;
-    int  (*init) (int fd, struct uart_t *u, struct termios *ti);
-    int  (*post) (int fd, struct uart_t *u, struct termios *ti);
-};
-
-/* define uart_t.flags */
-#define FLOW_CTL_HW     0x0001
-#define FLOW_CTL_SW     0x0002
-#define FLOW_CTL_NONE   0x0000
-#define FLOW_CTL_MASK   0x0003
-
-
-//===============        Global Variables         =======================
+/**************************************************************************
+ *                  G L O B A L   V A R I A B L E S                       *
+***************************************************************************/
 
 static int   bt_init = 0;
 static int   bt_fd = -1;
@@ -128,11 +106,11 @@ static BOOL bKillThread = FALSE;
 
 // mtk bt library
 static void *glib_handle = NULL;
-typedef int (*INIT)(int fd, struct uart_t *u, struct termios *ti);
+typedef int (*INIT)(void);
 typedef int (*UNINIT)(int fd);
 typedef int (*WRITE)(int fd, unsigned char *buffer, unsigned long len);
 typedef int (*READ)(int fd, unsigned char *buffer, unsigned long len);
-typedef int (*GETID)(int *pChipId);
+typedef int (*GETID)(unsigned long *pChipId);
 
 INIT    mtk = NULL;
 UNINIT  bt_restore = NULL;
@@ -141,10 +119,9 @@ READ    bt_receive_data = NULL;
 GETID   bt_get_combo_id = NULL;
 
 /**************************************************************************
-  *                         F U N C T I O N S                             *
+ *                          F U N C T I O N S                             *
 ***************************************************************************/
 
-static BOOL BT_DisableSleepMode(void);
 static BOOL BT_Send_HciCmd(BT_HCI_CMD *hci_cmd);
 static BOOL BT_Recv_HciEvent(BT_HCI_EVENT *hci_event);
 static BOOL BT_Send_AclData(BT_HCI_BUFFER *pAclData);
@@ -213,13 +190,13 @@ static int bt_set_power(int on)
     fd = open(bt_rfkill_state_path, O_WRONLY);
     if (fd < 0) {
         ERR("Open %s to set BT power fails: %s(%d)", bt_rfkill_state_path,
-             strerror(errno), errno);
+            strerror(errno), errno);
         goto out;
     }
     sz = write(fd, &buf, 1);
     if (sz < 0) {
         ERR("Write %s fails: %s(%d)", bt_rfkill_state_path, 
-             strerror(errno), errno);
+            strerror(errno), errno);
         goto out;
     }
     ret = 0;
@@ -227,6 +204,42 @@ static int bt_set_power(int on)
 out:
     if (fd >= 0) close(fd);
     return ret;
+}
+
+static BOOL BT_DisableSleepMode(void)
+{
+    UCHAR   HCI_VS_SLEEP[] = 
+                {0x01, 0x7A, 0xFC, 0x07, 0x00, 0x40, 0x1F, 0x00, 0x00, 0x00, 0x04};
+    UCHAR   pAckEvent[7];
+    UCHAR   ucEvent[] = {0x04, 0x0E, 0x04, 0x01, 0x7A, 0xFC, 0x00};
+    
+    TRC();
+    
+    if (!glib_handle){
+        ERR("mtk bt library is unloaded!\n");
+        return FALSE;
+    }
+    if (bt_fd < 0){
+        ERR("bt driver fd is invalid!\n");
+        return FALSE;
+    }
+    
+    if(bt_send_data(bt_fd, HCI_VS_SLEEP, sizeof(HCI_VS_SLEEP)) < 0){
+        ERR("Send disable sleep mode command fails errno %d\n", errno);
+        return FALSE;
+    }
+    
+    if(bt_receive_data(bt_fd, pAckEvent, sizeof(pAckEvent)) < 0){
+        ERR("Receive event fails errno %d\n", errno);
+        return FALSE;
+    }
+    
+    if(memcmp(pAckEvent, ucEvent, sizeof(ucEvent))){
+        ERR("Receive unexpected event\n");
+        return FALSE;
+    }
+    
+    return TRUE;
 }
 #endif
 
@@ -238,8 +251,7 @@ void META_BT_Register(BT_CNF_CB callback)
 BOOL META_BT_init(void)
 {
     const char *errstr;
-    struct uart_t u;
-    
+        
     TRC();
 
 #ifndef MTK_COMBO_SUPPORT
@@ -264,25 +276,21 @@ BOOL META_BT_init(void)
     bt_restore = dlsym(glib_handle, "bt_restore");
     bt_send_data = dlsym(glib_handle, "bt_send_data");
     bt_receive_data = dlsym(glib_handle, "bt_receive_data");
+#ifdef MTK_COMBO_SUPPORT
     bt_get_combo_id = dlsym(glib_handle, "bt_get_combo_id");
-    
+#endif
+
     if ((errstr = dlerror()) != NULL){
         ERR("Can't find function symbols %s\n", errstr);
         goto error;
     }
-
-#ifndef MTK_COMBO_SUPPORT
-    u.flags &= ~FLOW_CTL_MASK;
-    u.flags |= FLOW_CTL_SW;
-    u.speed = CUST_BT_BAUD_RATE;
-#endif
-
-    bt_fd = mtk(-1, &u, NULL);
+    
+    bt_fd = mtk();
     if (bt_fd < 0)
         goto error;
     
     DBG("BT is enabled success\n");
-    
+
 #ifndef MTK_COMBO_SUPPORT
     /* 
      BT META driver DONOT handle sleep mode and EINT,
@@ -321,7 +329,6 @@ void META_BT_deinit(void)
     
     /* Stop RX thread */
     bKillThread = TRUE;
-    
     /* Wait until thread exist */
     pthread_join(rxThread, NULL);
     
@@ -349,9 +356,11 @@ void META_BT_deinit(void)
     return;
 }
 
-void META_BT_OP(BT_REQ   *req, 
-                char     *peer_buf, 
-                unsigned short peer_len)
+void META_BT_OP(
+    BT_REQ *req, 
+    char   *peer_buf, 
+    unsigned short peer_len
+    )
 {
     TRC();
     
@@ -378,87 +387,106 @@ void META_BT_OP(BT_REQ   *req,
     switch(req->op)
     {
       case BT_OP_INIT:
-          if (!bt_init && !META_BT_init()){
-              bt_cnf.bt_status = FALSE;
-              bt_cnf.status = META_FAILED;
-          }
-          else{
-              bt_cnf.bt_status = TRUE;
-              bt_cnf.status = META_SUCCESS;
-          }
-          
-          bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-          break;
-          
+        if (!bt_init && !META_BT_init()){
+            bt_cnf.bt_status = FALSE;
+            bt_cnf.status = META_FAILED;
+        }
+        else{
+            bt_cnf.bt_status = TRUE;
+            bt_cnf.status = META_SUCCESS;
+        }
+        
+        bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
+        break;
+        
       case BT_OP_DEINIT:
-          if (bt_init)
-              META_BT_deinit();
-    	    
-          bt_cnf.bt_status = TRUE;
-          bt_cnf.status = META_SUCCESS;
-          bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-          break;
-          
+        if (bt_init)
+            META_BT_deinit();
+    	  
+        bt_cnf.bt_status = TRUE;
+        bt_cnf.status = META_SUCCESS;
+        bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
+        break;
+        
       case BT_OP_GET_CHIP_ID:
       {
-          int chipId;
-          DBG("BT_OP_GET_CHIP_ID\n");
-          
+        unsigned long chipId;
+        DBG("BT_OP_GET_CHIP_ID\n");
+        
       #ifdef MTK_COMBO_SUPPORT
-          if(bt_get_combo_id(&chipId) < 0){
-              ERR("Unknown combo chip id\n");
-              bt_cnf.bt_status = FALSE;
-              bt_cnf.status = META_FAILED;
-              bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-              break;
-          }
-          else{
-          #ifdef MTK_MT6620
-              if(chipId == 0x6620)
-                  bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6620;
-          #endif
-          #ifdef MTK_MT6628
-              if(chipId == 0x6628)
-                  bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6628;
-          #endif
-          }
+        if(bt_get_combo_id(&chipId) < 0){
+            ERR("Get combo chip id fails\n");
+            bt_cnf.bt_status = FALSE;
+            bt_cnf.status = META_FAILED;
+            bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
+            break;
+        }
+        else{
+            switch(chipId){
+              case 0x6620:
+                bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6620;
+                break;
+              case 0x6628:
+                bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6628;
+                break;
+              case 0x6572:
+                bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6572;
+                break;
+              case 0x6582:
+                bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6582;
+                break;
+              case 0x6592:
+                bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6592;
+                break;
+              case 0x6571:
+                bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6571;
+                break;
+              case 0x6630:
+                bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6630;
+                break;
+              default:
+                ERR("Unknown combo chip id\n");
+                break;
+            }
+        }
       #else
-          #ifdef MTK_MT6611
-          bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6611;
-          #elif defined MTK_MT6612
-          bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6612;
-          #elif defined MTK_MT6616
-          bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6616;
-          #elif defined MTK_MT6622
-          bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6622;
-          #elif defined MTK_MT6626
-          bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6626;
-          #endif
+        #if defined MTK_MT6611
+        bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6611;
+        #elif defined MTK_MT6612
+        bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6612;
+        #elif defined MTK_MT6616
+        bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6616;
+        #elif defined MTK_MT6622
+        bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6622;
+        #elif defined MTK_MT6626
+        bt_cnf.bt_result.dummy = BT_CHIP_ID_MT6626;
+        #endif
       #endif
-          
-          bt_cnf.bt_status = TRUE;
-          bt_cnf.status = META_SUCCESS;
-          bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-          break;
+        
+        bt_cnf.bt_status = TRUE;
+        bt_cnf.status = META_SUCCESS;
+        bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
+        break;
       }
       case BT_OP_HCI_SEND_COMMAND:
-          DBG("BT_OP_HCI_SEND_COMMAND\n");
-          BT_Send_HciCmd(&req->cmd.hcicmd);
-          break;
-          
+        DBG("BT_OP_HCI_SEND_COMMAND\n");
+        BT_Send_HciCmd(&req->cmd.hcicmd);
+        break;
+        
       case BT_OP_HCI_CLEAN_COMMAND:
-          DBG("BT_OP_HCI_CLEAN_COMMAND\n");
+        DBG("BT_OP_HCI_CLEAN_COMMAND\n");
       #ifndef MTK_COMBO_SUPPORT
-          if (bt_fd >= 0)
-              tcflush(bt_fd, TCIOFLUSH);
+        if (bt_fd >= 0){
+            tcflush(bt_fd, TCIOFLUSH);
+        }
       #endif
-          bt_cnf.status = META_SUCCESS;
-          break;
-          
+        bt_cnf.status = META_SUCCESS;
+        break;
+        
       case BT_OP_HCI_SEND_DATA:
-          DBG("BT_OP_HCI_SEND_DATA\n");
-          BT_Send_AclData(&req->cmd.hcibuf);
-          break;
+        DBG("BT_OP_HCI_SEND_DATA\n");
+        BT_Send_AclData(&req->cmd.hcibuf);
+        break;
           
       case BT_OP_HCI_TX_PURE_TEST:
       case BT_OP_HCI_RX_TEST_START:
@@ -470,61 +498,25 @@ void META_BT_OP(BT_REQ   *req,
           
       case BT_OP_ENABLE_PCM_CLK_SYNC_SIGNAL:
       case BT_OP_DISABLE_PCM_CLK_SYNC_SIGNAL:
-          /* need to confirm with CCCI driver buddy */
-          DBG("Not implemented command %d\n", req->op);
-          bt_cnf.status = META_FAILED;
-          bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-          break;
+        /* need to confirm with CCCI driver buddy */
+        DBG("Not implemented command %d\n", req->op);
+        bt_cnf.status = META_FAILED;
+        bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
+        break;
           
       default:
-          DBG("Unknown command %d\n", req->op);
-          bt_cnf.status = META_FAILED;
-          bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-          break;
+        DBG("Unknown command %d\n", req->op);
+        bt_cnf.status = META_FAILED;
+        bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
+        break;
     }
     
     return;
 }
 
-static BOOL BT_DisableSleepMode(void)
-{
-    UCHAR   HCI_VS_SLEEP[] = 
-                {0x01, 0x7A, 0xFC, 0x07, 0x00, 0x40, 0x1F, 0x00, 0x00, 0x00, 0x04};
-    UCHAR   pAckEvent[7];
-    UCHAR   ucEvent[] = {0x04, 0x0E, 0x04, 0x01, 0x7A, 0xFC, 0x00};
-    
-    TRC();
-    
-    if (!glib_handle){
-        ERR("mtk bt library is unloaded!\n");
-        return FALSE;
-    }
-    if (bt_fd < 0){
-        ERR("bt driver fd is invalid!\n");
-        return FALSE;
-    }
-    
-    if(bt_send_data(bt_fd, HCI_VS_SLEEP, sizeof(HCI_VS_SLEEP)) < 0){
-        ERR("Send disable sleep mode command fails errno %d\n", errno);
-        return FALSE;
-    }
-    
-    if(bt_receive_data(bt_fd, pAckEvent, sizeof(pAckEvent)) < 0){
-        ERR("Receive event fails errno %d\n", errno);
-        return FALSE;
-    }
-    
-    if(memcmp(pAckEvent, ucEvent, sizeof(ucEvent))){
-        ERR("Receive unexpected event\n");
-        return FALSE;
-    }
-    
-    return TRUE;
-}
-
 static BOOL BT_Send_HciCmd(BT_HCI_CMD *pHciCmd)
 {
-    UCHAR   HCI_CMD[256+4];
+    UCHAR ucHciCmd[256+4];
     
     if (!glib_handle){
         ERR("mtk bt library is unloaded!\n");
@@ -535,16 +527,18 @@ static BOOL BT_Send_HciCmd(BT_HCI_CMD *pHciCmd)
         return FALSE;
     }
     
-    HCI_CMD[0] = 0x01;
-    HCI_CMD[1] = (pHciCmd->opcode) & 0xFF;
-    HCI_CMD[2] = (pHciCmd->opcode >> 8) & 0xFF;
-    HCI_CMD[3] = pHciCmd->len;
+    ucHciCmd[0] = 0x01;
+    ucHciCmd[1] = (pHciCmd->opcode) & 0xFF;
+    ucHciCmd[2] = (pHciCmd->opcode >> 8) & 0xFF;
+    ucHciCmd[3] = pHciCmd->len;
     
-    DBG("OpCode %x len %d\n", pHciCmd->opcode, (int)pHciCmd->len);
+    DBG("OpCode 0x%04x len %d\n", pHciCmd->opcode, (int)pHciCmd->len);
     
-    memcpy(&HCI_CMD[4], pHciCmd->parms, pHciCmd->len);
+    if(pHciCmd->len){
+        memcpy(&ucHciCmd[4], pHciCmd->parms, pHciCmd->len);
+    }
     
-    if(bt_send_data(bt_fd, HCI_CMD, pHciCmd->len + 4) < 0){
+    if(bt_send_data(bt_fd, ucHciCmd, pHciCmd->len + 4) < 0){
         ERR("Write HCI command fails errno %d\n", errno);
         return FALSE;
     }
@@ -592,7 +586,7 @@ static BOOL BT_Recv_HciEvent(BT_HCI_EVENT *pHciEvent)
 
 static BOOL BT_Send_AclData(BT_HCI_BUFFER *pAclData)
 {
-    UCHAR   AclData[1029];
+    UCHAR ucAclData[1029];
     
     if (!glib_handle){
         ERR("mtk bt library is unloaded!\n");
@@ -603,15 +597,17 @@ static BOOL BT_Send_AclData(BT_HCI_BUFFER *pAclData)
         return FALSE;
     }
     
-    AclData[0] = 0x02;
-    AclData[1] = (pAclData->con_hdl) & 0xFF;
-    AclData[2] = (pAclData->con_hdl >> 8) & 0xFF;
-    AclData[3] = (pAclData->len) & 0xFF;
-    AclData[4] = (pAclData->len >> 8) & 0xFF;
-         
-    memcpy(&AclData[5], pAclData->buffer, pAclData->len);
+    ucAclData[0] = 0x02;
+    ucAclData[1] = (pAclData->con_hdl) & 0xFF;
+    ucAclData[2] = (pAclData->con_hdl >> 8) & 0xFF;
+    ucAclData[3] = (pAclData->len) & 0xFF;
+    ucAclData[4] = (pAclData->len >> 8) & 0xFF;
     
-    if(bt_send_data(bt_fd, AclData, pAclData->len + 5) < 0){
+    if(pAclData->len){
+        memcpy(&ucAclData[5], pAclData->buffer, pAclData->len);
+    }
+    
+    if(bt_send_data(bt_fd, ucAclData, pAclData->len + 5) < 0){
         ERR("Write ACL data fails errno %d\n", errno);
         return FALSE;
     }
@@ -635,14 +631,14 @@ static BOOL BT_Recv_AclData(BT_HCI_BUFFER *pAclData)
         return FALSE;
     }
     
-    pAclData->con_hdl = ((pAclData->con_hdl&&0xFF)<<8)|((pAclData->con_hdl>>8)&&0xFF);
+    pAclData->con_hdl = ((pAclData->con_hdl&0xFF)<<8) | ((pAclData->con_hdl>>8)&0xFF);
     
     if(bt_receive_data(bt_fd, (UCHAR*)&pAclData->len, 2) < 0){
         ERR("Read ACL data length fails errno %d\n", errno);
         return FALSE;
     }
     
-    pAclData->len = ((pAclData->len&0xFF)<<8)|((pAclData->len>>8)&0xFF);
+    pAclData->len = ((pAclData->len&0xFF)<<8) | ((pAclData->len>>8)&0xFF);
     
     if(pAclData->len){
         if(bt_receive_data(bt_fd, pAclData->buffer, pAclData->len) < 0){
@@ -659,7 +655,7 @@ static void *BT_MetaThread( void *ptr )
 {
     BOOL     RetVal = TRUE;
     UCHAR    ucHeader = 0;
-    BT_CNF  *pBt_CNF = (BT_CNF*)ptr;
+    BT_CNF  *pBtCnf = (BT_CNF*)ptr;
     BT_HCI_EVENT  hci_event;
     BT_HCI_BUFFER acl_data;
     
@@ -683,45 +679,43 @@ static void *BT_MetaThread( void *ptr )
         
         switch (ucHeader)
         {
-            case 0x04:
-                DBG("Receive HCI event\n");
-                if(BT_Recv_HciEvent(&hci_event))
-                {
-                    pBt_CNF->bt_status = TRUE;
-                    pBt_CNF->eventtype = PKT_TYPE_EVENT;
-                    memcpy(&pBt_CNF->bt_result.hcievent, &hci_event, sizeof(hci_event));
-                    pBt_CNF->status = META_SUCCESS;
-                    bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-                }
-                else{
-                    pBt_CNF->bt_status = FALSE;
-                    pBt_CNF->eventtype = PKT_TYPE_EVENT;
-                    pBt_CNF->status = META_FAILED;
-                    bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-                }
-                break;
-                
-            case 0x02:
-                DBG("Receive ACL data\n");
-                if(BT_Recv_AclData(&acl_data))
-                {
-                    pBt_CNF->bt_status = TRUE;
-                    pBt_CNF->eventtype = PKT_TYPE_ACL;
-                    memcpy(&pBt_CNF->bt_result.hcibuf, &acl_data, sizeof(acl_data));
-                    pBt_CNF->status = META_SUCCESS;
-                    bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-                }
-                else{
-                    pBt_CNF->bt_status = FALSE;
-                    pBt_CNF->eventtype = PKT_TYPE_ACL;
-                    pBt_CNF->status = META_FAILED;
-                    bt_send_resp(&bt_cnf, sizeof(BT_CNF), NULL, 0);
-                }
-                break;
-                
-            default:
-                ERR("Unexpected BT packet header %02x\n", ucHeader);
-                goto CleanUp;
+          case 0x04:
+            DBG("Receive HCI event\n");
+            if(BT_Recv_HciEvent(&hci_event)){
+                pBtCnf->bt_status = TRUE;
+                pBtCnf->eventtype = PKT_TYPE_EVENT;
+                memcpy(&pBtCnf->bt_result.hcievent, &hci_event, sizeof(hci_event));
+                pBtCnf->status = META_SUCCESS;
+                bt_send_resp(pBtCnf, sizeof(BT_CNF), NULL, 0);
+            }
+            else{
+                pBtCnf->bt_status = FALSE;
+                pBtCnf->eventtype = PKT_TYPE_EVENT;
+                pBtCnf->status = META_FAILED;
+                bt_send_resp(pBtCnf, sizeof(BT_CNF), NULL, 0);
+            }
+            break;
+            
+          case 0x02:
+            DBG("Receive ACL data\n");
+            if(BT_Recv_AclData(&acl_data)){
+                pBtCnf->bt_status = TRUE;
+                pBtCnf->eventtype = PKT_TYPE_ACL;
+                memcpy(&pBtCnf->bt_result.hcibuf, &acl_data, sizeof(acl_data));
+                pBtCnf->status = META_SUCCESS;
+                bt_send_resp(pBtCnf, sizeof(BT_CNF), NULL, 0);
+            }
+            else{
+                pBtCnf->bt_status = FALSE;
+                pBtCnf->eventtype = PKT_TYPE_ACL;
+                pBtCnf->status = META_FAILED;
+                bt_send_resp(pBtCnf, sizeof(BT_CNF), NULL, 0);
+            }
+            break;
+            
+          default:
+            ERR("Unexpected BT packet header %02x\n", ucHeader);
+            goto CleanUp;
         }
     }
 

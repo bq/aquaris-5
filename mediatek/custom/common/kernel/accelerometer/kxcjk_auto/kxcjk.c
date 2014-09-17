@@ -133,6 +133,8 @@ static int kxcjk_local_init(void);
 static int kxcjk_remove(void);
 static int kxcjk_init_flag =0; // 0<==>OK -1 <==> fail
 extern struct acc_hw* kxcjk_get_cust_acc_hw(void) ;
+static DEFINE_MUTEX(kxcjk_1013_mutex);
+
 
 /*----------------------------------------------------------------------------*/
 typedef enum {
@@ -276,7 +278,8 @@ static int KXCJK_SetDataResolution(struct kxcjk_i2c_data *obj)
 
 	KXCJK_SetPowerMode(obj->client, false);
 
-	if(hwmsen_read_block(obj->client, KXCJK_REG_DATA_RESOLUTION, databuf, 0x01))
+	//if(hwmsen_read_block(obj->client, KXCJK_REG_DATA_RESOLUTION, databuf, 0x01))
+	if(hwmsen_read_byte(obj->client, KXCJK_REG_DATA_RESOLUTION, databuf))
 	{
 		printk("kxcjk read Dataformat failt \n");
 		return KXCJK_ERR_I2C;
@@ -605,7 +608,8 @@ static int KXCJK_SetPowerMode(struct i2c_client *client, bool enable)
 		return KXCJK_SUCCESS;
 	}
 
-	if(hwmsen_read_block(client, addr, databuf, 0x01))
+	//if(hwmsen_read_block(client, addr, databuf, 0x01))
+	if(hwmsen_read_byte(client, addr, databuf))
 	{
 		GSE_ERR("read power ctl register err!\n");
 		return KXCJK_ERR_I2C;
@@ -652,7 +656,8 @@ static int KXCJK_SetDataFormat(struct i2c_client *client, u8 dataformat)
 
 	KXCJK_SetPowerMode(client, false);
 
-	if(hwmsen_read_block(client, KXCJK_REG_DATA_FORMAT, databuf, 0x01))
+	//if(hwmsen_read_block(client, KXCJK_REG_DATA_FORMAT, databuf, 0x01))
+	if(hwmsen_read_byte(client, KXCJK_REG_DATA_FORMAT, databuf))
 	{
 		printk("kxcjk read Dataformat failt \n");
 		return KXCJK_ERR_I2C;
@@ -686,7 +691,8 @@ static int KXCJK_SetBWRate(struct i2c_client *client, u8 bwrate)
 
 	memset(databuf, 0, sizeof(u8)*10);    
 
-	if(hwmsen_read_block(client, KXCJK_REG_BW_RATE, databuf, 0x01))
+	//if(hwmsen_read_block(client, KXCJK_REG_BW_RATE, databuf, 0x01))
+	if(hwmsen_read_byte(client, KXCJK_REG_BW_RATE, databuf))
 	{
 		printk("kxcjk read rate failt \n");
 		return KXCJK_ERR_I2C;
@@ -841,21 +847,21 @@ static int KXCJK_ReadSensorData(struct i2c_client *client, char *buf, int bufsiz
 	}
 	else
 	{
-		//printk("raw data x=%d, y=%d, z=%d \n",obj->data[KXCJK_AXIS_X],obj->data[KXCJK_AXIS_Y],obj->data[KXCJK_AXIS_Z]);
+		//GSE_LOG("raw data obj->cali_sw[KXCJK_AXIS_X]=%d, obj->cali_sw[KXCJK_AXIS_Y]=%d, obj->cali_sw[KXCJK_AXIS_Z]=%d \n",obj->cali_sw[KXCJK_AXIS_X],obj->cali_sw[KXCJK_AXIS_Y],obj->cali_sw[KXCJK_AXIS_Z]);
+
 		obj->data[KXCJK_AXIS_X] += obj->cali_sw[KXCJK_AXIS_X];
 		obj->data[KXCJK_AXIS_Y] += obj->cali_sw[KXCJK_AXIS_Y];
 		obj->data[KXCJK_AXIS_Z] += obj->cali_sw[KXCJK_AXIS_Z];
+		//GSE_LOG("raw data x=%d, y=%d, z=%d \n",obj->data[KXCJK_AXIS_X],obj->data[KXCJK_AXIS_Y],obj->data[KXCJK_AXIS_Z]);
 		
-		//printk("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[KXCJK_AXIS_X],obj->cali_sw[KXCJK_AXIS_Y],obj->cali_sw[KXCJK_AXIS_Z]);
 		
 		/*remap coordinate*/
 		acc[obj->cvt.map[KXCJK_AXIS_X]] = obj->cvt.sign[KXCJK_AXIS_X]*obj->data[KXCJK_AXIS_X];
 		acc[obj->cvt.map[KXCJK_AXIS_Y]] = obj->cvt.sign[KXCJK_AXIS_Y]*obj->data[KXCJK_AXIS_Y];
 		acc[obj->cvt.map[KXCJK_AXIS_Z]] = obj->cvt.sign[KXCJK_AXIS_Z]*obj->data[KXCJK_AXIS_Z];
-		//printk("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[KXCJK_AXIS_X],obj->cvt.sign[KXCJK_AXIS_Y],obj->cvt.sign[KXCJK_AXIS_Z]);
+		//GSE_LOG("cali_sw acc[obj->cvt.map[KXCJK_AXIS_X]]=%d, acc[obj->cvt.map[KXCJK_AXIS_Y]]=%d, z=%d \n",acc[obj->cvt.map[KXCJK_AXIS_X]],acc[obj->cvt.map[KXCJK_AXIS_Y]],acc[obj->cvt.map[KXCJK_AXIS_Z]]);
+		
 
-
-		//GSE_LOG("Mapped gsensor data: %d, %d, %d!\n", acc[KXCJK_AXIS_X], acc[KXCJK_AXIS_Y], acc[KXCJK_AXIS_Z]);
 
 		//Out put the mg
 		//printk("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[KXCJK_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
@@ -863,6 +869,7 @@ static int KXCJK_ReadSensorData(struct i2c_client *client, char *buf, int bufsiz
 		acc[KXCJK_AXIS_Y] = acc[KXCJK_AXIS_Y] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
 		acc[KXCJK_AXIS_Z] = acc[KXCJK_AXIS_Z] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;		
 		
+		//GSE_LOG("Mapped gsensor data: %d, %d, %d!\n", acc[KXCJK_AXIS_X], acc[KXCJK_AXIS_Y], acc[KXCJK_AXIS_Z]);
 	
 
 		sprintf(buf, "%04x %04x %04x", acc[KXCJK_AXIS_X], acc[KXCJK_AXIS_Y], acc[KXCJK_AXIS_Z]);
@@ -1445,7 +1452,8 @@ static ssize_t show_register_value(struct device_driver *ddri, char *buf)
 			return 0;
 		}
 		
-		if(hwmsen_read_block(obj->client, i2c_dev_reg, databuf, 0x01))
+		//if(hwmsen_read_block(obj->client, i2c_dev_reg, databuf, 0x01))
+		if(hwmsen_read_byte(obj->client, i2c_dev_reg, databuf))
 		{
 			GSE_ERR("read power ctl register err!\n");
 			return KXCJK_ERR_I2C;
@@ -1551,8 +1559,9 @@ static int kxcjk_gsensor_operate(void* self, uint32_t command, void* buff_in, in
 				{
 					sample_delay = KXCJK_BW_50HZ;
 				}
-				
+				mutex_lock(&kxcjk_1013_mutex);
 				err = KXCJK_SetBWRate(priv->client, sample_delay);
+				mutex_unlock(&kxcjk_1013_mutex);	
 				if(err != KXCJK_SUCCESS ) //0x2C->BW=100Hz
 				{
 					GSE_ERR("Set delay parameter error!\n");
@@ -1585,6 +1594,7 @@ static int kxcjk_gsensor_operate(void* self, uint32_t command, void* buff_in, in
 			else
 			{
 				value = *(int *)buff_in;
+				mutex_lock(&kxcjk_1013_mutex);
 				if(((value == 0) && (sensor_power == false)) ||((value == 1) && (sensor_power == true)))
 				{
 					GSE_LOG("Gsensor device have updated!\n");
@@ -1593,6 +1603,7 @@ static int kxcjk_gsensor_operate(void* self, uint32_t command, void* buff_in, in
 				{
 					err = KXCJK_SetPowerMode( priv->client, !sensor_power);
 				}
+				mutex_unlock(&kxcjk_1013_mutex);	
 			}
 			break;
 
@@ -1605,11 +1616,14 @@ static int kxcjk_gsensor_operate(void* self, uint32_t command, void* buff_in, in
 			else
 			{
 				gsensor_data = (hwm_sensor_data *)buff_out;
+				mutex_lock(&kxcjk_1013_mutex);
 				KXCJK_ReadSensorData(priv->client, buff, KXCJK_BUFSIZE);
+				mutex_unlock(&kxcjk_1013_mutex);		
 				sscanf(buff, "%x %x %x", &gsensor_data->values[0], 
 					&gsensor_data->values[1], &gsensor_data->values[2]);				
 				gsensor_data->status = SENSOR_STATUS_ACCURACY_MEDIUM;				
 				gsensor_data->value_divide = 1000;
+//GSE_LOG("kxcjk SENSOR_GET_DATA gsensor_data->values[0] =%d , gsensor_data->values[1] =%d , gsensor_data->values[2] =%d \n", gsensor_data->values[0], gsensor_data->values[1], gsensor_data->values[2]);
 			}
 			break;
 		default:
@@ -1879,12 +1893,15 @@ static void kxcjk_early_suspend(struct early_suspend *h)
 		GSE_ERR("null pointer!!\n");
 		return;
 	}
+	mutex_lock(&kxcjk_1013_mutex);
+
 	atomic_set(&obj->suspend, 1); 
 	if(err = KXCJK_SetPowerMode(obj->client, false))
 	{
 		GSE_ERR("write power control fail!!\n");
 		return;
 	}
+	mutex_unlock(&kxcjk_1013_mutex);		
 
 	sensor_power = false;
 	

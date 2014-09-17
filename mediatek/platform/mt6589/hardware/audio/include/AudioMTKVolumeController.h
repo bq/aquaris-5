@@ -7,6 +7,11 @@
 #include "AudioType.h"
 //#include "AudioVolumeDefault.h"
 #include "AudioCustParam.h"
+#include "AudioCustParam.h"
+#include <utils/Log.h>
+#include <utils/String16.h>
+#include <cutils/properties.h>
+#include "audio_custom_exp.h"
 
 #include <IATVCtrlService.h>
 #include <binder/IServiceManager.h>
@@ -52,7 +57,8 @@ namespace android
 #define TRANSPARENT_AGC_GAIN_OFFSET       (33)                        //for digital microphone
 
 
-typedef enum {
+typedef enum
+{
     Idle_Normal_Record = 0,
     Idle_Headset_Record,
     Voice_Rec_Mic_Handset,
@@ -79,14 +85,16 @@ typedef enum {
     Num_Mic_Gain
 } MIC_GAIN_MODE;
 
-typedef enum {
+typedef enum
+{
     EarPiece_SideTone_Gain = 0,
     Headset_SideTone_Gain ,
     LoudSpk_SideTone_Gain ,
     Num_Side_Tone_Gain
 } SIDETOEN_GAIN_MODE;
 
-typedef enum {
+typedef enum
+{
     Audio_Earpiece = 0,
     Audio_Headset,
     Audio_Headphone,
@@ -106,7 +114,16 @@ typedef enum {
     Num_of_Audio_gain
 } AUDIO_GAIN_MODE;
 
-static const uint32_t GainMap[] = {
+
+typedef enum
+{
+    DRC_VERSION_1  = 0,
+    DRC_VERSION_2 = 1,
+} DRC_VERSION;
+
+
+static const uint32_t GainMap[] =
+{
     0x80000, ////0 -0.000000 dB
     0x78d6f, ////1 -0.500000 dB
     0x72148, ////2 -1.000000 dB
@@ -257,6 +274,7 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
         status_t setVoiceVolume(float v, audio_mode_t mode, uint32_t devices);
         float getVoiceVolume(void);
         bool ModeSetVoiceVolume(int mode);
+        uint32_t GetDRCVersion(uint32 device);
 
         // here only valid stream can be set .
         status_t setStreamVolume(int stream, float v);
@@ -266,9 +284,6 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
         // should depend on different usage , FM ,MATV and output device to setline in gain
         status_t SetLineInPlaybackGain(int type);
         status_t SetLineInRecordingGain(int type);
-        bool SetFmVolume(int volume);
-        virtual bool SetFmChipVolume(int volume);
-        int  GetFmVolume(void);
         /**
           * volume controller setMatvVolume
           * set Matv Volume
@@ -276,7 +291,7 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
           * @return bool
           */
         virtual bool setMatvVolume(int volume);
-        
+
         /**
           * volume controller SetMatvMute
           * Set Matv Mute
@@ -290,6 +305,7 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
         bool ApplyLevelShiftBufferGain(uint32 MicMode);
 
         status_t SetMicGain(uint32_t Mode, uint32_t devices);
+        status_t SetULTotalGain(uint32_t Mode, unsigned char Volume);
         status_t SetSideTone(uint32_t Mode, uint32_t devices);
         status_t SetMicGainTuning(uint32_t Mode, uint32_t gain);
 
@@ -301,7 +317,14 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
         */
         virtual uint32_t GetSideToneGain(uint32_t device);
 
+        /**
+        * volume controller ApplySideTone
+        * base on mode gain to set sidetone gain
+        * @param Mode
+        * @return status_t
+        */
         status_t ApplySideTone(uint32_t Mode);
+
         uint32_t GetSideToneGainType(uint32 devices);
 
         /**
@@ -333,19 +356,26 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
         virtual void ApplyMdDlGain(int  Gain);
 
         /**
+        * volume controller Set modem DL Ehn gain
+        * @param Gain
+        * @return status_t
+        */
+        virtual void ApplyMdDlEhn1Gain(int32 Gain);
+
+        /**
         * volume controller Set modem Ul gain
         * @param Gain
         * @return status_t
         */
         virtual void ApplyMdUlGain(int  Gain);
-        
+
         /**
         * volume controller map volume to digital gain
         * @param Gain
         * @return digital gain
         */
         virtual uint16_t MappingToDigitalGain(unsigned char Gain);
-        
+
         /**
         * volume controller map volume to PGA gain
         * @param Gain
@@ -363,9 +393,9 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
         bool SetVolumeRange(uint32 mode, int32 MaxVolume, int32 MinVolume, int32 VolumeRange);
 
         bool IsHeadsetMicInput(uint32 device);
-        uint16_t UpdateSidetone(int DL_PGA_Gain, int  Sidetone_Volume , uint8_t SW_AGC_Ul_Gain );
-        uint8_t GetSWMICGain(){return mSwAgcGain;}
-        bool Get_FMPower_info(void);
+        uint16_t UpdateSidetone(int DL_PGA_Gain, int  Sidetone_Volume , uint8_t SW_AGC_Ul_Gain);
+        uint8_t GetSWMICGain() {return mSwAgcGain;}
+        uint8_t GetULTotalGain() {return mULTotalGain;}
 
     private:
         static AudioMTKVolumeController *UniqueVolumeInstance;
@@ -384,25 +414,29 @@ class AudioMTKVolumeController : public AudioMTKVolumeInterface
         AudioAnalogControlInterface *mAudioAnalogControl;
         AudioDigitalControlInterface *mAudioDigitalControl;
 
-		// Keeping pointer to ATVCtrlService
+        // Keeping pointer to ATVCtrlService
         sp<IATVCtrlService> spATVCtrlService;
 
         bool mMatvMute;
         float mVoiceVolume;
         uint8_t mSwAgcGain;
+        uint8_t mULTotalGain;
         float mMasterVolume;
         float mStreamVolume[android_audio_legacy::AudioSystem::NUM_STREAM_TYPES];
-        int mFmVolume;
-        int mFmChipVolume;
         int mMatvVolume;
+        uint32_t mSpeechDrcType ;
         bool mInitDone;
+        int32 mDLdegradeDb;
 
         // data strcutre for volume
         AUDIO_VER1_CUSTOM_VOLUME_STRUCT mVolumeParam;
+        AUDIO_CUSTOM_PARAM_STRUCT mSphParamNB;
+        AUDIO_CUSTOM_WB_PARAM_STRUCT mSphParamWB;
         int32 mVolumeMax[Num_of_Audio_gain];
         int32 mVolumeMin[Num_of_Audio_gain];
         int32 mVolumeRange[Num_of_Audio_gain];
         int mMicGain[Num_Mic_Gain];
+        uint8_t mULTotalGainTable[Num_Mic_Gain];
         int mSideTone[Num_Side_Tone_Gain];
 };
 

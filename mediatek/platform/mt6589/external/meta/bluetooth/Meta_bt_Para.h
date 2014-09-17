@@ -35,48 +35,6 @@
  * any receiver's applicable license agreements with MediaTek Inc.
  */
 
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *   meta_bt_para.h
- *
- * Project:
- * --------
- *   DUMA
- *
- * Description:
- * ------------
- *   define the struct for Meta
- *
- * Author:
- * -------
- *   LiChunhui (MBJ07017)
- *
- *============================================================================
- *             HISTORY
- * Below this line, this part is controlled by CC/CQ. DO NOT MODIFY!!
- *------------------------------------------------------------------------------
- * $Revision:$
- * $Modtime:$
- * $Log:$
- *
- * 03 09 2010 ch.yeh
- * [ALPS00001276][BT]Migration to Android 2.1 
- * [BT][meta]enable Bluetooth META function.
- *
- * Feb 19 2009 mtk80306
- * [DUMA00109277] add meta _battery mode.
- * add meta_battery 
- *
- * Dec 31 2008 mbj07017
- * [DUMA00106713] [Bluetooth]bt meta lib check in
- * add bt implement for META
- *
- *------------------------------------------------------------------------------
- * Upper this line, this part is controlled by CC/CQ. DO NOT MODIFY!!
- *============================================================================
- ****************************************************************************/
 #ifndef __META_BT_PARA_H_
 #define __META_BT_PARA_H_
 
@@ -114,22 +72,22 @@ BOOL WriteDataToPC(void *Local_buf,unsigned short Local_len,void *Peer_buf,unsig
 
 /* The TestCase Enum define of BT_module */
 typedef enum {
-   BT_OP_HCI_SEND_COMMAND = 0
-  ,BT_OP_HCI_CLEAN_COMMAND
-  ,BT_OP_HCI_SEND_DATA 
-  ,BT_OP_HCI_TX_PURE_TEST
-  ,BT_OP_HCI_RX_TEST_START
-  ,BT_OP_HCI_RX_TEST_END
-  ,BT_OP_HCI_TX_PURE_TEST_V2
-  ,BT_OP_HCI_RX_TEST_START_V2
-  ,BT_OP_ENABLE_NVRAM_ONLINE_UPDATE
-  ,BT_OP_DISABLE_NVRAM_ONLINE_UPDATE
-  ,BT_OP_ENABLE_PCM_CLK_SYNC_SIGNAL
-  ,BT_OP_DISABLE_PCM_CLK_SYNC_SIGNAL
-  ,BT_OP_GET_CHIP_ID
-  ,BT_OP_INIT
-  ,BT_OP_DEINIT
-  ,BT_OP_END
+  BT_OP_HCI_SEND_COMMAND = 0,
+  BT_OP_HCI_CLEAN_COMMAND,
+  BT_OP_HCI_SEND_DATA,
+  BT_OP_HCI_TX_PURE_TEST,
+  BT_OP_HCI_RX_TEST_START,
+  BT_OP_HCI_RX_TEST_END,
+  BT_OP_HCI_TX_PURE_TEST_V2,
+  BT_OP_HCI_RX_TEST_START_V2,
+  BT_OP_ENABLE_NVRAM_ONLINE_UPDATE,
+  BT_OP_DISABLE_NVRAM_ONLINE_UPDATE,
+  BT_OP_ENABLE_PCM_CLK_SYNC_SIGNAL,
+  BT_OP_DISABLE_PCM_CLK_SYNC_SIGNAL,
+  BT_OP_GET_CHIP_ID,
+  BT_OP_INIT,
+  BT_OP_DEINIT,
+  BT_OP_END
 } BT_OP;
 
 typedef enum {
@@ -139,7 +97,12 @@ typedef enum {
   BT_CHIP_ID_MT6620,
   BT_CHIP_ID_MT6622,
   BT_CHIP_ID_MT6626,
-  BT_CHIP_ID_MT6628
+  BT_CHIP_ID_MT6628,
+  BT_CHIP_ID_MT6572,
+  BT_CHIP_ID_MT6582,
+  BT_CHIP_ID_MT6592,
+  BT_CHIP_ID_MT6571,
+  BT_CHIP_ID_MT6630
 } BT_CHIP_ID;
 
 /* The HCI command struct */
@@ -191,7 +154,7 @@ typedef struct {
 } BT_CNF;
 
 BOOL META_BT_init(void);
-void META_BT_deinit();
+void META_BT_deinit(void);
 void META_BT_OP(BT_REQ *req, char *peer_buff, unsigned short peer_len);
 
 #ifdef __cplusplus

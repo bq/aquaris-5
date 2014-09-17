@@ -26,7 +26,7 @@ int disp_path_get_mutex()
     if(disp_wait_timeout(((DISP_REG_GET(DISP_REG_CONFIG_MUTEX(gMutexID))& 0x2) == 0x2), 1000*1000*500))
     {
         printf("[DDP] error! disp_path_get_mutex(), get mutex timeout! \n");
-		disp_dump_reg(DISP_MODULE_CONFIG);
+        disp_dump_reg(DISP_MODULE_CONFIG);
     } 
 
 }
@@ -37,7 +37,7 @@ int disp_path_release_mutex()
     if(disp_wait_timeout(((DISP_REG_GET(DISP_REG_CONFIG_MUTEX(gMutexID)) & 0x2) == 0), 1000*1000*500))
     {
         printf("[DDP] error! disp_path_release_mutex(), release mutex timeout! \n");
-		disp_dump_reg(DISP_MODULE_CONFIG);
+        disp_dump_reg(DISP_MODULE_CONFIG);
     }
 }
 
@@ -45,8 +45,9 @@ int disp_path_release_mutex()
 
 int disp_path_config_layer(OVL_CONFIG_STRUCT* pOvlConfig)
 {
-	printf("%s, %d\n", __func__, __LINE__);
-//    unsigned int reg_addr;
+	// printf("%s, %d\n", __func__, __LINE__);
+  // unsigned int reg_addr;
+#if 0
 	printf("[DDP]disp_path_config_layer(), layer=%d, source=%d, fmt=%d, addr=0x%x, x=%d, y=%d \n\
 	w=%d, h=%d, pitch=%d, keyEn=%d, key=%d, aen=%d, alpha=%d \n ", 
     pOvlConfig->layer,   // layer
@@ -61,7 +62,9 @@ int disp_path_config_layer(OVL_CONFIG_STRUCT* pOvlConfig)
     pOvlConfig->keyEn,  //color key
     pOvlConfig->key,  //color key
     pOvlConfig->aen, // alpha enable
-    pOvlConfig->alpha);	
+    pOvlConfig->alpha);
+#endif
+    	
 //    disp_path_get_mutex();
 	
     // config overlay
@@ -93,7 +96,7 @@ int disp_path_config_layer_addr(unsigned int layer, unsigned int addr)
 {
     unsigned int reg_addr;
 
-    printf("[DDP]disp_path_config_layer_addr(), layer=%d, addr=0x%x\n ", layer, addr);
+    // printf("[DDP]disp_path_config_layer_addr(), layer=%d, addr=0x%x\n ", layer, addr);
 
 //    disp_path_get_mutex();	
 	
@@ -118,7 +121,7 @@ int disp_path_config_layer_addr(unsigned int layer, unsigned int addr)
 	    default:
 			printf("[DDP] error! error: unknow layer=%d \n", layer);
     }
-    printf("[DDP]disp_path_config_layer_addr() done, addr=0x%x \n", DISP_REG_GET(reg_addr));
+    //printf("[DDP]disp_path_config_layer_addr() done, addr=0x%x \n", DISP_REG_GET(reg_addr));
 
 //    disp_path_release_mutex();
    
@@ -144,7 +147,7 @@ int disp_path_config(struct disp_path_config_struct* pConfig)
         ///> get mutex and set mout/sel
 //        unsigned int gMutexID = 0;
         unsigned int mutex_mode;
-
+#if 0
         printf("[DDP]disp_path_config(), srcModule=%d, addr=0x%x, inFormat=%d, \n\
         pitch=%d, bgROI(%d,%d,%d,%d), bgColor=%d, outFormat=%d, dstModule=%d, dstAddr=0x%x,  \n",
             pConfig->srcModule,            
@@ -159,6 +162,7 @@ int disp_path_config(struct disp_path_config_struct* pConfig)
             pConfig->outFormat,  
             pConfig->dstModule, 
             pConfig->dstAddr);
+#endif
 
         if(pConfig->srcModule==DISP_MODULE_RDMA0 && pConfig->dstModule==DISP_MODULE_WDMA1)
         {
@@ -299,11 +303,7 @@ int disp_path_config(struct disp_path_config_struct* pConfig)
             }
             else    //2. ovl->bls->rdma0->lcd
             {
-                
-#if defined(MTK_AAL_SUPPORT)                
-                disp_bls_init(pConfig->srcROI.width, pConfig->srcROI.height);
-#endif
-                
+                               
                 ///config RDMA
                 RDMAStop(0);
                 RDMAReset(0);
@@ -339,12 +339,13 @@ int disp_path_config(struct disp_path_config_struct* pConfig)
             RDMAStart(0);
         }
 
-        
+#if 0        
         disp_dump_reg(DISP_MODULE_OVL);
         disp_dump_reg(DISP_MODULE_WDMA1);
         disp_dump_reg(DISP_MODULE_DPI0);
         disp_dump_reg(DISP_MODULE_RDMA0);
         disp_dump_reg(DISP_MODULE_CONFIG);
+#endif
 
 //		disp_path_release_mutex();
 		

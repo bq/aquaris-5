@@ -1,39 +1,4 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
-/* alps/ALPS_SW/TRUNK/MAIN/alps/kernel/arch/arm/mach-mt6516/include/mach/fm.h
+/* 
  *
  * (C) Copyright 2009 
  * MediaTek <www.MediaTek.com>
@@ -72,6 +37,11 @@ typedef unsigned char fm_u8;
 typedef unsigned short fm_u16;
 typedef unsigned int fm_u32;
 typedef unsigned long long fm_u64;
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef signed short int16_t;
+
 typedef enum fm_bool {
     fm_false = 0,
     fm_true  = 1
@@ -232,6 +202,9 @@ enum{
 #define FM_CHIP_MT6620 0x6620
 #define FM_CHIP_MT6626 0x6626
 #define FM_CHIP_MT6628 0x6628
+#define FM_CHIP_MT6627 0x6627
+#define FM_CHIP_MT6630 0x6630
+
 #define FM_CHIP_UNSUPPORTED -1
 
 // seek threshold
@@ -355,6 +328,12 @@ struct fm_hw_info{
     int reserve;
 };
 
+struct fm_search_threshold_t 
+{  
+	fm_s32 th_type;// 0, RSSI. 1,desense RSSI. 2,SMG.
+	fm_s32 th_val; //threshold value
+	fm_s32 reserve;
+};
 
 #if 1
 #define NEED_DEF_RDS 1
@@ -551,21 +530,24 @@ struct fm_gps_rtc_info{
 typedef enum
 {
 	FM_I2S_ON = 0,
-	FM_I2S_OFF
-}fm_i2s_state;
+	FM_I2S_OFF,
+    FM_I2S_STATE_ERR
+}fm_i2s_state_e;
 
 typedef enum
 {
 	FM_I2S_MASTER = 0,
-	FM_I2S_SLAVE
-}fm_i2s_mode;
+	FM_I2S_SLAVE,
+    FM_I2S_MODE_ERR
+}fm_i2s_mode_e;
 
 typedef enum
 {
 	FM_I2S_32K = 0,
 	FM_I2S_44K,
-	FM_I2S_48K
-}fm_i2s_sample;
+	FM_I2S_48K,
+    FM_I2S_SR_ERR
+}fm_i2s_sample_e;
 
 struct fm_i2s_setting{
     int onoff;
@@ -580,10 +562,32 @@ typedef enum{
 
 typedef struct fm_i2s_info
 {
-    int status;
-    int mode;
-    int rate;
+    int status; /*0:FM_I2S_ON, 1:FM_I2S_OFF,2:error*/
+    int mode;   /*0:FM_I2S_MASTER, 1:FM_I2S_SLAVE,2:error*/
+    int rate;   /*0:FM_I2S_32K:32000,1:FM_I2S_44K:44100,2:FM_I2S_48K:48000,3:error*/
 } fm_i2s_info_t;
+
+typedef enum 
+{
+    FM_AUD_ANALOG = 0,
+    FM_AUD_I2S = 1,    
+    FM_AUD_MRGIF = 2,
+    FM_AUD_ERR
+}fm_audio_path_e;
+
+typedef enum 
+{
+    FM_I2S_PAD_CONN = 0, //sco fm chip: e.g.6627
+    FM_I2S_PAD_IO = 1,   //combo fm chip: e.g.6628
+    FM_I2S_PAD_ERR
+}fm_i2s_pad_sel_e;
+
+typedef struct fm_audio_info
+{
+    fm_audio_path_e aud_path;
+    fm_i2s_info_t i2s_info;
+    fm_i2s_pad_sel_e i2s_pad;
+} fm_audio_info_t;
 
 struct fm_cqi 
 {
@@ -603,6 +607,15 @@ typedef struct
 	int freq;
 	int rssi;
 }fm_desense_check_t;
+
+typedef struct 
+{
+    uint16_t lower;             // lower band, Eg, 7600 -> 76.0Mhz
+    uint16_t upper;             // upper band, Eg, 10800 -> 108.0Mhz
+    int space;                  // 0x1: 50KHz, 0x2: 100Khz, 0x4: 200Khz
+    int cycle;                  // repeat times 
+}fm_full_cqi_log_t;
+
 // ********** ***********FM IOCTL define start *******************************
 
 #define FM_IOC_MAGIC        0xf5 // FIXME: any conflict?
@@ -617,9 +630,6 @@ typedef struct
 #define FM_IOCTL_GETRSSI       _IOWR(FM_IOC_MAGIC, 7, int32_t*)
 #define FM_IOCTL_SCAN          _IOWR(FM_IOC_MAGIC, 8, struct fm_scan_parm*)
 #define FM_IOCTL_STOP_SCAN     _IO(FM_IOC_MAGIC,   9)
-#define FM_IOCTL_POWERUP_TX    _IOWR(FM_IOC_MAGIC, 20, struct fm_tune_parm*)
-#define FM_IOCTL_TUNE_TX       _IOWR(FM_IOC_MAGIC, 21, struct fm_tune_parm*)
-#define FM_IOCTL_RDS_TX        _IOWR(FM_IOC_MAGIC, 22, struct fm_rds_tx_parm*)
 
 //IOCTL and struct for test
 #define FM_IOCTL_GETCHIPID     _IOWR(FM_IOC_MAGIC, 10, uint16_t*)
@@ -631,10 +641,13 @@ typedef struct
 #define FM_IOCTL_GETBADBNT     _IOWR(FM_IOC_MAGIC, 16, uint16_t*)
 #define FM_IOCTL_GETBLERRATIO  _IOWR(FM_IOC_MAGIC, 17, uint16_t*)
 
-
 //IOCTL for RDS 
 #define FM_IOCTL_RDS_ONOFF     _IOWR(FM_IOC_MAGIC, 18, uint16_t*)
 #define FM_IOCTL_RDS_SUPPORT   _IOWR(FM_IOC_MAGIC, 19, int32_t*)
+
+#define FM_IOCTL_POWERUP_TX    _IOWR(FM_IOC_MAGIC, 20, struct fm_tune_parm*)
+#define FM_IOCTL_TUNE_TX       _IOWR(FM_IOC_MAGIC, 21, struct fm_tune_parm*)
+#define FM_IOCTL_RDS_TX        _IOWR(FM_IOC_MAGIC, 22, struct fm_rds_tx_parm*)
 
 #define FM_IOCTL_RDS_SIM_DATA  _IOWR(FM_IOC_MAGIC, 23, uint32_t*)
 #define FM_IOCTL_IS_FM_POWERED_UP  _IOWR(FM_IOC_MAGIC, 24, uint32_t*)
@@ -666,8 +679,17 @@ typedef struct
 #define FM_IOCTL_RDS_BC_RST     _IOWR(FM_IOC_MAGIC, 38, int32_t*)
 #define FM_IOCTL_CQI_GET     _IOWR(FM_IOC_MAGIC, 39, struct fm_cqi_req*)
 #define FM_IOCTL_GET_HW_INFO    _IOWR(FM_IOC_MAGIC, 40, struct fm_hw_info*)
-#define FM_IOCTL_GET_I2S_INFO   _IOWR(FM_IOC_MAGIC, 41, struct fm_i2s_info*)
+#define FM_IOCTL_GET_I2S_INFO   _IOWR(FM_IOC_MAGIC, 41, fm_i2s_info_t*)
 #define FM_IOCTL_IS_DESE_CHAN   _IOWR(FM_IOC_MAGIC, 42, int32_t*)
+#define FM_IOCTL_TOP_RDWR _IOWR(FM_IOC_MAGIC, 43, struct fm_top_rw_parm*)
+#define FM_IOCTL_HOST_RDWR  _IOWR(FM_IOC_MAGIC, 44, struct fm_host_rw_parm*)
+
+#define FM_IOCTL_PRE_SEARCH _IOWR(FM_IOC_MAGIC, 45,int32_t)
+#define FM_IOCTL_RESTORE_SEARCH _IOWR(FM_IOC_MAGIC, 46,int32_t)
+
+#define FM_IOCTL_SET_SEARCH_THRESHOLD   _IOWR(FM_IOC_MAGIC, 47, fm_search_threshold_t*)
+
+#define FM_IOCTL_GET_AUDIO_INFO _IOWR(FM_IOC_MAGIC, 48, fm_audio_info_t*)
 
 #define FM_IOCTL_SCAN_NEW       _IOWR(FM_IOC_MAGIC, 60, struct fm_scan_t*)
 #define FM_IOCTL_SEEK_NEW       _IOWR(FM_IOC_MAGIC, 61, struct fm_seek_t*)
@@ -675,6 +697,9 @@ typedef struct
 
 #define FM_IOCTL_SOFT_MUTE_TUNE _IOWR(FM_IOC_MAGIC, 63, struct fm_softmute_tune_t*)/*for soft mute tune*/
 #define FM_IOCTL_DESENSE_CHECK   _IOWR(FM_IOC_MAGIC, 64, fm_desense_check_t*)
+
+//IOCTL for EM
+#define FM_IOCTL_FULL_CQI_LOG _IOWR(FM_IOC_MAGIC, 70, fm_full_cqi_log_t *)
 
 #define FM_IOCTL_DUMP_REG   _IO(FM_IOC_MAGIC, 0xFF)
 

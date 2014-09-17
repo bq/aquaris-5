@@ -239,6 +239,8 @@ const NVRAM_CAMERA_3A_STRUCT CAMERA_3A_NVRAM_DEFAULT_VALUE =
             },
             // rD65Gain (D65 WB gain: 1.0 = 512)
             {
+                896,    // i4R
+                512,    // i4G
                 667    // i4B
             }
     	},

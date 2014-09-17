@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 /*
 **
 ** Copyright 2008, The Android Open Source Project
@@ -92,7 +57,7 @@ FLASH_PROJECT_PARA& cust_getFlashProjectPara_sub(int aeMode, NVRAM_CAMERA_STROBE
 {
 	static FLASH_PROJECT_PARA para;
 
-	para.dutyNum = 16;
+	para.dutyNum = 2;
 	para.stepNum = 1;
 	//tuning
 
@@ -131,102 +96,62 @@ FLASH_PROJECT_PARA& cust_getFlashProjectPara_sub(int aeMode, NVRAM_CAMERA_STROBE
 	//index mode
 	//torch
 	para.engLevel.torchEngMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.engLevel.torchDuty = 2;
+	para.engLevel.torchDuty = 0;
 	para.engLevel.torchStep = 0;
 
 	//af
 	para.engLevel.afEngMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.engLevel.afDuty = 2;
+	para.engLevel.afDuty = 0;
 	para.engLevel.afStep = 0;
 
 	//pf, mf, normal
 	para.engLevel.pmfEngMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.engLevel.pfDuty = 2;
-	para.engLevel.mfDutyMax = 15;
+	para.engLevel.pfDuty = 0;
+	para.engLevel.mfDutyMax = 1;
 	para.engLevel.mfDutyMin = 0;
 	para.engLevel.pmfStep = 0;
 
 	//low bat
 	para.engLevel.IChangeByVBatEn=0;
-	para.engLevel.vBatL = 3400;	//mv
-	para.engLevel.pfDutyL = 1;
-	para.engLevel.mfDutyMaxL = 2;
+	para.engLevel.vBatL = 3550;	//mv
+	para.engLevel.pfDutyL = 0;
+	para.engLevel.mfDutyMaxL = 0;
 	para.engLevel.mfDutyMinL = 0;
 	para.engLevel.pmfStepL = 0;
 
 	//burst setting
 	para.engLevel.IChangeByBurstEn=1;
-	para.engLevel.pfDutyB = 2;
-	para.engLevel.mfDutyMaxB = 3;
+	para.engLevel.pfDutyB = 0;
+	para.engLevel.mfDutyMaxB = 0;
 	para.engLevel.mfDutyMinB = 0;
 	para.engLevel.pmfStepB = 0;
 
 	//--------------------
 	//cooling delay para
 	para.coolTimeOutPara.tabMode = ENUM_FLASH_ENG_INDEX_MODE;
-	para.coolTimeOutPara.tabNum = 5;
+	para.coolTimeOutPara.tabNum = 2;
 	para.coolTimeOutPara.tabId[0]=0;
-	para.coolTimeOutPara.tabId[1]=4;
-	para.coolTimeOutPara.tabId[2]=8;
-	para.coolTimeOutPara.tabId[3]=12;
-	para.coolTimeOutPara.tabId[4]=15;
+	para.coolTimeOutPara.tabId[1]=1;
+
 	para.coolTimeOutPara.coolingTM[0]=0;
-	para.coolTimeOutPara.coolingTM[1]=0;
-	para.coolTimeOutPara.coolingTM[2]=1;
-	para.coolTimeOutPara.coolingTM[3]=2;
-	para.coolTimeOutPara.coolingTM[4]=3;
+	para.coolTimeOutPara.coolingTM[1]=5;
+
 
 	para.coolTimeOutPara.timOutMs[0]=ENUM_FLASH_TIME_NO_TIME_OUT;
-	para.coolTimeOutPara.timOutMs[1]=ENUM_FLASH_TIME_NO_TIME_OUT;
-	para.coolTimeOutPara.timOutMs[2]=500;
-	para.coolTimeOutPara.timOutMs[3]=500;
-	para.coolTimeOutPara.timOutMs[4]=500;
+	para.coolTimeOutPara.timOutMs[1]=500;
 
-	/*
-	//---------------
-	//current mode, for mtk internal pmic
-	//torch
-	para.engLevel.torchEngMode = ENUM_FLASH_ENG_CURRENT_MODE;
-	para.engLevel.torchPeakI = 100;
-	para.engLevel.torchAveI = 100;
 
-	//af
-	para.engLevel.afEngMode = ENUM_FLASH_ENG_CURRENT_MODE;
-	para.engLevel.afPeakI = 200;
-	para.engLevel.afAveI = 200;
+	para.maxCapExpTimeUs=100000;
+	para.pfExpFollowPline=0;
+	//para.maxPfAfe=3000;
+	para.maxAfeGain=4096;
 
-	//pf, mf normal
-	para.engLevel.pmfEngMode = ENUM_FLASH_ENG_CURRENT_MODE;
-	para.engLevel.pfAveI = 200;
-	para.engLevel.mfAveIMax = 600;
-	para.engLevel.mfAveIMin = 50;
-	para.engLevel.pmfPeakI = 800;
+	//92 new
+	para.lowReflectanceTuningEnable=1;
+	para.yTargetWeight=0;
+	para.lowReflectanceThreshold=16;
+	para.flashReflectanceWeight = 0;
 
-	//low bat setting
-	para.engLevel.IChangeByVBatEn = 0;
-	para.engLevel.vBatL = 3400;
-	para.engLevel.pfAveIL = 200;
-	para.engLevel.mfAveIMaxL = 800;
-	para.engLevel.mfAveIMinL = 100;
-	para.engLevel.pmfPeakIL =1000;
-
-	//burst setting
-	para.engLevel.IChangeByBurstEn=1;
-	para.engLevel.pfAveIB = 200;
-	para.engLevel.mfAveIMaxB = 400;
-	para.engLevel.mfAveIMinB = 100;
-	para.engLevel.pmfPeakIB = 500;
-
-	//stable current
-	para.engLevel.extrapI = 200;
-	para.engLevel.extrapRefI = 200;
-	//calibration
-	para.engLevel.minPassI = 200;
-	para.engLevel.maxTestI  = 800;
-	para.engLevel.minTestBatV = 3500;
-	para.engLevel.toleranceI = 200;
-	para.engLevel.toleranceV = 200;
-	*/
 	if(nvrame!=0)
 	{
 		if(nvrame->isTorchEngUpdate)

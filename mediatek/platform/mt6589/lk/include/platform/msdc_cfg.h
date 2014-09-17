@@ -55,7 +55,7 @@
 #endif
 
 
-//#define FEATURE_MMC_SDIO
+
 //#define FEATURE_MMC_UHS1
 //#define FEATURE_MMC_BOOT_MODE
 #define FEATURE_MMC_WR_TUNING

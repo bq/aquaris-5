@@ -116,5 +116,6 @@ extern void mtk_wdt_init(void);
 //extern unsigned int mtk_wdt_check_status(void);
 extern BOOL mtk_is_rgu_trigger_reset(void);
 extern void mtk_arch_reset(char mode);
+extern void mtk_wdt_restart(void);
 
 #endif   /*__MTK_WDT_H__*/

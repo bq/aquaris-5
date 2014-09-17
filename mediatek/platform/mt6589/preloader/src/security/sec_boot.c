@@ -163,7 +163,13 @@ void sec_boot_check (void)
         {
             goto _fail;
         }
-
+        
+#if  VERIFY_PART_CUST
+        if (SEC_OK != sec_boot_img_check(TRUE, SW_SEC_BOOT_CHECK_IMAGE, VERIFY_PART_CUST_NAME))
+        {
+            goto _fail;
+        }
+#endif
 
         /* calculate verification time */
         g_verify_time_end = get_timer (g_verify_time_begin);

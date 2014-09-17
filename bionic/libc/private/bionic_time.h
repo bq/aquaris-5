@@ -29,6 +29,7 @@
 #define _BIONIC_TIME_H
 
 #include <time.h>
+#include <sys/cdefs.h>
 
 __BEGIN_DECLS
 
@@ -49,7 +50,12 @@ struct strftime_locale {
     const char *  date_fmt;
 };
 
-extern size_t      strftime_tz(char *s, size_t max, const char *format, const struct tm *tm, const struct strftime_locale*  lc);
+/*
+ * Note: you should consider these extensions deprecated and use managed code or icu4c instead.
+ */
+extern size_t strftime_tz(char* s, size_t max, const char* format, const struct tm* tm, const struct strftime_locale* lc);
+extern time_t mktime_tz(struct tm* const tmp, char const* tz);
+extern void localtime_tz(const time_t* const timep, struct tm* tmp, const char* tz);
 
 #endif /* _BIONIC_STRFTIME_TZ_DECLARED */
 

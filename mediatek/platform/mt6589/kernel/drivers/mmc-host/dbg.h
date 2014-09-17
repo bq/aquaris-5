@@ -1,37 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- *
- * MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
 #ifndef __MT_MSDC_DEUBG__
 #define __MT_MSDC_DEUBG__
 #include "mt_sd.h"
@@ -164,19 +130,41 @@ do {    \
             host->id,  ##args , __FUNCTION__, __LINE__, current->comm, current->pid); \
     }   \
 } while(0)
-#if 1
+
+#if 0
 #define ERR_MSG(fmt, args...) \
 do { \
     xlog_printk(ANDROID_LOG_ERROR,"MSDC",TAG"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
         host->id,  ##args , __FUNCTION__, __LINE__, current->comm, current->pid); \
 } while(0); 
 #else
+
+#define MAX_PRINT_PERIOD            (500000000)  // 500ms
+#define MAX_PRINT_NUMS_OVER_PERIOD  (50)
 #define ERR_MSG(fmt, args...) \
 do { \
-    printk(KERN_ERR TAG"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
-        host->id,  ##args , __FUNCTION__, __LINE__, current->comm, current->pid); \
-} while(0); 
+       if (print_nums == 0){  \
+           print_nums++; \
+           msdc_print_start_time = sched_clock();  \
+           xlog_printk(ANDROID_LOG_ERROR,"MSDC",TAG"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
+                host->id,  ##args , __FUNCTION__, __LINE__, current->comm, current->pid); \
+       } else {   \
+           msdc_print_end_time = sched_clock();    \
+           if ((msdc_print_end_time - msdc_print_start_time) >= MAX_PRINT_PERIOD){    \
+               xlog_printk(ANDROID_LOG_ERROR,"MSDC",TAG"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
+                    host->id,  ##args , __FUNCTION__, __LINE__, current->comm, current->pid); \
+               print_nums = 0;  \        
+           } else {	  \
+               if (print_nums <= MAX_PRINT_NUMS_OVER_PERIOD){   \             
+                    xlog_printk(ANDROID_LOG_ERROR,"MSDC",TAG"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
+                        host->id,  ##args , __FUNCTION__, __LINE__, current->comm, current->pid); \
+                    print_nums++;    \
+               }   \
+           }   \
+       }       \
+    } while(0); 
 #endif
+
 #define INIT_MSG(fmt, args...) \
 do { \
     printk(KERN_ERR TAG"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
@@ -198,7 +186,6 @@ do { \
 
 int msdc_debug_proc_init(void); 
 
-void msdc_init_gpt(void);
 extern void GPT_GetCounter64(UINT32 *cntL32, UINT32 *cntH32);
 u32 msdc_time_calc(u32 old_L32, u32 old_H32, u32 new_L32, u32 new_H32);
 void msdc_performance(u32 opcode, u32 sizes, u32 bRx, u32 ticks);   

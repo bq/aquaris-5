@@ -63,7 +63,7 @@ static void bt_info_callback(BT_CNF *cnf, void *buf, unsigned int size)
             (int)cnf->bt_result.hcievent.parms[2], (int)cnf->bt_result.hcievent.parms[3]);
 
     }else if(cnf->eventtype == 3){
-        printf("[META_BT] hci acl con_hdl %d len: %d\n", cnf->bt_result.hcibuffer.con_hdl, cnf->bt_result.hcibuffer.len);
+        printf("[META_BT] hci acl con_hdl %d len: %d\n", cnf->bt_result.hcibuf.con_hdl, cnf->bt_result.hcibuf.len);
     }else{
         printf("[META_BT] Unexpected eventtype\n"); 
     }

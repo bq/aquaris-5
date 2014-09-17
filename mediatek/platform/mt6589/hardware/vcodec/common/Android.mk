@@ -39,6 +39,13 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_PREBUILT_LIBS := \
 	lib/libvcodec_oal.so \
-	lib/libmp4enc_xa.ca7.so
+	lib/libmp4enc_xa.ca7.so \
+	lib/libvp8dec_sa.ca7.so 
+
+ifeq ($(strip $(MTK_VIDEO_HEVC_SUPPORT)), yes)
+LOCAL_PREBUILT_LIBS += \
+  lib/libhevce_sb.ca7.android.so \
+  lib/libHEVCdec_sa.ca7.android.so
+endif
 
 include $(BUILD_MULTI_PREBUILT)

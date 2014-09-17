@@ -149,7 +149,13 @@ U8* sec2plname (U8* name)
     else if(0 == memcmp(name, SBOOT_PART_CACHE,strlen(SBOOT_PART_CACHE)))
     {
         return (char*) PART_CACHE;
-    }       
+    }
+#if  VERIFY_PART_CUST    
+    else if(0 == memcmp(name, VERIFY_PART_CUST_NAME,strlen(VERIFY_PART_CUST_NAME))) 
+    { 
+        return (char*) VERIFY_PART_CUST_NAME; 
+    }          
+#endif 
     /* ----------------- */    
     /* not found         */
     /* ----------------- */    

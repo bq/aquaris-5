@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
@@ -110,7 +75,9 @@
 #include <asm/system.h>
 //#include <linux/mm.h>
 #include <linux/pagemap.h>
-
+#ifndef JPEG_DEV
+#include <linux/proc_fs.h>
+#endif
 
 
 
@@ -155,10 +122,12 @@ extern kal_uint32 _jpeg_enc_int_status;
 extern kal_uint32 _jpeg_dec_int_status;
 extern kal_uint32 _jpeg_dec_mode ;
 
+#ifdef JPEG_DEV
 // device and driver
 static dev_t jpeg_devno;
 static struct cdev *jpeg_cdev;
 static struct class *jpeg_class = NULL;
+#endif
 
 // decoder
 static wait_queue_head_t dec_wait_queue;
@@ -1081,7 +1050,7 @@ static struct file_operations jpeg_fops = {
 
 static int jpeg_probe(struct platform_device *pdev)
 {
-    struct class_device;
+#ifdef JPEG_DEV
     
 	int ret;
     struct class_device *class_dev = NULL;
@@ -1106,6 +1075,11 @@ static int jpeg_probe(struct platform_device *pdev)
 
     jpeg_class = class_create(THIS_MODULE, JPEG_DEVNAME);
     class_dev = (struct class_device *)device_create(jpeg_class, NULL, jpeg_devno, NULL, JPEG_DEVNAME);
+#else // change mtk_jpeg dev to proc
+
+    proc_create("mtk_jpeg", 0, NULL, &jpeg_fops);
+
+#endif
 
     spin_lock_init(&jpeg_dec_lock);
     spin_lock_init(&jpeg_enc_lock);
@@ -1145,7 +1119,9 @@ static int jpeg_probe(struct platform_device *pdev)
 #endif
 	JPEG_MSG("JPEG Probe Done\n");
 
+#ifdef JPEG_DEV
 	NOT_REFERENCED(class_dev);
+#endif
 	return 0;
 }
 
@@ -1170,8 +1146,8 @@ static void jpeg_shutdown(struct platform_device *pdev)
 /* PM suspend */
 static int jpeg_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-    jpeg_drv_dec_deinit();
-    jpeg_drv_enc_deinit();
+    //jpeg_drv_dec_deinit();
+    //jpeg_drv_enc_deinit();
     return 0;
 }
 
@@ -1239,14 +1215,19 @@ static int __init jpeg_init(void)
 
 static void __exit jpeg_exit(void)
 {
+#ifdef JPEG_DEV
     cdev_del(jpeg_cdev);
     unregister_chrdev_region(jpeg_devno, 1);
-	//JPEG_MSG("Unregistering driver\n");
-    platform_driver_unregister(&jpeg_driver);
-	platform_device_unregister(&jpeg_device);
+    //JPEG_MSG("Unregistering driver\n");
 	
-	device_destroy(jpeg_class, jpeg_devno);
-	class_destroy(jpeg_class);
+    device_destroy(jpeg_class, jpeg_devno);
+    class_destroy(jpeg_class);
+#else
+    remove_proc_entry("mtk_jpeg", NULL);
+#endif
+   
+    platform_driver_unregister(&jpeg_driver);
+    platform_device_unregister(&jpeg_device);
 	
 	JPEG_MSG("Done\n");
 }

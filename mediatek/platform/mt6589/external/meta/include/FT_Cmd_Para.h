@@ -219,6 +219,7 @@ typedef enum
 	,FT_UTILCMD_SET_CLEAN_BOOT_FLAG
 	,FT_UTILCMD_LCD_COLOR_TEST
 	,FT_UTILCMD_SAVE_MOBILE_LOG
+	,FT_UTILCMD_OPEN_DUMP_LOG
 	,FT_UTILCMD_END
 } FtUtilCmdType;
 
@@ -239,6 +240,11 @@ typedef struct
 typedef enum 
 {
 	FT_MODEM_OP_QUERY_INFO = 0,
+	FT_MODEM_OP_CAPABILITY_LIST = 1,
+	FT_MODEM_OP_SET_MODEMTYPE = 2,
+	FT_MODEM_OP_GET_CURENTMODEMTYPE = 3,
+	FT_MODEM_OP_QUERY_MDIMGTYPE = 4,
+	FT_MODEM_END = 0x0fffffff
 }FT_MODEM_OP;
 
 typedef struct 
@@ -252,14 +258,65 @@ typedef struct
 	unsigned int modem_id;
 }MODEM_QUERY_INFO_CNF;
 	
+typedef struct 
+{
+    unsigned char reserved;
+}MODEM_CAPABILITY_LIST_REQ;
+
+typedef struct 
+{
+	MODEM_CAPABILITY modem_cap[8];
+}MODEM_CAPABILITY_LIST_CNF; 
+
+
+typedef struct 
+{
+	unsigned int modem_id;
+	unsigned int modem_type;
+}MODEM_SET_MODEMTYPE_REQ;
+
+typedef struct 
+{
+	unsigned char reserved;	
+}MODEM_SET_MODEMTYPE_CNF;
+
+typedef struct 
+{
+	unsigned int modem_id;
+}MODEM_GET_CURRENTMODEMTYPE_REQ;
+
+typedef struct 
+{
+	unsigned int current_modem_type;
+}MODEM_GET_CURENTMODEMTYPE_CNF;
+
+typedef struct 
+{
+	unsigned int modem_id;	
+}MODEM_QUERY_MDIMGTYPE_REQ;
+
+typedef struct 
+{
+	unsigned int mdimg_type[16];
+}MODEM_QUERY_MDIMGTYPE_CNF;
+
+	
 typedef union 
 {
 	MODEM_QUERY_INFO_REQ query_modem_info_req; 
+	MODEM_CAPABILITY_LIST_REQ query_modem_cap_req;
+	MODEM_SET_MODEMTYPE_REQ set_modem_type_req;
+	MODEM_GET_CURRENTMODEMTYPE_REQ get_currentmodem_type_req; 
+	MODEM_QUERY_MDIMGTYPE_REQ query_modem_imgtype_req;
 }FT_MODEM_CMD;
 	
 typedef union 
 {
 	MODEM_QUERY_INFO_CNF query_modem_info_cnf;
+	MODEM_CAPABILITY_LIST_CNF query_modem_cap_cnf;
+	MODEM_SET_MODEMTYPE_CNF set_modem_type_cnf;
+	MODEM_GET_CURENTMODEMTYPE_CNF get_currentmodem_type_cnf;
+	MODEM_QUERY_MDIMGTYPE_CNF query_modem_imgtype_cnf;
 }FT_MODEM_RESULT;
 		
 typedef struct 
@@ -307,6 +364,15 @@ typedef struct
     BOOL	drv_status;							
 } SAVE_MOBILE_LOG_CNF;
 
+typedef struct
+{
+    int		reserved;
+} OPEN_DUMP_LOG_REQ;
+
+typedef struct
+{
+    BOOL	drv_status;							
+} OPEN_DUMP_LOG_CNF;
 
 typedef union
 {
@@ -318,6 +384,7 @@ typedef union
     SetCleanBootFlag_REQ	m_SetCleanBootFlagReq;
     LCDFt_REQ         m_LCDColorTestReq;
     SAVE_MOBILE_LOG_REQ     m_SaveMobileLogReq;
+	OPEN_DUMP_LOG_REQ		m_OpenDumpLogReq;
     unsigned int			dummy;
 } FtUtilCmdReq_U;
 
@@ -331,6 +398,7 @@ typedef union
     SetCleanBootFlag_CNF	m_SetCleanBootFlagCnf;
     LCDFt_CNF         m_LCDColorTestCNF;
     SAVE_MOBILE_LOG_CNF     m_SaveMobileLogCnf;
+	OPEN_DUMP_LOG_CNF 		m_OpenDumpLogCnf;
     unsigned int			dummy;
 } FtUtilCmdCnf_U;
 
@@ -645,7 +713,7 @@ typedef struct
 /********************************************
 * Generic Primitives for common module(version, power off)
 ********************************************/
-int FT_Module_Init(void);
+//int FT_Module_Init(void);
 int FT_Module_Deinit(void);
 void FT_TestAlive(FT_IS_ALIVE_REQ *req);
 #ifdef FT_WIFI_FEATURE 
@@ -812,6 +880,10 @@ void FT_MODEM_INFO_OP(FT_MODEM_REQ *pLocalBuf, char *pft_PeerBuf, kal_int16 ft_p
  ********************************************/
 void FT_SIM_NUM_OP(FT_GET_SIM_REQ *req, char *pft_PeerBuf, kal_int16 ft_peer_len);
 
+/********************************************
+   * ADC
+   ********************************************/
+void FT_ADC_OP(ADC_REQ *pFTReq, char *pPeerBuf, kal_int16 peer_len);
 
 #ifdef __cplusplus
 }

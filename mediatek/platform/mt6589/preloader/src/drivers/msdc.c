@@ -120,55 +120,55 @@ void msdc_dump_card_status(u32 card_status)
         "Reserved",		/* 14 */
         "I/O mode",		/* 15 */
     };
-    if (card_status & R1_OUT_OF_RANGE)
+    if (card_status & STA_OUT_OF_RANGE)
         printf("\t[CARD_STATUS] Out of Range\n");
-    if (card_status & R1_ADDRESS_ERROR)
+    if (card_status & STA_ADDRESS_ERROR)
         printf("\t[CARD_STATUS] Address Error\n");
-    if (card_status & R1_BLOCK_LEN_ERROR)
+    if (card_status & STA_BLOCK_LEN_ERROR)
         printf("\t[CARD_STATUS] Block Len Error\n");
-    if (card_status & R1_ERASE_SEQ_ERROR)
+    if (card_status & STA_ERASE_SEQ_ERROR)
         printf("\t[CARD_STATUS] Erase Seq Error\n");
-    if (card_status & R1_ERASE_PARAM)
+    if (card_status & STA_ERASE_PARAM)
         printf("\t[CARD_STATUS] Erase Param\n");
-    if (card_status & R1_WP_VIOLATION)
+    if (card_status & STA_WP_VIOLATION)
         printf("\t[CARD_STATUS] WP Violation\n");
-    if (card_status & R1_CARD_IS_LOCKED)
+    if (card_status & STA_CARD_IS_LOCKED)
         printf("\t[CARD_STATUS] Card is Locked\n");
-    if (card_status & R1_LOCK_UNLOCK_FAILED)
+    if (card_status & STA_LOCK_UNLOCK_FAILED)
         printf("\t[CARD_STATUS] Lock/Unlock Failed\n");
-    if (card_status & R1_COM_CRC_ERROR)
+    if (card_status & STA_COM_CRC_ERROR)
         printf("\t[CARD_STATUS] Command CRC Error\n");
-    if (card_status & R1_ILLEGAL_COMMAND)
+    if (card_status & STA_ILLEGAL_COMMAND)
         printf("\t[CARD_STATUS] Illegal Command\n");
-    if (card_status & R1_CARD_ECC_FAILED)
+    if (card_status & STA_CARD_ECC_FAILED)
         printf("\t[CARD_STATUS] Card ECC Failed\n");
-    if (card_status & R1_CC_ERROR)
+    if (card_status & STA_CC_ERROR)
         printf("\t[CARD_STATUS] CC Error\n");
-    if (card_status & R1_ERROR)
+    if (card_status & STA_ERROR)
         printf("\t[CARD_STATUS] Error\n");
-    if (card_status & R1_UNDERRUN)
+    if (card_status & STA_UNDERRUN)
         printf("\t[CARD_STATUS] Underrun\n");
-    if (card_status & R1_OVERRUN)
+    if (card_status & STA_OVERRUN)
         printf("\t[CARD_STATUS] Overrun\n");
-    if (card_status & R1_CID_CSD_OVERWRITE)
+    if (card_status & STA_CID_CSD_OVERWRITE)
         printf("\t[CARD_STATUS] CID/CSD Overwrite\n");
-    if (card_status & R1_WP_ERASE_SKIP)
+    if (card_status & STA_WP_ERASE_SKIP)
         printf("\t[CARD_STATUS] WP Eraser Skip\n");
-    if (card_status & R1_CARD_ECC_DISABLED)
+    if (card_status & STA_CARD_ECC_DISABLED)
         printf("\t[CARD_STATUS] Card ECC Disabled\n");
-    if (card_status & R1_ERASE_RESET)
+    if (card_status & STA_ERASE_RESET)
         printf("\t[CARD_STATUS] Erase Reset\n");
-    if (card_status & R1_READY_FOR_DATA)
+    if (card_status & STA_READY_FOR_DATA)
         printf("\t[CARD_STATUS] Ready for Data\n");
-    if (card_status & R1_SWITCH_ERROR)
+    if (card_status & STA_SWITCH_ERROR)
         printf("\t[CARD_STATUS] Switch error\n");
-    if (card_status & R1_URGENT_BKOPS)
+    if (card_status & STA_URGENT_BKOPS)
         printf("\t[CARD_STATUS] Urgent background operations\n");
-    if (card_status & R1_APP_CMD)
+    if (card_status & STA_APP_CMD)
         printf("\t[CARD_STATUS] App Command\n");
 
     printf("\t[CARD_STATUS] '%s' State\n", 
-    state[R1_CURRENT_STATE(card_status)]);
+    state[STA_CURRENT_STATE(card_status)]);
 #endif
 }
 
@@ -837,7 +837,7 @@ int msdc_abort_handler(struct mmc_host *host, int abort_card)
 				printf("Get card status failed\n");	
 				return 1;
 			}	
-			state = R1_CURRENT_STATE(status);
+			state = STA_CURRENT_STATE(status);
 			printf("check card state<%d>\n", state);
 			if (state == 5 || state == 6) {
 				printf("state<%d> need cmd12 to stop\n", state); 
@@ -899,36 +899,6 @@ void msdc_intr_mask(struct mmc_host *host, u32 bits)
     val &= ~bits;
     MSDC_WRITE32(MSDC_INTEN, val);
 }
-
-#ifdef FEATURE_MMC_SDIO
-void msdc_intr_sdio(struct mmc_host *host, int enable)
-{
-    u32 base = host->base;
-
-    MSG(INT, "[SD%d] %s SDIO INT\n", host->id, enable ? "Enable" : "Disable");
-
-    if (enable) {
-        MSDC_SET_BIT32(SDC_CFG, SDC_CFG_SDIOIDE|SDC_CFG_SDIOINTWKUP);
-        msdc_intr_unmask(host, MSDC_INT_SDIOIRQ);
-    } else {
-        msdc_intr_mask(host, MSDC_INT_SDIOIRQ);
-        MSDC_CLR_BIT32(SDC_CFG, SDC_CFG_SDIOIDE|SDC_CFG_SDIOINTWKUP);
-    }
-}
-
-void msdc_intr_sdio_gap(struct mmc_host *host, int enable)
-{
-    u32 base = host->base;
-
-    MSG(INT, "[SD%d] %s SDIO GAP\n", host->id, enable ? "Enable" : "Disable");
-
-    if (enable) {
-        MSDC_SET_BIT32(SDC_CFG, SDC_CFG_INTATGAP);
-    } else {
-        MSDC_CLR_BIT32(SDC_CFG, SDC_CFG_INTATGAP);
-    }
-}
-#endif
 
 int msdc_send_cmd(struct mmc_host *host, struct mmc_command *cmd)
 {
@@ -3259,7 +3229,7 @@ int msdc_init(struct mmc_host *host, int id)
     if (msdc_cap.data_pins == 8)
         host->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_4_BIT_DATA;
 
-    host->ocr_avail = MMC_VDD_32_33;  /* TODO: To be customized */
+    host->ocr_avail = MSDC_VDD_32_33;  /* TODO: To be customized */
 
     host->max_hw_segs   = MAX_DMA_TRAN_SIZE/512;
     host->max_phys_segs = MAX_DMA_TRAN_SIZE/512;

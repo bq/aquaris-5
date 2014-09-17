@@ -4,27 +4,27 @@
 
 #define LOG_TAG "AudioPlatformDevice"
 #ifndef ANDROID_DEFAULT_CODE
-    #include <cutils/xlog.h>
-    #ifdef ALOGE
-    #undef ALOGE
-    #endif
-    #ifdef ALOGW
-    #undef ALOGW
-    #endif ALOGI
-    #undef ALOGI
-    #ifdef ALOGD
-    #undef ALOGD
-    #endif
-    #ifdef ALOGV
-    #undef ALOGV
-    #endif
-    #define ALOGE XLOGE
-    #define ALOGW XLOGW
-    #define ALOGI XLOGI
-    #define ALOGD XLOGD
-    #define ALOGV XLOGV
+#include <cutils/xlog.h>
+#ifdef ALOGE
+#undef ALOGE
+#endif
+#ifdef ALOGW
+#undef ALOGW
+#endif ALOGI
+#undef ALOGI
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#ifdef ALOGV
+#undef ALOGV
+#endif
+#define ALOGE XLOGE
+#define ALOGW XLOGW
+#define ALOGI XLOGI
+#define ALOGD XLOGD
+#define ALOGV XLOGV
 #else
-    #include <utils/Log.h>
+#include <utils/Log.h>
 #endif
 
 namespace android
@@ -40,16 +40,18 @@ AudioPlatformDevice::AudioPlatformDevice()
 {
     ALOGD("AudioPlatformDevice constructor");
     mAudioAnalogReg = NULL;
-    mAudioAnalogReg = AudioAnalogReg::getInstance ();
-    if(!mAudioAnalogReg)
+    mAudioAnalogReg = AudioAnalogReg::getInstance();
+    if (!mAudioAnalogReg)
     {
-        ALOGW("mAudioAnalogReg = %p",mAudioAnalogReg);
+        ALOGW("mAudioAnalogReg = %p", mAudioAnalogReg);
     }
     // init analog part.
-    for (int i = 0; i < AudioAnalogType::DEVICE_MAX; i++) {
+    for (int i = 0; i < AudioAnalogType::DEVICE_MAX; i++)
+    {
         memset((void *)&mBlockAttribute[i], 0, sizeof(AnalogBlockAttribute));
     }
-    for (int i = 0; i < AudioAnalogType::VOLUME_TYPE_MAX; i++) {
+    for (int i = 0; i < AudioAnalogType::VOLUME_TYPE_MAX; i++)
+    {
         memset((void *)&mVolumeAttribute[i], 0, sizeof(AnalogVolumeAttribute));
     }
 }
@@ -88,12 +90,12 @@ status_t AudioPlatformDevice::SetFrequency(AudioAnalogType::DEVICE_SAMPLERATE_TY
 
 uint32 AudioPlatformDevice::GetDLFrequency(unsigned int frequency)
 {
-    ALOGD("AudioPlatformDevice ApplyDLFrequency ApplyDLFrequency = %d",frequency);
-    uint32 Reg_value=0;
-    switch(frequency)
+    ALOGD("AudioPlatformDevice ApplyDLFrequency ApplyDLFrequency = %d", frequency);
+    uint32 Reg_value = 0;
+    switch (frequency)
     {
         case 8000:
-            Reg_value = 0<<12;
+            Reg_value = 0 << 12;
             break;
         case 11025:
             Reg_value = 1 << 12;
@@ -127,45 +129,49 @@ uint32 AudioPlatformDevice::GetDLFrequency(unsigned int frequency)
 
 uint32 AudioPlatformDevice::GetULFrequency(unsigned int frequency)
 {
-    ALOGD("AudioPlatformDevice GetULFrequency ApplyDLFrequency = %d",frequency);
-    uint32 Reg_value=0;
-    switch(frequency)
+    ALOGD("AudioPlatformDevice GetULFrequency ApplyDLFrequency = %d", frequency);
+    uint32 Reg_value = 0;
+    switch (frequency)
     {
         case 8000:
-            Reg_value = 0x0<<1;
+            Reg_value = 0x0 << 1;
             break;
         case 16000:
-            Reg_value = 0x5<<1;
+            Reg_value = 0x5 << 1;
             break;
         case 32000:
-            Reg_value = 0xa<<1;
+            Reg_value = 0xa << 1;
             break;
         case 48000:
-            Reg_value = 0xf<<1;
+            Reg_value = 0xf << 1;
         default:
-            ALOGW("GetULFrequency with frequency = %d",frequency);
+            ALOGW("GetULFrequency with frequency = %d", frequency);
     }
-    ALOGD("AudioPlatformDevice GetULFrequency Reg_value = %d",Reg_value);
+    ALOGD("AudioPlatformDevice GetULFrequency Reg_value = %d", Reg_value);
     return Reg_value;
 }
 
 
 bool AudioPlatformDevice::GetDownLinkStatus(void)
 {
-    for(int i=0; i <= AudioAnalogType::DEVICE_2IN1_SPK; i++)
+    for (int i = 0; i <= AudioAnalogType::DEVICE_2IN1_SPK; i++)
     {
-        if(mBlockAttribute[i].mEnable == true)
+        if (mBlockAttribute[i].mEnable == true)
+        {
             return true;
+        }
     }
     return false;
 }
 
 bool AudioPlatformDevice::GetULinkStatus(void)
 {
-    for(int i= AudioAnalogType::DEVICE_2IN1_SPK; i <= AudioAnalogType::DEVICE_IN_DIGITAL_MIC; i++)
+    for (int i = AudioAnalogType::DEVICE_2IN1_SPK; i <= AudioAnalogType::DEVICE_IN_DIGITAL_MIC; i++)
     {
-        if(mBlockAttribute[i].mEnable == true)
+        if (mBlockAttribute[i].mEnable == true)
+        {
             return true;
+        }
     }
     return false;
 }
@@ -178,24 +184,24 @@ bool AudioPlatformDevice::GetULinkStatus(void)
 status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType)
 {
     ALOGD("AudioPlatformDevice DeviceType = %s", kAudioAnalogDeviceTypeName[DeviceType]);
-    mLock.lock ();
-    if(mBlockAttribute[DeviceType].mEnable == true)
+    mLock.lock();
+    if (mBlockAttribute[DeviceType].mEnable == true)
     {
-        ALOGW("AudioPlatformDevice AnalogOpen with DeviceType = %d",DeviceType);
-        mLock.unlock ();
+        ALOGW("AudioPlatformDevice AnalogOpen with DeviceType = %d", DeviceType);
+        mLock.unlock();
         return NO_ERROR;;
     }
     mBlockAttribute[DeviceType].mEnable = true;
 
-    switch(DeviceType)
+    switch (DeviceType)
     {
         case AudioAnalogType::DEVICE_OUT_EARPIECER:
         case AudioAnalogType::DEVICE_OUT_EARPIECEL:
-            mAudioAnalogReg->SetAnalogReg(0x0106 ,0x0003,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x4038 ,0x0006,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x4034 ,0xc3a1,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x4038 ,0x0003,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x4038 ,0x000b,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x0106 , 0x0003, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4038 , 0x0006, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4034 , 0xc3a1, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4038 , 0x0003, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4038 , 0x000b, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x400C , 0x001e, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4002 , 0x0300 | GetDLFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_OUT_DAC]), 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4000 , 0x007f, 0xffff);
@@ -225,12 +231,12 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
             break;
         case AudioAnalogType::DEVICE_OUT_SPEAKERR:
         case AudioAnalogType::DEVICE_OUT_SPEAKERL:
-            #ifdef USING_EXTAMP_HP
-            mLock.unlock ();
+#ifdef USING_EXTAMP_HP
+            mLock.unlock();
             AnalogOpen(AudioAnalogType::DEVICE_OUT_HEADSETR);
-            mLock.lock ();
+            mLock.lock();
 
-            #else
+#else
             mAudioAnalogReg->SetAnalogReg(0x0106 , 0x0607, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4038 , 0x0006, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4034 , 0xc3a1, 0xffff);
@@ -244,7 +250,7 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
             mAudioAnalogReg->SetAnalogReg(0x4012 , 0x00e1, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4024 , 0x0000, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4022 , 0x004f, 0xffff);
-            #endif
+#endif
 
             break;
         case AudioAnalogType::DEVICE_OUT_SPEAKER_HEADSET_R:
@@ -266,56 +272,56 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
         case AudioAnalogType::DEVICE_IN_ADC1:
         case AudioAnalogType::DEVICE_IN_ADC2:
             ALOGD("AudioPlatformDevice::DEVICE_IN_ADC2:");
-            mAudioAnalogReg->SetAnalogReg(0x0106 ,0x0003,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x0106 , 0x0003, 0xffff);
 
-            mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0000,0x0002);
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0000,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0002,0x0002);
+            mAudioAnalogReg->SetAnalogReg(0x0712 , 0x0000, 0x0002);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0000, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x0712 , 0x0002, 0x0002);
 
-            mAudioAnalogReg->SetAnalogReg(0x4026 ,0x0000,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x400e ,0x0000|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x4000 ,0x007f,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4026 , 0x0000, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x400e , 0x0000 | GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]), 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4000 , 0x007f, 0xffff);
 #ifdef MTK_AUDIO_HD_REC_SUPPORT
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0201,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0201, 0xffff);
 #else
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0601,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0601, 0xffff);
 #endif
-            mAudioAnalogReg->SetAnalogReg(0x4020 ,0x004f,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4020 , 0x004f, 0xffff);
 
             usleep(600);
-            mAudioAnalogReg->SetAnalogReg(0x400e ,0x0000,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x400e , 0x0000, 0xffff);
             usleep(600);
-            mAudioAnalogReg->SetAnalogReg(0x400e ,0x0000|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x400e , 0x0000 | GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]), 0xffff);
             usleep(600);
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0000,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0000, 0xffff);
             usleep(600);
 
 #ifdef MTK_AUDIO_HD_REC_SUPPORT
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0201,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0201, 0xffff);
 #else
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0601,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0601, 0xffff);
 #endif
             break;
         case AudioAnalogType::DEVICE_IN_DIGITAL_MIC:
-            mAudioAnalogReg->SetAnalogReg(0x0106 ,0x0003,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x0712 ,0x0000,0x0002);
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0000,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x0106 , 0x0003, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x0712 , 0x0000, 0x0002);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0000, 0xffff);
 
-            mAudioAnalogReg->SetAnalogReg(0x4026 ,0x0000,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x400e ,0x00e0|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4026 , 0x0000, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x400e , 0x00e0 | GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]), 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4000 , 0x007f, 0xffff);
 #ifdef MTK_AUDIO_HD_REC_SUPPORT
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0023,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0023, 0xffff);
 #else
-            mAudioAnalogReg->SetAnalogReg(0x4010 ,0x0423,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0423, 0xffff);
 #endif
-            mAudioAnalogReg->SetAnalogReg(0x4020 ,0x004f,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4020 , 0x004f, 0xffff);
 
             // reset to default samplerate
             usleep(600);
-            mAudioAnalogReg->SetAnalogReg(0x400e ,0x00e0,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x400e , 0x00e0, 0xffff);
             usleep(600);
-            mAudioAnalogReg->SetAnalogReg(0x400e ,0x00e0|GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]),0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x400e , 0x00e0 | GetULFrequency(mBlockSampleRate[AudioAnalogType::DEVICE_IN_ADC]), 0xffff);
             usleep(600);
 
             break;
@@ -335,10 +341,36 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
             mAudioAnalogReg->SetAnalogReg(0x4022 , 0x004f, 0xffff);
             break;
     }
-    mLock.unlock ();
+    mLock.unlock();
     return NO_ERROR;
 }
 
+status_t AudioPlatformDevice::AnalogOpenForAddSPK(AudioAnalogType::DEVICE_TYPE DeviceType)
+{
+    ALOGD("AudioPlatformDevice AnalogOpenForAddSPK DeviceType = %s ", kAudioAnalogDeviceTypeName[DeviceType]);
+    //   uint32 ulFreq, dlFreq;
+    mLock.lock();
+
+    mBlockAttribute[AudioAnalogType::DEVICE_OUT_HEADSETR].mEnable = false;
+    mBlockAttribute[AudioAnalogType::DEVICE_OUT_HEADSETL].mEnable = false;
+    mBlockAttribute[AudioAnalogType::DEVICE_OUT_SPEAKER_HEADSET_R].mEnable = true;
+
+    mLock.unlock();
+    return NO_ERROR;
+}
+
+status_t AudioPlatformDevice::AnalogCloseForSubSPK(AudioAnalogType::DEVICE_TYPE DeviceType)
+{
+    ALOGD("AudioPlatformDevice AnalogCloseForSubSPK DeviceType = %s", kAudioAnalogDeviceTypeName[DeviceType]);
+    mLock.lock();
+
+    mBlockAttribute[AudioAnalogType::DEVICE_OUT_SPEAKER_HEADSET_R].mEnable = false;
+    mBlockAttribute[AudioAnalogType::DEVICE_OUT_SPEAKER_HEADSET_L].mEnable = false;
+    mBlockAttribute[AudioAnalogType::DEVICE_OUT_HEADSETR].mEnable = true;
+
+    mLock.unlock();
+    return NO_ERROR;
+}
 /**
 * a basic function fo AnalogClose, ckose analog power
 * @param DeviceType analog part power
@@ -347,55 +379,61 @@ status_t AudioPlatformDevice::AnalogOpen(AudioAnalogType::DEVICE_TYPE DeviceType
 status_t AudioPlatformDevice::AnalogClose(AudioAnalogType::DEVICE_TYPE DeviceType)
 {
     ALOGD("AudioPlatformDevice AnalogClose DeviceType = %s", kAudioAnalogDeviceTypeName[DeviceType]);
-    mLock.lock ();
+    mLock.lock();
     mBlockAttribute[DeviceType].mEnable = false;
     // here to open pmic digital part
-    switch(DeviceType)
+    switch (DeviceType)
     {
         case AudioAnalogType::DEVICE_OUT_EARPIECER:
         case AudioAnalogType::DEVICE_OUT_EARPIECEL:
-            mAudioAnalogReg->SetAnalogReg(0x4022,0x00cc,0xffff);
-            mAudioAnalogReg->SetAnalogReg(0x4004,0x1800,0xffff);
-            if(GetULinkStatus() == false){
-                mAudioAnalogReg->SetAnalogReg(0x4000,0x0000,0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4022, 0x00cc, 0xffff);
+            mAudioAnalogReg->SetAnalogReg(0x4004, 0x1800, 0xffff);
+            if (GetULinkStatus() == false)
+            {
+                mAudioAnalogReg->SetAnalogReg(0x4000, 0x0000, 0xffff);
             }
             break;
         case AudioAnalogType::DEVICE_OUT_HEADSETR:
         case AudioAnalogType::DEVICE_OUT_HEADSETL:
             mAudioAnalogReg->SetAnalogReg(0x4022, 0x00cc, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4004, 0x1800, 0xffff);
-            if(GetULinkStatus() == false){
-                mAudioAnalogReg->SetAnalogReg(0x4000,0x0000,0xffff);
+            if (GetULinkStatus() == false)
+            {
+                mAudioAnalogReg->SetAnalogReg(0x4000, 0x0000, 0xffff);
             }
             break;
         case AudioAnalogType::DEVICE_OUT_SPEAKERR:
         case AudioAnalogType::DEVICE_OUT_SPEAKERL:
-            #ifdef USING_EXTAMP_HP
-            mLock.unlock ();
+#ifdef USING_EXTAMP_HP
+            mLock.unlock();
             AnalogClose(AudioAnalogType::DEVICE_OUT_HEADSETR);
-            mLock.lock ();
-            #else
+            mAudioAnalogReg->SetAnalogReg(0x0104 , 0x0604, 0xffff);
+            mLock.lock();
+#else
             mAudioAnalogReg->SetAnalogReg(0x4022, 0x00cc, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4004, 0x1800, 0xffff);
-            if(GetULinkStatus() == false){
-                mAudioAnalogReg->SetAnalogReg(0x4000,0x0000,0xffff);
+            if (GetULinkStatus() == false)
+            {
+                mAudioAnalogReg->SetAnalogReg(0x4000, 0x0000, 0xffff);
             }
             mAudioAnalogReg->SetAnalogReg(0x0104 , 0x0604, 0xffff);
-            #endif
+#endif
             break;
         case AudioAnalogType::DEVICE_2IN1_SPK:
             mAudioAnalogReg->SetAnalogReg(0x4022, 0x00cc, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4004, 0x1800, 0xffff);
-            if(GetULinkStatus() == false){
-                mAudioAnalogReg->SetAnalogReg(0x4000,0x0000,0xffff);
+            if (GetULinkStatus() == false)
+            {
+                mAudioAnalogReg->SetAnalogReg(0x4000, 0x0000, 0xffff);
             }
             break;
         case AudioAnalogType::DEVICE_OUT_SPEAKER_HEADSET_R:
         case AudioAnalogType::DEVICE_OUT_SPEAKER_HEADSET_L:
             mAudioAnalogReg->SetAnalogReg(0x4022, 0x00cc, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4004, 0x1800, 0xffff);
-            if(GetULinkStatus() == false){
-                mAudioAnalogReg->SetAnalogReg(0x4000,0x0000,0xffff);
+            if (GetULinkStatus() == false)
+            {
+                mAudioAnalogReg->SetAnalogReg(0x4000, 0x0000, 0xffff);
             }
             mAudioAnalogReg->SetAnalogReg(0x0104 , 0x0604, 0xffff);
             break;
@@ -403,19 +441,21 @@ status_t AudioPlatformDevice::AnalogClose(AudioAnalogType::DEVICE_TYPE DeviceTyp
         case AudioAnalogType::DEVICE_IN_ADC2:
             mAudioAnalogReg->SetAnalogReg(0x4020 , 0x004c, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0000, 0xffff);
-            if(GetDownLinkStatus() == false){
-                mAudioAnalogReg->SetAnalogReg(0x4000,0x0000,0xffff);
+            if (GetDownLinkStatus() == false)
+            {
+                mAudioAnalogReg->SetAnalogReg(0x4000, 0x0000, 0xffff);
             }
             break;
         case AudioAnalogType::DEVICE_IN_DIGITAL_MIC:
             mAudioAnalogReg->SetAnalogReg(0x400e , 0x0000, 0xffff);
             mAudioAnalogReg->SetAnalogReg(0x4010 , 0x0000, 0xffff);
-            if(GetDownLinkStatus() == false){
-                mAudioAnalogReg->SetAnalogReg(0x4000,0x0000,0xffff);
+            if (GetDownLinkStatus() == false)
+            {
+                mAudioAnalogReg->SetAnalogReg(0x4000, 0x0000, 0xffff);
             }
             break;
     }
-    mLock.unlock ();
+    mLock.unlock();
     return NO_ERROR;
 }
 
@@ -501,7 +541,7 @@ status_t AudioPlatformDevice::FadeInDownlink(uint16_t sample_rate)
     mAudioAnalogReg->SetAnalogReg(0x4004, 0 << 3, 3 << 3);
 
     // Sleep
-    usleep(time_ms *1000);
+    usleep(time_ms * 1000);
 
     // Mute function of ch1 & ch2:  bit[11:12] = 0x3 => Disable
     mAudioAnalogReg->SetAnalogReg(0x4004, 3 << 11, 3 << 11);

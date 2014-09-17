@@ -307,7 +307,7 @@ params->dsi.vertical_active_line=1280;
 params->dsi.intermediat_buffer_num = 0;
 
 params->dsi.PS=LCM_PACKED_PS_24BIT_RGB888;
-params->dsi.pll_select=1;	//0: MIPI_PLL; 1: LVDS_PLL
+
 //bit rate
 	params->dsi.pll_div1=0;		// div1=0,1,2,3;div1_real=1,2,4,4
 	params->dsi.pll_div2=1;		// div2=0,1,2,3;div1_real=1,2,4,4

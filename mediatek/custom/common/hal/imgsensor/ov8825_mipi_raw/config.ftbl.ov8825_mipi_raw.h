@@ -100,17 +100,17 @@ FTABLE_SCENE_INDEP()
     FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_VALUES(
         KEY_AS_(MtkCameraParameters::KEY_PICTURE_SIZE), 
         SCENE_AS_DEFAULT_SCENE(
-            ITEM_AS_DEFAULT_("3264x2448"), 
+            ITEM_AS_DEFAULT_("3328x2496"), 
             ITEM_AS_VALUES_(
-					"256x144", "320x240",	  //  QVGA    76800
-					"512x288",   "640x480",   // HVGA     307200
-					"1280x720",   "1024x768",	// 1 M    786432
-					 "1536x864", "1280x960",   // 1.3M     1228800
-					 "1792x1008",   "1600x1200",     // 2M  1920000
-					 "2304x1296",   "2048x1536",   // 3M   3145728
-					"2816x1584",	 "2560x1920",  // 5M   4915200
-					"3584x2016",  "3264x2448",     // 8M   7990272
-					//"4608x2592",	 "4096x3072",  // 13M  12582912
+		"256x144", "320x240",	  //  QVGA    76800
+		"512x288",   "640x480",   // HVGA     307200
+		"1280x720",   "1024x768",	// 1 M    786432
+		 "1536x864", "1280x960",   // 1.3M     1228800
+		 "1792x1008",   "1600x1200",     // 2M  1920000
+		 "2304x1296",   "2048x1536",   // 3M   3145728
+		 "3072x1728",	 "2624x1968",  // 5M   4915200
+		 "3840x2160",    "3328x2496",     // 8M   7990272
+		//"4864x2736",	 "4224x3168",  // 13M  12582912
             )
         ), 
     )
@@ -207,7 +207,7 @@ FTABLE_SCENE_INDEP()
     FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_VALUES(
         KEY_AS_(MtkCameraParameters::KEY_ANTIBANDING), 
         SCENE_AS_DEFAULT_SCENE(
-            ITEM_AS_DEFAULT_(MtkCameraParameters::ANTIBANDING_AUTO), 
+            ITEM_AS_DEFAULT_(MtkCameraParameters::ANTIBANDING_OFF), 
             ITEM_AS_VALUES_(
                 MtkCameraParameters::ANTIBANDING_OFF, 
                 MtkCameraParameters::ANTIBANDING_50HZ, 
@@ -266,10 +266,10 @@ FTABLE_SCENE_INDEP()
     FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_VALUES(
         KEY_AS_(MtkCameraParameters::KEY_ZSD_MODE), 
         SCENE_AS_DEFAULT_SCENE(
-            ITEM_AS_DEFAULT_(MtkCameraParameters::ON), 
+            ITEM_AS_DEFAULT_(MtkCameraParameters::OFF), 
             ITEM_AS_VALUES_(
-                MtkCameraParameters::ON,
-                MtkCameraParameters::OFF
+                MtkCameraParameters::OFF, 
+                MtkCameraParameters::ON
             )
         ), 
     )
@@ -283,9 +283,14 @@ FTABLE_SCENE_INDEP()
             ITEM_AS_DEFAULT_(MtkCameraParameters::CAPTURE_MODE_NORMAL), 
             ITEM_AS_VALUES_(
                 MtkCameraParameters::CAPTURE_MODE_NORMAL, 
-                MtkCameraParameters::CAPTURE_MODE_HDR_SHOT, 
                 MtkCameraParameters::CAPTURE_MODE_FACE_BEAUTY, 
                 MtkCameraParameters::CAPTURE_MODE_CONTINUOUS_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_SMILE_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_BEST_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_EV_BRACKET_SHOT, 
+                MtkCameraParameters::CAPTURE_MODE_AUTO_PANORAMA_SHOT,
+                MtkCameraParameters::CAPTURE_MODE_MAV_SHOT,
+                MtkCameraParameters::CAPTURE_MODE_ASD_SHOT, 
             )
         ), 
     )

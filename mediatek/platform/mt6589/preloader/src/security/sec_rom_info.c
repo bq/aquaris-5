@@ -277,9 +277,14 @@ AND_ROMINFO_T  g_ROM_INFO =
     #endif
 
 
-    ,.m_SEC_BOOT_CHECK_PART.name[6]     = {0x0}               /* CUSTOMER */
-    ,.m_SEC_BOOT_CHECK_PART.name[7]     = {0x0}               /* CUSTOMER */
-    ,.m_SEC_BOOT_CHECK_PART.name[8]     = {0x0}               /* CUSTOMER */
+    ,.m_SEC_BOOT_CHECK_PART.name[6]     = {0x0}
+#ifdef CUSTOMIZED_SECURE_PARTITION_SUPPORT    
+    ,.m_SEC_BOOT_CHECK_PART.name[7]     = SBOOT_CUST_PART1      /* CUSTOMER */
+    ,.m_SEC_BOOT_CHECK_PART.name[8]     = SBOOT_CUST_PART2      /* CUSTOMER */
+#else
+    ,.m_SEC_BOOT_CHECK_PART.name[7]     = {0x0}                 /* CUSTOMER */
+    ,.m_SEC_BOOT_CHECK_PART.name[8]     = {0x0}                 /* CUSTOMER */
+#endif
 
     /* ================================================================ */
     /* AND_SECKEY_T                                                     */

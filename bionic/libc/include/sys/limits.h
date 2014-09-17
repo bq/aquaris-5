@@ -169,11 +169,18 @@
 
 #undef   _POSIX_PROCESS_SHARED           /* we don't support process-shared synchronization */
 #undef   _POSIX_THREAD_SAFE_FUNCTIONS    /* most functions are, but not everything yet */
-#define  _POSIX_CHOWN_RESTRICTED    1    /* yes, chown requires appropriate priviledges */
+#define  _POSIX_CHOWN_RESTRICTED    1    /* yes, chown requires appropriate privileges */
+#define  _POSIX_MONOTONIC_CLOCK     0    /* the monotonic clock may be available; ask sysconf */
 #define  _POSIX_NO_TRUNC            1    /* very long pathnames generate an error */
 #define  _POSIX_SAVED_IDS           1    /* saved user ids is a Linux feature */
 #define  _POSIX_JOB_CONTROL         1    /* job control is a Linux feature */
 
+#define _POSIX_THREAD_DESTRUCTOR_ITERATIONS 4 /* the minimum mandated by POSIX */
+#define PTHREAD_DESTRUCTOR_ITERATIONS _POSIX_THREAD_DESTRUCTOR_ITERATIONS
+#define _POSIX_THREAD_KEYS_MAX 128            /* the minimum mandated by POSIX */
+#define PTHREAD_KEYS_MAX _POSIX_THREAD_KEYS_MAX
+#define _POSIX_THREAD_THREADS_MAX 64          /* the minimum mandated by POSIX */
+#define PTHREAD_THREADS_MAX                   /* bionic has no specific limit */
 
 
 #endif

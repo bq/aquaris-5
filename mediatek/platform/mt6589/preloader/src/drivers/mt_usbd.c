@@ -913,7 +913,8 @@ static void mt_udc_ep0_handler (void)
     if (csr0 & EP0_SENTSTALL)
     {
         USB_LOG ("USB: [EP0] SENTSTALL\n");
-        /* needs implementation for exception handling here */
+        csr0 &= ~EP0_SENTSTALL;
+        __raw_writew (csr0, IECSR + CSR0);
         ep0_state = EP0_IDLE;
     }
 
@@ -1227,10 +1228,10 @@ static void udc_stall_ep (unsigned int ep_num, u8 dir)
 
     if (ep_num == 0)
     {
+        mt_udc_flush_fifo (ep_num, USB_DIR_OUT);
         csr = __raw_readw (IECSR + CSR0);
         csr |= EP0_SENDSTALL;
         __raw_writew (csr, IECSR + CSR0);
-        mt_udc_flush_fifo (ep_num, USB_DIR_OUT);
     }
     else
     {

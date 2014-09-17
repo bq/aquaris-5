@@ -8,7 +8,7 @@
 namespace android
 {
 
-class SpeechMessengerCCCI;
+class SpeechMessengerInterface;
 
 class SpeechDriverLAD : public SpeechDriverInterface
 {
@@ -81,12 +81,16 @@ class SpeechDriverLAD : public SpeechDriverInterface
          * acoustic loopback
          */
         virtual status_t SetAcousticLoopback(bool loopback_on);
+        virtual status_t SetAcousticLoopbackBtCodec(bool enable_codec);
+
+        virtual status_t SetAcousticLoopbackDelayFrames(int32_t delay_frames);
 
 
         /**
          * volume control
          */
         virtual status_t SetDownlinkGain(int16_t gain);
+        virtual status_t SetEnh1DownlinkGain(int16_t gain);
         virtual status_t SetUplinkGain(int16_t gain);
         virtual status_t SetDownlinkMute(bool mute_on);
         virtual status_t SetUplinkMute(bool mute_on);
@@ -105,6 +109,8 @@ class SpeechDriverLAD : public SpeechDriverInterface
         virtual status_t SetSpeechEnhancement(bool enhance_on);
         virtual status_t SetSpeechEnhancementMask(const sph_enh_mask_struct_t &mask);
 
+        virtual status_t SetBtHeadsetNrecOn(const bool bt_headset_nrec_on);
+
 
         /**
          * speech enhancement parameters setting
@@ -119,7 +125,13 @@ class SpeechDriverLAD : public SpeechDriverInterface
 #if defined(MTK_WB_SPEECH_SUPPORT)
         virtual status_t SetWBSpeechParameters(const AUDIO_CUSTOM_WB_PARAM_STRUCT *pSphParamWB);
 #endif
+        //#if defined(MTK_VIBSPK_SUPPORT)
+        virtual status_t GetVibSpkParam(void *eVibSpkParam);
+        virtual status_t SetVibSpkParam(void *eVibSpkParam);
+        //#endif
 
+        virtual status_t GetNxpSmartpaParam(void *eParamNxpSmartpa);
+        virtual status_t SetNxpSmartpaParam(void *eParamNxpSmartpa);
 
         /**
          * check whether modem is ready.
@@ -136,13 +148,23 @@ class SpeechDriverLAD : public SpeechDriverInterface
 
     protected:
         SpeechDriverLAD(modem_index_t modem_index);
-        SpeechMessengerCCCI *pCCCI;
 
+        SpeechMessengerInterface *pCCCI;
 
         /**
          * recover status (speech/record/bgs/vt/p2w/tty)
          */
         virtual void RecoverModemSideStatusToInitState();
+
+
+        /**
+         * Clean gain value and mute status
+         */
+        virtual status_t CleanGainValueAndMuteStatus();
+
+
+        // Speech Mode
+        speech_mode_t mSpeechMode;
 
 
 
@@ -154,6 +176,7 @@ class SpeechDriverLAD : public SpeechDriverInterface
          */
         static SpeechDriverLAD *mLad1;
         static SpeechDriverLAD *mLad2;
+        static SpeechDriverLAD *mLad3;
 };
 
 } // end namespace android

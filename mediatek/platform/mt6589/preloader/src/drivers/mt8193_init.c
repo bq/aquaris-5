@@ -39,8 +39,13 @@
 #include "meta.h"
 #include "mt8193.h"
 #include "mt_i2c.h"
+#include "gpio.h"
+
+/* it should turn off 8193 ext clock buffer if it's not WIFI ONLY platform */
+#define MT8193_DISABLE_DCXO 0  // disable dcxo in lk instead of preloader
 
 
+#if 0
 int mt8193_pllgp_en()
 {
     printf("mt8193_pllgp_en() enter\n");
@@ -78,6 +83,8 @@ int mt8193_vopll_en()
 
     return 0;
 }
+#endif
+
 
 int mt8193_i2c_init(void)
 {   
@@ -98,8 +105,10 @@ int mt8193_i2c_init(void)
     return (0);
 }
 
-#define NFI_MLC 0
-#if NFI_MLC
+
+
+#define MT8193_DISABLE_NFI 1
+#if MT8193_DISABLE_NFI
 
 #define RG_NFI_PWR_RST_B (0x110)
 #define RG_NFI_PWR_CTRL  (0x114)
@@ -121,20 +130,23 @@ void close_8193_NFI(void)
 	printf("Close 8193 NFI Digital\n");
 
 	//power off digital
-	value = IO_READ32(0,RG_NFI_PWR_CTRL);
-	IO_WRITE32(0,RG_NFI_PWR_CTRL,(value | 0x4));
+	value = IO_READ32(0x1000,RG_NFI_PWR_CTRL);
+	IO_WRITE32(0x1000,RG_NFI_PWR_CTRL,(value | 0x4));
 	//IO_WRITE32(0,RG_NFI_PWR_CTRL,(value | 0x5));
-	value = IO_READ32(0,RG_NFI_PWR_CTRL);
-	IO_WRITE32(0,RG_NFI_PWR_CTRL,(value | 0x1));
-	value = IO_READ32(0,RG_NFI_PWR_RST_B);
-	IO_WRITE32(0,RG_NFI_PWR_RST_B,(value & 0xFFFFFFFE));
-	value = IO_READ32(0,RG_NFI_PWR_CTRL);
-	IO_WRITE32(0,RG_NFI_PWR_CTRL,(value & 0xFFFFFFFD));
+	value = IO_READ32(0x1000,RG_NFI_PWR_CTRL);
+	IO_WRITE32(0x1000,RG_NFI_PWR_CTRL,(value | 0x1));
+	value = IO_READ32(0x1000,RG_NFI_PWR_RST_B);
+	IO_WRITE32(0x1000,RG_NFI_PWR_RST_B,(value & 0xFFFFFFFE));
+	value = IO_READ32(0x1000,RG_NFI_PWR_CTRL);
+	IO_WRITE32(0x1000,RG_NFI_PWR_CTRL,(value & 0xFFFFFFFD));
 
-	printf("Close 8193 NFI Analog\n");
+#if 0
+
+	printf("Close 8193 NFI Analog\n"); 
 	//power off analog
 	value = IO_READ32(0,0x134C);
 	IO_WRITE32(0,0x134C,(value & 0xFFFFFFFD));
+#endif
 
 	//can not close power share power
 	//value = IO_READ32(0,0x1354);
@@ -143,6 +155,25 @@ void close_8193_NFI(void)
 	printf("Close 8193 NFI OK\n");
 }
 #endif
+
+void mt8193_pad_init(void)
+{
+    /*Set PAD_INT as GPIO and pull low*/
+    u32 u4Tmp = 0;
+    
+    u4Tmp = CKGEN_READ32(REG_RW_PMUX7);
+    u4Tmp |= (3<<PMUX7_PAD_INT_SHIFT); // set pad_int as function 3(gpio). pmux7[17:15]
+	CKGEN_WRITE32(REG_RW_PMUX7, u4Tmp);
+
+	u4Tmp = CKGEN_READ32(REG_RW_GPIO_EN);
+	u4Tmp |= GPIO_EN_PAD_INT_OUT_EN;
+	CKGEN_WRITE32(REG_RW_GPIO_EN, u4Tmp);
+
+	u4Tmp = CKGEN_READ32(REG_RW_GPIO_OUT_2);
+	u4Tmp &= (~GPIO_EN_PAD_INT_OUT_EN);
+	CKGEN_WRITE32((REG_RW_GPIO_OUT_2), u4Tmp);
+	
+}
 
 void set_NFI_PIN_GPIO(void)
 {
@@ -217,22 +248,197 @@ void set_NFI_PIN_GPIO(void)
 }
 
 
+
+#if MT8193_DISABLE_DCXO
+
+/* Turn off BT clock buffer */
+void mt8193_dxco_bt_disable(void)
+{
+    printf("mt8193_dxco_bt_disable()\n");
+
+    u32 u4Tmp = 0;
+
+    /* set bt clock buffer manual mode */
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG4);
+	u4Tmp &= (~DCXO_ANACFG4_BT_MAN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG4, u4Tmp);
+
+    /* disable dcxo ldo2 at manual mode */
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp &= (~DCXO_ANACFG2_LDO2_MAN_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+	/* disable dcxo ldo2*/
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp &= (~DCXO_ANACFG2_LDO2_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+
+
+	
+}
+
+/* Turn off ext1 clock buffer */
+void mt8193_dxco_ext1_disable(void)
+{
+    printf("mt8193_dxco_ext1_disable()\n");
+
+    u32 u4Tmp = 0;
+
+    /* set ext1 clock buffer manual mode */
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG4);
+	u4Tmp &= (~DCXO_ANACFG4_EXT1_MAN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG4, u4Tmp);
+
+    /* disable dcxo ldo3 at manual mode */
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp &= (~DCXO_ANACFG2_LDO3_MAN_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+	/* disable dcxo ldo3*/
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp &= (~DCXO_ANACFG2_LDO3_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+}
+
+/* Turn off ext2 clock buffer */
+void mt8193_dxco_ext2_disable(void)
+{
+    printf("mt8193_dxco_ext2_disable()\n");
+
+    u32 u4Tmp = 0;
+
+    /* set ext2 clock buffer manual mode */
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG4);
+	u4Tmp &= (~DCXO_ANACFG4_EXT2_MAN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG4, u4Tmp);
+
+    /* disable dcxo ldo4 at manual mode */
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp &= (~DCXO_ANACFG2_LDO4_MAN_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+	/* disable dcxo ldo4*/
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp &= (~DCXO_ANACFG2_LDO4_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+}
+
+#endif
+void mt8193_nfi_ana_pwr_control(bool power_on)
+{
+    u32 u4Tmp = 0;
+    printf("[CKGEN] mt8193_nfi_ana_pwr_control() %d\n", power_on);
+    if (power_on)
+    {
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG2);
+        u4Tmp |= (PLLGP_ANACFG2_PLLGP_BIAS_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG2, u4Tmp);
+        
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG0);
+        u4Tmp |= (PLLGP_ANACFG0_PLL1_NFIPLL_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
+    }
+    else
+    {
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG0);
+        u4Tmp &= (~PLLGP_ANACFG0_PLL1_NFIPLL_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
+
+        mdelay(1);
+
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG2);
+        u4Tmp &= (~PLLGP_ANACFG2_PLLGP_BIAS_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG2, u4Tmp);
+        mdelay(1);
+    }
+}
+void mt8193_pllgp_ana_pwr_control(bool power_on)
+{
+    u32 u4Tmp = 0;
+    if (power_on)
+    {
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG0);
+        u4Tmp |= (PLLGP_ANACFG0_PLL1_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
+    }
+    else
+    {
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG0);
+        u4Tmp &= (~PLLGP_ANACFG0_PLL1_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
+    }
+}
+
+
+void mt8193_bus_clk_switch(bool bus_26m_to_32k)
+{
+    u32 u4Tmp = 0;
+      
+    if (bus_26m_to_32k)
+    {
+        /* bus clock switch from 26M to 32K */
+        mt_set_gpio_mode(GPIO147, 0);
+        mt_set_gpio_dir(GPIO147, 1);
+        mt_set_gpio_pull_enable(GPIO147, 1);
+        mt_set_gpio_pull_select(GPIO147, 1);
+        mt_set_gpio_out(GPIO147, 1);
+
+        //u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG9);
+        u4Tmp = 0x801025;
+        u4Tmp &= (~(DCXO_ANACFG9_BUS_CK_SOURCE_SEL_MASK << DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT));
+        u4Tmp |= (3 << DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT);
+        CKGEN_WRITE32(REG_RW_DCXO_ANACFG9, u4Tmp);
+
+        mt_set_gpio_out(GPIO147, 0);     
+    }
+    else
+    {
+         /* bus clock switch from 32K to 26M */
+
+         mt_set_gpio_out(GPIO147, 1);
+
+         mdelay(10);
+
+         u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG9);
+         u4Tmp &= (~(DCXO_ANACFG9_BUS_CK_SOURCE_SEL_MASK << DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT));
+         CKGEN_WRITE32(REG_RW_DCXO_ANACFG9, u4Tmp);
+         
+         mt_set_gpio_mode(GPIO147, 1);
+    }
+}
+
+
+static void mt8193_ckgen_resume(void)
+{   
+    printf("[CKGEN] bus clock switch\n");
+    mt8193_bus_clk_switch(false);
+    mdelay(2);
+    
+    mt8193_nfi_ana_pwr_control(true);
+    
+    // turn on pllgp analog
+    mt8193_pllgp_ana_pwr_control(true);
+    mdelay(2);  
+}
+
+
 int mt8193_init(void)
 {
     printf("mt8193_init() enter\n");
 
 	u32 u4Tmp = 0;
 
-    mt8193_i2c_init();
-
+	mt8193_bus_clk_switch(true);
+	mdelay(2);
+	mt8193_i2c_init();
+	mt8193_ckgen_resume();
 	
 	u4Tmp = CKGEN_READ32(REG_RW_LVDSWRAP_CTRL1);
 	u4Tmp |= (CKGEN_LVDSWRAP_CTRL1_NFIPLL_MON_EN | CKGEN_LVDSWRAP_CTRL1_DCXO_POR_MON_EN);
 	CKGEN_WRITE32(REG_RW_LVDSWRAP_CTRL1, u4Tmp);
-	  
-	/* close pad_int trapping function*/
-	u4Tmp = 0x0;
-	CKGEN_WRITE32(REG_RW_PMUX7, u4Tmp);
+
+	mt8193_pad_init();
 
 
 #if 0
@@ -241,16 +447,30 @@ int mt8193_init(void)
 	u4Tmp &= (~CKGEN_CKMISC_CTRL_DCXO_MODE_EN);
 	CKGEN_WRITE32(REG_RW_CKMISC_CTRL, u4Tmp);
 #endif
-	  
+
+#if 0
     mt8193_pllgp_en();
 
     mt8193_vopll_en();
+#endif
 
-	#if NFI_MLC
+
+#if MT8193_DISABLE_NFI
 	close_8193_NFI();
-	#endif
+#endif
 
 	set_NFI_PIN_GPIO();
+
+#if MT8193_DISABLE_DCXO
+
+    mt8193_dxco_bt_disable();
+
+    mt8193_dxco_ext1_disable();
+
+    mt8193_dxco_ext2_disable();
+
+#endif
+
       
 	printf("mt8193_init() exit\n");
 	  

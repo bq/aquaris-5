@@ -51,7 +51,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include "dlmalloc.h"
-#include "logd.h"
+#include "libc_logging.h"
 #include "malloc_debug_common.h"
 
 /* This file should be included into the build only when
@@ -137,7 +137,7 @@ struct MallocDescQuery {
      * will respond with information about allocated block that contains this
      * pointer.
      */
-    void*       ptr;
+    const void*       ptr;
 
     /* Id of the process that initialized libc instance, in which this query
      * is called. This field is used by the emulator to report errors in
@@ -257,8 +257,8 @@ static void dump_malloc_descriptor(char* str,
                              INFO_TRACING_ENABLED)
 
 /* Prints a string to the emulator's stdout.
- * In early stages of system loading, logging mesages via
- * __libc_android_log_print API is not available, because ADB API has not been
+ * In early stages of system loading, logging messages to logcat
+ * is not available, because ADB API has not been
  * hooked up yet. So, in order to see such messages we need to print them to
  * the emulator's stdout.
  * Parameters passed to this macro are the same as parameters for printf
@@ -289,8 +289,7 @@ static void dump_malloc_descriptor(char* str,
  */
 #define qemu_debug_log(format, ...)                                         \
     do {                                                                    \
-        __libc_android_log_print(ANDROID_LOG_DEBUG, "memcheck",             \
-                                 (format), ##__VA_ARGS__);                  \
+        __libc_format_log(ANDROID_LOG_DEBUG, "memcheck", (format), ##__VA_ARGS__); \
         if (tracing_flags & DEBUG_TRACING_ENABLED) {                        \
             qemu_log(ANDROID_LOG_DEBUG, (format), ##__VA_ARGS__);           \
         }                                                                   \
@@ -298,8 +297,7 @@ static void dump_malloc_descriptor(char* str,
 
 #define qemu_error_log(format, ...)                                         \
     do {                                                                    \
-        __libc_android_log_print(ANDROID_LOG_ERROR, "memcheck",             \
-                                 (format), ##__VA_ARGS__);                  \
+        __libc_format_log(ANDROID_LOG_ERROR, "memcheck", (format), ##__VA_ARGS__); \
         if (tracing_flags & ERROR_TRACING_ENABLED) {                        \
             qemu_log(ANDROID_LOG_ERROR, (format), ##__VA_ARGS__);           \
         }                                                                   \
@@ -307,8 +305,7 @@ static void dump_malloc_descriptor(char* str,
 
 #define qemu_info_log(format, ...)                                          \
     do {                                                                    \
-        __libc_android_log_print(ANDROID_LOG_INFO, "memcheck",              \
-                                 (format), ##__VA_ARGS__);                  \
+        __libc_format_log(ANDROID_LOG_INFO, "memcheck", (format), ##__VA_ARGS__); \
         if (tracing_flags & INFO_TRACING_ENABLED) {                         \
             qemu_log(ANDROID_LOG_INFO, (format), ##__VA_ARGS__);            \
         }                                                                   \
@@ -318,20 +315,19 @@ static void dump_malloc_descriptor(char* str,
  * Param:
  *  type - Message type: debug, error, or info
  *  desc - MallocDesc instance to dump.
- *  frmt + rest - Formats message preceding dumped descriptor.
+ *  fmt + rest - Formats message preceding dumped descriptor.
 */
-#define log_mdesc(type, desc, frmt, ...)                                    \
+#define log_mdesc(type, desc, fmt, ...)                                    \
     do {                                                                    \
         if (tracing_enabled(type)) {                                        \
             char log_str[4096];                                             \
-            size_t str_len;                                                 \
-            snprintf(log_str, sizeof(log_str), frmt, ##__VA_ARGS__);        \
+            __libc_format_buffer(log_str, sizeof(log_str), fmt, ##__VA_ARGS__); \
             log_str[sizeof(log_str) - 1] = '\0';                            \
-            str_len = strlen(log_str);                                      \
+            size_t str_len = strlen(log_str);                               \
             dump_malloc_descriptor(log_str + str_len,                       \
                                    sizeof(log_str) - str_len,               \
                                    (desc));                                 \
-            type##_log(log_str);                                            \
+            type##_log("%s", log_str);                                      \
         }                                                                   \
     } while (0)
 
@@ -473,7 +469,7 @@ static inline int notify_qemu_free(void* ptr_to_free) {
  * Return:
  *  Zero on success, or -1 on failure.
  */
-static inline int query_qemu_malloc_info(void* ptr, MallocDesc* desc, uint32_t routine) {
+static inline int query_qemu_malloc_info(const void* ptr, MallocDesc* desc, uint32_t routine) {
     volatile MallocDescQuery query;
 
     query.ptr = ptr;
@@ -578,11 +574,12 @@ static void test_access_violation(const MallocDesc* desc) {
 // API routines
 // =============================================================================
 
-void* qemu_instrumented_malloc(size_t bytes);
-void  qemu_instrumented_free(void* mem);
-void* qemu_instrumented_calloc(size_t n_elements, size_t elem_size);
-void* qemu_instrumented_realloc(void* mem, size_t bytes);
-void* qemu_instrumented_memalign(size_t alignment, size_t bytes);
+extern "C" void* qemu_instrumented_malloc(size_t bytes);
+extern "C" void  qemu_instrumented_free(void* mem);
+extern "C" void* qemu_instrumented_calloc(size_t n_elements, size_t elem_size);
+extern "C" void* qemu_instrumented_realloc(void* mem, size_t bytes);
+extern "C" void* qemu_instrumented_memalign(size_t alignment, size_t bytes);
+extern "C" size_t qemu_instrumented_malloc_usable_size(const void* mem);
 
 /* Initializes malloc debugging instrumentation for the emulator.
  * This routine is called from malloc_init_impl routine implemented in
@@ -593,7 +590,7 @@ void* qemu_instrumented_memalign(size_t alignment, size_t bytes);
  * Return:
  *  0 on success, or -1 on failure.
 */
-int malloc_debug_initialize() {
+extern "C" int malloc_debug_initialize() {
     /* We will be using emulator's magic page to report memory allocation
      * activities. In essence, what magic page does, it translates writes to
      * the memory mapped spaces into writes to an I/O port that emulator
@@ -604,7 +601,7 @@ int malloc_debug_initialize() {
         error_log("Unable to open /dev/qemu_trace");
         return -1;
     } else {
-        qtrace = mmap(0, PAGESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        qtrace = mmap(NULL, PAGESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         close(fd);
 
         if (qtrace == MAP_FAILED) {
@@ -631,7 +628,7 @@ int malloc_debug_initialize() {
  * Return:
  *  0 on success, or -1 on failure.
 */
-int memcheck_initialize(int alignment, const char* memcheck_param) {
+extern "C" int memcheck_initialize(int alignment, const char* memcheck_param) {
     malloc_alignment = alignment;
 
     /* Parse -memcheck parameter for the guest tracing flags. */
@@ -677,7 +674,7 @@ int memcheck_initialize(int alignment, const char* memcheck_param) {
  * bytes (plus prefix, and suffix guards), and report allocation to the
  * emulator.
  */
-void* qemu_instrumented_malloc(size_t bytes) {
+extern "C" void* qemu_instrumented_malloc(size_t bytes) {
     MallocDesc desc;
 
     /* Initialize block descriptor and allocate memory. Note that dlmalloc
@@ -712,7 +709,7 @@ void* qemu_instrumented_malloc(size_t bytes) {
  * Primary responsibility of this routine is to free requested memory, and
  * report free block to the emulator.
  */
-void qemu_instrumented_free(void* mem) {
+extern "C" void qemu_instrumented_free(void* mem) {
     MallocDesc desc;
 
     if (mem == NULL) {
@@ -755,7 +752,7 @@ void qemu_instrumented_free(void* mem) {
 /* This routine serves as entry point for 'calloc'.
  * This routine behaves similarly to qemu_instrumented_malloc.
  */
-void* qemu_instrumented_calloc(size_t n_elements, size_t elem_size) {
+extern "C" void* qemu_instrumented_calloc(size_t n_elements, size_t elem_size) {
     if (n_elements == 0 || elem_size == 0) {
         // Just let go zero bytes allocation.
         qemu_info_log("::: <libc_pid=%03u, pid=%03u>: Zero calloc redir to malloc",
@@ -827,7 +824,7 @@ void* qemu_instrumented_calloc(size_t n_elements, size_t elem_size) {
  * allocation, but overall it doesn't seem to matter, as caller of realloc
  * should not expect that pointer returned after shrinking will remain the same.
  */
-void* qemu_instrumented_realloc(void* mem, size_t bytes) {
+extern "C" void* qemu_instrumented_realloc(void* mem, size_t bytes) {
     MallocDesc new_desc;
     MallocDesc cur_desc;
     size_t to_copy;
@@ -931,7 +928,7 @@ void* qemu_instrumented_realloc(void* mem, size_t bytes) {
 /* This routine serves as entry point for 'memalign'.
  * This routine behaves similarly to qemu_instrumented_malloc.
  */
-void* qemu_instrumented_memalign(size_t alignment, size_t bytes) {
+extern "C" void* qemu_instrumented_memalign(size_t alignment, size_t bytes) {
     MallocDesc desc;
 
     if (bytes == 0) {
@@ -970,4 +967,28 @@ void* qemu_instrumented_memalign(size_t alignment, size_t bytes) {
     log_mdesc(info, &desc, "@@@ <libc_pid=%03u, pid=%03u> memalign(%X, %u) -> ",
               malloc_pid, getpid(), alignment, bytes);
     return mallocdesc_user_ptr(&desc);
+}
+
+extern "C" size_t qemu_instrumented_malloc_usable_size(const void* mem) {
+    MallocDesc cur_desc;
+
+    // Query emulator for the reallocating block information.
+    if (query_qemu_malloc_info(mem, &cur_desc, 2)) {
+        // Note that this violation should be already caught in the emulator.
+        error_log("<libc_pid=%03u, pid=%03u>: malloc_usable_size(%p) query_info failed.",
+                  malloc_pid, getpid(), mem);
+        return 0;
+    }
+
+    /* Make sure that reallocating pointer value is what we would expect
+     * for this memory block. Note that this violation should be already caught
+     * in the emulator.*/
+    if (mem != mallocdesc_user_ptr(&cur_desc)) {
+        log_mdesc(error, &cur_desc, "<libc_pid=%03u, pid=%03u>: malloc_usable_size(%p) is invalid for ",
+                  malloc_pid, getpid(), mem);
+        return 0;
+    }
+
+    /* during instrumentation, we can't really report anything more than requested_bytes */
+    return cur_desc.requested_bytes;
 }

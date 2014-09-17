@@ -1,37 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
 #if defined(MTK_MULTIBRIDGE_SUPPORT)
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -48,7 +14,7 @@
 #include <linux/cdev.h>
 #include <asm/uaccess.h>
 #include <mach/mt_gpio.h>
-
+#include <mach/mt_boot.h>
 
 
 
@@ -58,9 +24,21 @@
 
 
 
+#define MT8193_MLC 0
+
 #define MT8193_CKGEN_VFY 1
 
 #define MT8193_CKGEN_DEVNAME "mt8193-ckgen"
+
+#if defined(MTK_MT8193_HDMI_SUPPORT)
+
+#define MT8193_BUS_SWITCH_GPIO GPIO163  // use dpi1 pin
+
+#else
+
+#define MT8193_BUS_SWITCH_GPIO GPIO147  // use dpi0 pin
+
+#endif
 
 
 static int mt8193_ckgen_probe(struct platform_device *pdev);
@@ -106,6 +84,10 @@ void mt8193_nfi_ana_pwr_control(bool power_on);
 
 extern void mt8193_bus_clk_switch(bool bus_26m_to_32k);
 
+void mt8193_disable_dcxo_core(void);
+
+void mt8193_enable_dcxo_core(void);
+
 
 
 
@@ -149,6 +131,7 @@ struct file_operations mt8193_ckgen_fops = {
 extern void msleep(unsigned int msecs);
 
 
+bool g_earlysuspend = FALSE;
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 static void mt8193_ckgen_early_suspend(struct early_suspend *h)
@@ -181,16 +164,42 @@ static void mt8193_ckgen_early_suspend(struct early_suspend *h)
     mt8193_bus_clk_switch(true);
 #endif
 
-#if 0
-    /* add 8193 suspend function here */
+#if !MT8193_MLC
+
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in early suspend. */
+       
+    printk("[CKGEN] bus clock switch\n");
 
     mt8193_pllgp_ana_pwr_control(false);
-    //msleep(5);
+    msleep(5);
+
+    mt8193_nfi_ana_pwr_control(false);   
+    
+    #if 0
+      u32 reg = 0;
+      for (; reg <= 0x400; reg +=4)
+      {
+    	  if (reg % 0x20 == 0)
+    	  {
+    		printk("\n[0x%lx]  ", reg);
+    	  }
+    	  u32 val = CKGEN_READ32(reg);
+    	  printk("  0x%8lx  ", val);
+      }
+    #endif
+    
     // bus clk switch to 32K
     mt8193_bus_clk_switch(true);
+    msleep(50);
+
+#if MT8193_DISABLE_DCXO
+    mt8193_disable_dcxo_core();
+#endif
+    
 #endif
 
-
+    g_earlysuspend = TRUE;
     printk("[CKGEN] mt8193_ckgen_early_suspend() exit\n");
 }
 
@@ -223,21 +232,35 @@ static void mt8193_ckgen_late_resume(struct early_suspend *h)
     mt8193_lvds_sys_spm_control(true);
     #endif
 
-#if 0
-    /* add 8193 resume function here */
-    // bus clk switch to 26M
+#if !MT8193_MLC
+
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in early suspend. */
+       
+#if MT8193_DISABLE_DCXO
+    mt8193_enable_dcxo_core();
+    msleep(5);
+#endif
+    
+    printk("[CKGEN] bus clock switch\n");
     mt8193_bus_clk_switch(false);
     msleep(2);
+    
+    mt8193_nfi_ana_pwr_control(true);
+    
     // turn on pllgp analog
     mt8193_pllgp_ana_pwr_control(true);
     msleep(2);
-#endif
 
-    printk("[CKGEN] mt8193_ckgen_early_resume() exit\n");
+    
+    
+#endif
+    g_earlysuspend = FALSE;
+    printk("[CKGEN] mt8193_ckgen_late_resume() exit\n");
 }
 
 static struct early_suspend mt8193_ckgen_early_suspend_desc = {
-    .level      = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1,
+    .level      = 0xFF,
     .suspend    = mt8193_ckgen_early_suspend,
     .resume     = mt8193_ckgen_late_resume,
 };
@@ -277,7 +300,6 @@ static char* _mt8193_ckgen_ioctl_spy(unsigned int cmd)
 
 static long mt8193_ckgen_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    void __user *argp = (void __user *)arg;
 
     int r = 0;
 
@@ -409,9 +431,8 @@ static long mt8193_ckgen_ioctl(struct file *file, unsigned int cmd, unsigned lon
  ******************************************************************************/
 static int __init mt8193_ckgen_init(void)
 {
-    printk("[CKGEN] mt8193_ckgen_init() enter\n");
-
     int ret = 0;
+    printk("[CKGEN] mt8193_ckgen_init() enter\n");
     ret = platform_driver_register(&mt8193_ckgen_driver);
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
@@ -466,11 +487,11 @@ static struct cdev *mt8193_ckgen_cdev;
  ******************************************************************************/
 static int mt8193_ckgen_probe(struct platform_device *pdev)
 {
-    printk("[CKGEN] %s\n", __func__);
+
     
 #if MT8193_CKGEN_VFY
     int ret = 0;
-    
+    printk("[CKGEN] %s\n", __func__);
     /* Allocate device number for hdmi driver */
     ret = alloc_chrdev_region(&mt8193_ckgen_devno, 0, 1, MT8193_CKGEN_DEVNAME);
     if(ret)
@@ -495,7 +516,7 @@ static int mt8193_ckgen_probe(struct platform_device *pdev)
     /* For device number binded to device name(hdmitx), one class is corresponeded to one node */
     ckgen_class = class_create(THIS_MODULE, MT8193_CKGEN_DEVNAME);
     /* mknod /dev/hdmitx */
-    ckgen_cdev = (struct class_device *)device_create(ckgen_class, NULL, mt8193_ckgen_devno,    NULL, MT8193_CKGEN_DEVNAME);
+    ckgen_cdev = (struct cdev *)device_create(ckgen_class, NULL, mt8193_ckgen_devno,    NULL, MT8193_CKGEN_DEVNAME);
     
 #endif  
     return 0;
@@ -635,6 +656,16 @@ int mt8193_CKGEN_AgtSelClk(e_CLK_T eAgt, u32 u4Sel)
     return 0;
 }
 
+
+#ifdef MTK_TB_WIFI_3G_MODE
+
+
+#else
+
+
+
+#endif
+
 u32 mt8193_CKGEN_AgtGetClk(e_CLK_T eAgt)
 {
     printk("mt8193_CKGEN_AgtGetClk() %d\n", eAgt);
@@ -645,7 +676,7 @@ int mt8193_ckgen_i2c_write(u16 addr, u32 data)
 {
     u32 u4_ret = 0;
     
-    printk("mt8193_ckgen_i2c_write() 0x%x; 0x%lx\n", addr, data);
+    printk("mt8193_ckgen_i2c_write() 0x%x; 0x%x\n", addr, data);
     u4_ret = mt8193_i2c_write(addr, data);
     if (u4_ret != 0)
     {
@@ -657,14 +688,14 @@ int mt8193_ckgen_i2c_write(u16 addr, u32 data)
 u32 mt8193_ckgen_i2c_read(u16 addr)
 {
     u32 u4_val = 0;
-    u32 u4_ret = 0;
-    printk("mt8193_ckgen_i2c_read() 0x%x; 0x%lx\n", addr, u4_val);
+    u32 u4_ret = 0;    
     u4_ret = mt8193_i2c_read(addr, &u4_val);
+    printk("mt8193_ckgen_i2c_read() 0x%x; 0x%x\n", addr, u4_val);
     if (u4_ret != 0)
     {
         printk("mt8193_i2c_read() fails!!!!!!\n"); 
     }
-    printk("mt8193_ckgen_i2c_read() 0x%x; value is 0x%lx\n", addr, u4_val);
+    printk("mt8193_ckgen_i2c_read() 0x%x; value is 0x%x\n", addr, u4_val);
     return u4_val;
 }
 
@@ -747,28 +778,52 @@ void mt8193_pllgp_ana_pwr_control(bool power_on)
     }
 }
 
-void mt8193_nfi_ana_pwr_control(bool power_on)
+
+#if 0
+void mt8193_clock_buf_control(bool power_on)
 {
     u32 u4Tmp = 0;
     if (power_on)
     {
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG0);
+        u4Tmp |= (PLLGP_ANACFG0_PLL1_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
+    }
+    else
+    {
+        u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG9);
+        u4Tmp &= (~PLLGP_ANACFG0_PLL1_EN);
+        CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
+    }
+}
+#endif
+
+void mt8193_nfi_ana_pwr_control(bool power_on)
+{
+    u32 u4Tmp = 0;
+    printk("[CKGEN] mt8193_nfi_ana_pwr_control() %d\n", power_on);
+    if (power_on)
+    {
         u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG2);
-        u4Tmp |= (~PLLGP_ANACFG2_PLLGP_BIAS_EN);
+        u4Tmp |= (PLLGP_ANACFG2_PLLGP_BIAS_EN);
         CKGEN_WRITE32(REG_RW_PLLGP_ANACFG2, u4Tmp);
         
         u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG0);
-        u4Tmp |= (PLLGP_ANACFG0_PLL1_RESERVED);
+        u4Tmp |= (PLLGP_ANACFG0_PLL1_NFIPLL_EN);
         CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
     }
     else
     {
         u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG0);
-        u4Tmp &= (~PLLGP_ANACFG0_PLL1_RESERVED);
+        u4Tmp &= (~PLLGP_ANACFG0_PLL1_NFIPLL_EN);
         CKGEN_WRITE32(REG_RW_PLLGP_ANACFG0, u4Tmp);
+
+        msleep(1);
 
         u4Tmp = CKGEN_READ32(REG_RW_PLLGP_ANACFG2);
         u4Tmp &= (~PLLGP_ANACFG2_PLLGP_BIAS_EN);
         CKGEN_WRITE32(REG_RW_PLLGP_ANACFG2, u4Tmp);
+        msleep(1);
     }
 }
 
@@ -958,30 +1013,42 @@ void mt8193_nfi_sys_spm_control(bool power_on)
 
 void mt8193_bus_clk_switch(bool bus_26m_to_32k)
 {
+    printk(" mt8193_bus_clk_switch()\n");
     u32 u4Tmp = 0;
       
     if (bus_26m_to_32k)
     {
+    	  if(KERNEL_POWER_OFF_CHARGING_BOOT == get_boot_mode())
+    	  {
+    	  	//In KPOC mode
+    	  	printk("mt8193_bus_clk_switch KPOC Mode()\n");
+    	  	return;
+    	  }
         /* bus clock switch from 26M to 32K */
-        mt_set_gpio_mode(GPIO147, 0);
-        mt_set_gpio_dir(GPIO147, 1);
-        mt_set_gpio_pull_enable(GPIO147, 1);
-        mt_set_gpio_pull_select(GPIO147, 1);
-        mt_set_gpio_out(GPIO147, 1);
+        mt_set_gpio_mode(MT8193_BUS_SWITCH_GPIO, 0);
+        mt_set_gpio_dir(MT8193_BUS_SWITCH_GPIO, 1);
+        mt_set_gpio_pull_enable(MT8193_BUS_SWITCH_GPIO, 1);
+        mt_set_gpio_pull_select(MT8193_BUS_SWITCH_GPIO, 1);
+        mt_set_gpio_out(MT8193_BUS_SWITCH_GPIO, 1);
 
-        // u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG9);
-        u4Tmp = 0x801025;
+        u4Tmp = DCX0_ANACFG9_VALUE;
         u4Tmp &= (~(DCXO_ANACFG9_BUS_CK_SOURCE_SEL_MASK << DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT));
+        
+    #if defined(MTK_MT8193_HDMI_SUPPORT)
+        u4Tmp |= (6 << DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT);
+    #else
         u4Tmp |= (3 << DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT);
+    #endif
+    
         CKGEN_WRITE32(REG_RW_DCXO_ANACFG9, u4Tmp);
 
-        mt_set_gpio_out(GPIO147, 0);     
+        mt_set_gpio_out(MT8193_BUS_SWITCH_GPIO, 0);     
     }
     else
     {
          /* bus clock switch from 32K to 26M */
 
-         mt_set_gpio_out(GPIO147, 1);
+         mt_set_gpio_out(MT8193_BUS_SWITCH_GPIO, 1);
 
          msleep(10);
 
@@ -989,9 +1056,63 @@ void mt8193_bus_clk_switch(bool bus_26m_to_32k)
          u4Tmp &= (~(DCXO_ANACFG9_BUS_CK_SOURCE_SEL_MASK << DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT));
          CKGEN_WRITE32(REG_RW_DCXO_ANACFG9, u4Tmp);
          
-         mt_set_gpio_mode(GPIO147, 1);
+    #if defined(MTK_MT8193_HDMI_SUPPORT)
+         mt_set_gpio_mode(MT8193_BUS_SWITCH_GPIO, 3);
+    #else
+         mt_set_gpio_mode(MT8193_BUS_SWITCH_GPIO, 1);
+    #endif
     }
 }
+
+
+#if MT8193_DISABLE_DCXO
+
+/* disable dcxo ldo1, 8193 core clock buffer */
+void mt8193_disable_dcxo_core(void)
+{
+    printk("mt8193_disable_dcxo_core()\n");
+
+    u32 u4Tmp = 0;
+
+    /* set bt clock buffer manual mode */
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp &= (~DCXO_ANACFG2_PO_MAN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+    /* disable dcxo ldo2 at manual mode */
+	u4Tmp &= (~DCXO_ANACFG2_LDO1_MAN_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+	/* disable dcxo ldo2*/
+	u4Tmp &= (~DCXO_ANACFG2_LDO1_EN);
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+}
+
+/* enable dcxo ldo1, 8193 core clock buffer */
+void mt8193_enable_dcxo_core(void)
+{
+    printk("mt8193_enable_dcxo_core()\n");
+
+    u32 u4Tmp = 0;
+
+    /* disable dcxo ldo2*/
+    u4Tmp = CKGEN_READ32(REG_RW_DCXO_ANACFG2);
+	u4Tmp |= DCXO_ANACFG2_LDO1_EN;
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+	/* disable dcxo ldo2 at manual mode */
+	u4Tmp |= DCXO_ANACFG2_LDO1_MAN_EN;
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+
+    /* set bt clock buffer manual mode */
+    
+	u4Tmp |= DCXO_ANACFG2_PO_MAN;
+	CKGEN_WRITE32(REG_RW_DCXO_ANACFG2, u4Tmp);
+}
+
+
+#endif
+
 
 void mt8193_en_bb_ctrl(bool pd)
 {
@@ -1032,15 +1153,36 @@ static int mt8193_ckgen_suspend(struct platform_device *pdev, pm_message_t state
 {
     printk("[CKGEN] mt8193_ckgen_suspend() enter\n");
 
-#if 1
+#if MT8193_MLC
+    
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in early suspend. */
+       
     /* add 8193 suspend function here */
 
     mt8193_pllgp_ana_pwr_control(false);
     msleep(5);
+
+#if 0
+    u32 reg = 0;
+    for (; reg <= 0x400; reg +=4)
+    {
+    	if (reg % 0x20 == 0)
+    	{
+    		printk("\n[0x%lx]  ", reg);
+    	}
+    	u32 val = CKGEN_READ32(reg);
+    	printk("  0x%8lx  ", val);
+    }
+#endif
     // bus clk switch to 32K
     mt8193_bus_clk_switch(true);
     msleep(50);
 #endif
+    if (FALSE == g_earlysuspend)
+    {
+	    mt8193_ckgen_early_suspend(NULL); //fix bug ALPS01177451
+    }
     printk("[CKGEN] mt8193_ckgen_suspend() exit\n");
     
     return 0;
@@ -1064,8 +1206,11 @@ static int mt8193_ckgen_suspend(struct platform_device *pdev, pm_message_t state
 static int mt8193_ckgen_resume(struct platform_device *pdev)
 {
     printk("[CKGEN] mt8193_ckgen_resume() enter\n");
+    
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in early suspend. */
 
-#if 1
+#if MT8193_MLC
     /* add 8193 resume function here */
     // bus clk switch to 26M
     mt8193_bus_clk_switch(false);
@@ -1074,11 +1219,15 @@ static int mt8193_ckgen_resume(struct platform_device *pdev)
     mt8193_pllgp_ana_pwr_control(true);
     msleep(2);
 #endif
+	if (TRUE == g_earlysuspend)
+	{
+	    mt8193_ckgen_late_resume(NULL);
+	}
+
     printk("[CKGEN] mt8193_ckgen_resume() exit\n");
     
     return 0;
 }
-
 
 
 #endif

@@ -108,7 +108,7 @@
 #include "FT_Public.h"
 #include "meta_common.h"
 #include "mtk_nfc_ext_msg.h"
-
+#include "mtk_nfc_meta_struct.h"
 
 #define FT_CNF_OK     0
 #define FT_CNF_FAIL   1
@@ -295,6 +295,25 @@ typedef enum NFC_OP
 	,NFC_OP_SWP_SELF_TEST       //16
 	,NFC_OP_ANTENNA_SELF_TEST       //17
 	,NFC_OP_TAG_UID_RW          //18	
+    /*----------------*/
+    /*----------------*/
+    /*For NEW NFC META*/
+    /*Request Message */
+    /*----------------*/
+    /*----------------*/    
+    ,NFC_OP_ALS_READER_MODE    //19
+    ,NFC_OP_ALS_P2P_MODE       //20
+    ,NFC_OP_ALS_CARD_MODE      //21
+    ,NFC_OP_POLLING_MODE       //22
+    ,NFC_OP_TX_CARRIER_ALS_ON  //23
+    ,NFC_OP_VIRTUAL_CARD       //24
+    ,NFC_OP_PNFC_CMD           //25
+    ,NFC_OP_SW_VERSION       //26
+    ,NFC_OP_TESTMODE_SETTING   //27
+    ,NFC_OP_LOOPBACK_TEST      //28
+    ,NFC_OP_SWP_TEST           //29    
+    ,NFC_OP_ALS_READER_MODE_OPT //30 
+    ,NFC_OP_GET_SELIST          // 31
 	,NFC_OP_END
 } NFC_OP;
 
@@ -308,6 +327,7 @@ typedef enum NFC_OP
 
 typedef union META_NFC_CMD_U
 {
+    #if 0
     nfc_setting_request     m_setting_req;
     nfc_reg_notif_request   m_reg_notify_req;
     nfc_se_set_request      m_se_set_req;
@@ -323,6 +343,24 @@ typedef union META_NFC_CMD_U
     nfc_script_uid_request  m_script_uid_req;
     nfc_card_emulation_request m_nfc_card_emulation_req;
     nfc_tx_alwayson_request m_nfc_tx_alwayson_req;    
+    #endif
+    /*----------------*/
+    /*----------------*/
+    /*For NEW NFC META*/
+    /*Request Struct  */
+    /*----------------*/
+    /*----------------*/
+    s_mtk_nfc_meta_als_readerm_req        m_nNfc_als_readerm_req;
+    s_mtk_nfc_meta_als_cardm_req          m_nNfc_als_cardm_req;
+    s_mtk_nfc_meta_als_p2p_req            m_nNfc_als_p2p_req;
+    s_mtk_nfc_meta_polling_req            m_nNfc_polling_req;
+    s_mtk_nfc_meta_tx_carr_als_on_req     m_nNfc_tx_carr_als_on_req;
+    s_mtk_nfc_meta_virtual_card_req       m_nNfc_virtual_card_req;
+    s_mtk_nfc_meta_pnfc_req                  m_nNfc_pnfc_req;
+    s_mtk_nfc_meta_test_mode_Setting_req_t   m_nNfc_test_mode_Setting_req;
+    s_mtk_nfc_meta_loopback_test_req_t       m_nNfc_loopback_test_req;
+    s_mtk_nfc_meta_swp_test_req           m_nNfc_swp_test_req;
+    s_mtk_nfc_meta_als_readerm_opt_req    m_nNfc_als_readerm_opt_req;  
 } META_NFC_CMD_U;
 
 typedef struct NFC_REQ
@@ -334,6 +372,7 @@ typedef struct NFC_REQ
 
 typedef union META_NFC_CNF_U
 {
+    #if 0
     nfc_setting_response    m_setting_cnf;
     nfc_reg_notif_response  m_reg_notify_cnf;
     nfc_se_set_response     m_se_set_cnf;
@@ -347,6 +386,29 @@ typedef union META_NFC_CNF_U
     nfc_rd_com_response     m_rd_com_cnf;
     nfc_script_response     m_script_cnf;
     nfc_script_uid_response m_script_uid_cnf;
+    #endif
+    /*----------------*/
+    /*----------------*/
+    /*For NEW NFC META*/
+    /*Response Struct */
+    /*----------------*/
+    /*----------------*/
+    s_mtk_nfc_meta_als_readerm_rsp        m_nNfc_als_readerm_rsp;
+    s_mtk_nfc_meta_als_readerm_opt_rsp    m_nNfc_als_readerm_opt_rsp;
+    s_mtk_nfc_meta_als_cardm_rsp          m_nNfc_als_cardm_rsp;
+    s_mtk_nfc_meta_als_p2p_rsp            m_nNfc_als_p2p_rsp;
+    s_mtk_nfc_meta_polling_rsp            m_nNfc_polling_rsp;
+    s_mtk_nfc_meta_tx_carr_als_on_rsp     m_nNfc_tx_carr_als_on_rsp;
+    s_mtk_nfc_meta_virtual_card_rsp       m_nNfc_virtual_card_rsp;
+    s_mtk_nfc_meta_pnfc_new_rsp           m_nNfc_pnfc_new_rsp;
+    s_mtk_nfc_meta_test_mode_Setting_rsp_t   m_nNfc_test_mode_Setting_rsp;
+    s_mtk_nfc_meta_loopback_test_rsp_t       m_nNfc_loopback_test_rsp;
+    s_mtk_nfc_meta_swp_test_rsp           m_nNfc_swp_test_rsp;
+    s_mtk_nfc_meta_sw_Version_rsp_t          m_nNfc_sw_Version_rsp; 
+    s_mtk_nfc_meta_polling_ntf            m_nNfc_polling_func_ntf;
+    s_mtk_nfc_meta_als_readerm_ntf        m_nNfc_als_readerm_ntf;
+    s_mtk_nfc_meta_als_p2p_ntf            m_nNfc_als_p2p_ntf;
+    s_mtk_nfc_meta_se_get_list_rsp_t     m_nNfc_se_get_list_req;  
 } META_NFC_CNF_U;
 
 typedef struct NFC_CNF

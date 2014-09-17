@@ -1,40 +1,50 @@
 #include <math.h>
-#include <linux/fm.h>
 #include "audio_custom_exp.h"
 #include <media/AudioSystem.h>
 #include "SpeechDriverFactory.h"
 #include "AudioMTKVolumeController.h"
+#include "SpeechEnhancementController.h"
 
 #define LOG_TAG "AudioMTKVolumeController"
 #ifndef ANDROID_DEFAULT_CODE
-    #include <cutils/xlog.h>
-    #ifdef ALOGE
-    #undef ALOGE
-    #endif
-    #ifdef ALOGW
-    #undef ALOGW
-    #endif ALOGI
-    #undef ALOGI
-    #ifdef ALOGD
-    #undef ALOGD
-    #endif
-    #ifdef ALOGV
-    #undef ALOGV
-    #endif
-    #define ALOGE XLOGE
-    #define ALOGW XLOGW
-    #define ALOGI XLOGI
-    #define ALOGD XLOGD
-    #define ALOGV XLOGV
+#include <cutils/xlog.h>
+#ifdef ALOGE
+#undef ALOGE
+#endif
+#ifdef ALOGW
+#undef ALOGW
+#endif ALOGI
+#undef ALOGI
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#ifdef ALOGV
+#undef ALOGV
+#endif
+#define ALOGE XLOGE
+#define ALOGW XLOGW
+#define ALOGI XLOGI
+#define ALOGD XLOGD
+#define ALOGV XLOGV
 #else
-    #include <utils/Log.h>
+#include <utils/Log.h>
 #endif
 
+#ifndef  DEFAULT_Speech_DRC_Type
+/****************************************************
+*Define Speech DRC version
+*bit 0 earpiece DRC2.0  on=> bits 0 = 1
+*bit 1 headset  DRC2.0  on=> bits 1 = 1
+*bit 2 speaker  DRC2.0  on=> bits 2 = 1
+*****************************************************/
+#define DEFAULT_Speech_DRC_Type (0x7)
+#endif
 
 namespace android
 {
 
 AudioMTKVolumeController *AudioMTKVolumeController::UniqueVolumeInstance = NULL;
+static const char PROPERTY_KEY_SPH_DRC_VER[PROPERTY_KEY_MAX] = "persist.af.sph_drc_ver";
 
 // here can change to match audiosystem
 #if 1
@@ -73,49 +83,104 @@ static const uint16_t SideToneTable[] =
     327,   291,   260,   231,   206,   183,   163,   145
 };
 
-static const uint16_t SwAgc_Gain_Map[AUDIO_SYSTEM_UL_GAIN_MAX+1] =
+static const uint16_t SwAgc_Gain_Map[AUDIO_SYSTEM_UL_GAIN_MAX + 1] =
 {
-    17,16,15,14,13,12,11,10,9,
-    14,13,12,11,10,9,
-    14,13,12,11,10,9,
-    14,13,12,11,10,9,
-    14,13,12,11,10,9,
-    14,13,12,11,10,9,
-    8,7,6,5,4,3,2
+    17, 16, 15, 14, 13, 12, 11, 10, 9,
+    14, 13, 12, 11, 10, 9,
+    14, 13, 12, 11, 10, 9,
+    14, 13, 12, 11, 10, 9,
+    14, 13, 12, 11, 10, 9,
+    14, 13, 12, 11, 10, 9,
+    8, 7, 6, 5, 4, 3, 2
 };
 
-static const uint16_t PGA_Gain_Map[AUDIO_SYSTEM_UL_GAIN_MAX+1] =
+static const uint16_t PGA_Gain_Map[AUDIO_SYSTEM_UL_GAIN_MAX + 1] =
 {
-    0,0,0,0,0,0,0,0,0,
-    6,6,6,6,6,6,
-    12,12,12,12,12,12,
-    18,18,18,18,18,18,
-    24,24,24,24,24,24,
-    30,30,30,30,30,30,
-    30,30,30,30,30,30,30
+    0, 0, 0, 0, 0, 0, 0, 0, 0,
+    6, 6, 6, 6, 6, 6,
+    12, 12, 12, 12, 12, 12,
+    18, 18, 18, 18, 18, 18,
+    24, 24, 24, 24, 24, 24,
+    30, 30, 30, 30, 30, 30,
+    30, 30, 30, 30, 30, 30, 30
+};
+
+//DRC1.0 mapping
+static const uint16_t DLPGA_Gain_Map_Ver1[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
+{
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    10, 11, 12, 12, 12, 12, 12, 12, 12, 12,
+    12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+    12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12
+};
+
+static const uint16_t DlEnh1_Gain_Map_Ver1[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
+{
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static const uint16_t DlDigital_Gain_Map_Ver1[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
+{
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+    9, 10, 11, 12 , 13, 14, 15, 16, 17, 18,
+    19, 20, 21, 21, 22, 23, 24, 25, 26, 27, 28
+};
+
+static const uint16_t DLPGA_SPKGain_Map_Ver1[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
+{
+    0, 1, 2, 3, 4, 5, 6, 6, 6, 6,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
+};
+
+static const uint16_t DlDigital_SPKGain_Map_Ver1[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
+{
+    0, 0, 0, 0, 0, 0, 0, 1, 2, 3,
+    4, 5, 6, 7, 8, 9, 10, 11, 12 , 13,
+    14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+    24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34
+};
+
+//DRC2.0 mapping
+//DRC2.0 mapping
+static const uint16_t DLPGA_Gain_Map_Ver2[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
+{
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    9,  10 , 11, 11, 12, 12, 12, 12, 12, 12,
+    12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+    12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12
 };
 
 
-static const uint16_t Dmic_SwAgc_Gain_Map[AUDIO_SYSTEM_UL_GAIN_MAX+1] =
+static const uint16_t DlEnh1_Gain_Map_Ver2[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
 {
-    30,29,28,27,26,25,24,23,22,
-    21,20,19,18,17,16,
-    15,14,13,12,11,10,
-    9,8,7,6,5,4,
-    3,2,1,0,0,0,
-    0,0,0,0,0,0,
-    0,0,0,0,0,0,0
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    4, 4, 4, 7, 7, 7, 7, 7, 7, 7,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
 };
 
-static const uint16_t Dmic_PGA_Gain_Map[AUDIO_SYSTEM_UL_GAIN_MAX+1] =
+static const uint16_t DlDigital_Gain_Map_Ver2[(VOICE_VOLUME_MAX / VOICE_ONEDB_STEP) + 1] =
 {
-    0,0,0,0,0,0,0,0,0,
-    6,6,6,6,6,6,
-    12,12,12,12,12,12,
-    18,18,18,18,18,18,
-    24,24,24,24,24,24,
-    30,30,30,30,30,30,
-    30,30,30,30,30,30,30
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 1, 2, 3, 4, 5,
+    6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26
+};
+static const uint16_t Dmic_PGA_Gain_Map[AUDIO_SYSTEM_UL_GAIN_MAX + 1] =
+{
+    0, 0, 0, 0, 0, 0, 0, 0, 0,
+    6, 6, 6, 6, 6, 6,
+    12, 12, 12, 12, 12, 12,
+    18, 18, 18, 18, 18, 18,
+    24, 24, 24, 24, 24, 24,
+    30, 30, 30, 30, 30, 30,
+    30, 30, 30, 30, 30, 30, 30
 };
 
 /* input:  DL_PGA_Gain          (dB/step)         */
@@ -134,7 +199,7 @@ uint16_t AudioMTKVolumeController::UpdateSidetone(int DL_PGA_Gain, int  Sidetone
 
     vol = Sidetone_Volume + SW_AGC_Ul_Gain; //1dB/step
     vol = DL_PGA_Gain - vol + 67;
-    ALOGD("vol = %d",vol);
+    ALOGD("vol = %d", vol);
     if (vol < 0)
     {
         vol = 0;
@@ -144,7 +209,11 @@ uint16_t AudioMTKVolumeController::UpdateSidetone(int DL_PGA_Gain, int  Sidetone
         vol = 47;
     }
     DSP_ST_GAIN = SideToneTable[vol]; //output 1dB/step
-    ALOGD("DSP_ST_GAIN = %d",DSP_ST_GAIN);
+    if (Sidetone_Volume == 0)
+    {
+        DSP_ST_GAIN = 0 ;
+    }
+    ALOGD("DSP_ST_GAIN = %d", DSP_ST_GAIN);
     return DSP_ST_GAIN;
 }
 
@@ -178,21 +247,31 @@ AudioMTKVolumeController::AudioMTKVolumeController()
     mAudioDigitalControl = NULL;
     mAudioAnalogControl = AudioAnalogControlFactory::CreateAudioAnalogControl();
     if (!mAudioAnalogControl)
+    {
         ALOGD("AudioMTKVolumeController  CreateAudioAnalogControl fail");
+    }
     mAudioDigitalControl = AudioDigitalControlFactory::CreateAudioDigitalControl();
     if (!mAudioAnalogControl)
+    {
         ALOGD("AudioMTKVolumeController  CreateAudioDigitalControl fail");
+    }
 
     mVoiceVolume = 1.0f;
     mMasterVolume = 1.0f;
     for (size_t i = 0; i < AUDIO_STREAM_MAX; ++i)
+    {
         mStreamVolume[i] = 1.0f;
+    }
 
-    mFmVolume = 0xFF;
-    mFmChipVolume = 0xFFFFFFFF;
     mMatvVolume = 0xFF;
     mInitDone = false;
     mSwAgcGain = 12;
+    mULTotalGain = 184;
+    for (int i = 0; i < Num_Mic_Gain ; i++)
+    {
+        mULTotalGainTable[i] = mULTotalGain;
+    }
+
     initCheck();
 }
 
@@ -225,7 +304,15 @@ void AudioMTKVolumeController::ApplyMdDlGain(int32 degradeDb)
 {
     // set degarde db to mode side, DL part, here use degrade dbg
     ALOGD("ApplyMdDlGain degradeDb = %d", degradeDb);
+    mDLdegradeDb = degradeDb;
     SpeechDriverFactory::GetInstance()->GetSpeechDriver()->SetDownlinkGain((-1 * degradeDb) << 2); // degrade db * 4
+}
+
+void AudioMTKVolumeController::ApplyMdDlEhn1Gain(int32 Gain)
+{
+    // set degarde db to mode side, DL part, here use degrade dbg
+    ALOGD("ApplyMdDlEhn1Gain degradeDb = %d", Gain);
+    SpeechDriverFactory::GetInstance()->GetSpeechDriver()->SetEnh1DownlinkGain(-1 * (Gain) << 2); // degrade db * 4
 }
 
 void AudioMTKVolumeController::ApplyMdUlGain(int32 IncreaseDb)
@@ -239,7 +326,7 @@ bool AudioMTKVolumeController::IsHeadsetMicInput(uint32 device)
 {
     //check mic with headset or normal mic.
     if (device == Idle_Headset_Record || device == Voice_Rec_Mic_Headset || device == Idle_Video_Record_Headset ||
-            device == Headset_Mic  || device == VOIP_Headset_Mic)
+        device == Headset_Mic  || device == VOIP_Headset_Mic)
     {
         return true;
     }
@@ -275,7 +362,7 @@ static float MampSPKAMPVolume(unsigned char Volume)
 
     ALOGD("Volume = %d MampAudioVolume DegradedB = %f ", Volume, DegradedB);
     // for volume peroformance ,start with 15
-    return (DegradedB+2);
+    return (DegradedB + 2);
 }
 
 //this function map 255 ==> Audiocustomvolume
@@ -293,7 +380,9 @@ static float MampLevelShiftBufferGain(unsigned char Volume)
     }
 
     if (DegradedB > LEVEL_SHIFT_BUFFER_MAXDB)
+    {
         DegradedB = LEVEL_SHIFT_BUFFER_MAXDB;
+    }
     ALOGD("Volume = %d MampLevelShiftBufferGain DegradedB = %f ", Volume, DegradedB);
     return DegradedB * 3;
 }
@@ -356,6 +445,9 @@ status_t AudioMTKVolumeController::initVolumeController()
 {
     ALOGD("AudioMTKVolumeController initVolumeController\n");
     GetDefaultVolumeParameters(&mVolumeParam);
+    GetNBSpeechParamFromNVRam(&mSphParamNB);
+    GetWBSpeechParamFromNVRam(&mSphParamWB);
+
     for (int i = 0 ; i < NORMAL_VOLUME_TYPE_MAX ; i++)
     {
         ALOGD("normalaudiovolume %d = %d", i, mVolumeParam.normalaudiovolume[i]);
@@ -421,55 +513,91 @@ status_t AudioMTKVolumeController::initVolumeController()
     //-----MIC VOLUME SETTING
     ALOGD(" not define MTK_AUDIO_GAIN_TABLE_SUPPORT");
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][4]);
+    SetULTotalGain(Idle_Normal_Record, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][4]);
     SetMicGain(Idle_Normal_Record,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][4]);
+    SetULTotalGain(Idle_Headset_Record, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][4]);
     SetMicGain(Idle_Headset_Record, degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][3]);
+    SetULTotalGain(Normal_Mic, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][3]);
     SetMicGain(Normal_Mic,         degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][3]);
+    SetULTotalGain(Headset_Mic, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][3]);
     SetMicGain(Headset_Mic,       degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_SPEAKER_MODE][3]);
+    SetULTotalGain(Handfree_Mic, mVolumeParam.audiovolume_mic[VOLUME_SPEAKER_MODE][3]);
     SetMicGain(Handfree_Mic,     degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][0]);
+    SetULTotalGain(TTY_CTM_Mic, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][0]);
     SetMicGain(TTY_CTM_Mic ,     degradegain);
 
     // voice reconition usage
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][5]);
+    SetULTotalGain(Voice_Rec_Mic_Handset, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][5]);
     SetMicGain(Voice_Rec_Mic_Handset,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][5]);
+    SetULTotalGain(Voice_Rec_Mic_Headset, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][5]);
     SetMicGain(Voice_Rec_Mic_Headset,  degradegain);
 
     // add by chiepeng for VOIP mode
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][6]);
+    SetULTotalGain(VOIP_Normal_Mic, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][6]);
     SetMicGain(VOIP_Normal_Mic,     degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][6]);
+    SetULTotalGain(VOIP_Headset_Mic, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][6]);
     SetMicGain(VOIP_Headset_Mic,   degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_SPEAKER_MODE][6]);
+    SetULTotalGain(VOIP_Handfree_Mic, mVolumeParam.audiovolume_mic[VOLUME_SPEAKER_MODE][6]);
     SetMicGain(VOIP_Handfree_Mic, degradegain);
 
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][2]);
+    SetULTotalGain(Idle_Video_Record_Handset, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][2]);
     SetMicGain(Idle_Video_Record_Handset,   degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][2]);
+    SetULTotalGain(Idle_Video_Record_Headset, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][2]);
     SetMicGain(Idle_Video_Record_Headset,  degradegain);
 
     // voice unlock usage (input source AUDIO_SOURCE_VOICE_UNLOCK)
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][7]);
+    SetULTotalGain(Voice_UnLock_Mic_Handset, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][7]);
     SetMicGain(Voice_UnLock_Mic_Handset,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][7]);
+    SetULTotalGain(Voice_UnLock_Mic_Headset, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][7]);
     SetMicGain(Voice_UnLock_Mic_Headset,  degradegain);
 
     //MIC gain for customization input source usage
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][8]);
+    SetULTotalGain(Customization1_Mic_Handset, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][8]);
     SetMicGain(Customization1_Mic_Handset,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][8]);
+    SetULTotalGain(Customization1_Mic_Headset, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][8]);
     SetMicGain(Customization1_Mic_Headset,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][9]);
+    SetULTotalGain(Customization2_Mic_Handset, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][9]);
     SetMicGain(Customization2_Mic_Handset,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][9]);
+    SetULTotalGain(Customization2_Mic_Headset, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][9]);
     SetMicGain(Customization2_Mic_Headset,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][10]);
+    SetULTotalGain(Customization3_Mic_Handset, mVolumeParam.audiovolume_mic[VOLUME_NORMAL_MODE][10]);
     SetMicGain(Customization3_Mic_Handset,  degradegain);
+
     degradegain = (unsigned char)MampUplinkGain(mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][10]);
+    SetULTotalGain(Customization3_Mic_Headset, mVolumeParam.audiovolume_mic[VOLUME_HEADSET_MODE][10]);
     SetMicGain(Customization3_Mic_Headset,  degradegain);
 
     // level shift buffer, level shift buffer gain is used degrade gain.
@@ -477,12 +605,15 @@ status_t AudioMTKVolumeController::initVolumeController()
     SetLevelShiftBufferGain(Level_Shift_Buffer_Gain,  degradegain);
 
     for (int i = 0; i < Num_Mic_Gain ; i++)
+    {
         ALOGD("micgain %d = %d", i, mMicGain[i]);
+    }
 
     // here save sidewtone gain to msidetone
     SetSideTone(EarPiece_SideTone_Gain, mVolumeParam.audiovolume_sid[VOLUME_NORMAL_MODE][3]);
     SetSideTone(Headset_SideTone_Gain, mVolumeParam.audiovolume_sid[VOLUME_HEADSET_MODE][3]);
     SetSideTone(LoudSpk_SideTone_Gain, mVolumeParam.audiovolume_sid[VOLUME_SPEAKER_MODE][3]);
+    mSpeechDrcType  =  DEFAULT_Speech_DRC_Type;
 
     return NO_ERROR;
 }
@@ -500,14 +631,14 @@ void AudioMTKVolumeController::ApplyAudioGain(int Gain, uint32 mode, uint32 devi
         return;
     }
     int DegradedBGain = mVolumeRange[device];
-    DegradedBGain = (DegradedBGain * Gain) / VOLUME_MAPPING_STEP;
+    DegradedBGain = DegradedBGain + (DEVICE_VOLUME_RANGE - DegradedBGain) * ((VOLUME_MAPPING_STEP - Gain) / VOLUME_MAPPING_STEP);
     ALOGD("ApplyAudioGain  DegradedBGain = %d mVolumeRange[mode] = %d ", DegradedBGain, mVolumeRange[device]);
-    if (device  ==  Audio_Earpiece || device == Audio_DualMode_Earpiece || device == Sipcall_Earpiece )
+    if (device  ==  Audio_Earpiece || device == Audio_DualMode_Earpiece || device == Sipcall_Earpiece)
     {
         mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTL, DegradedBGain);
         mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTR, DegradedBGain);
     }
-    else if ((device  == Audio_Headset) || (device == Audio_Headphone)|| (device == Sipcall_Headset) || (device == Sipcall_Headphone) )
+    else if ((device  == Audio_Headset) || (device == Audio_Headphone) || (device == Sipcall_Headset) || (device == Sipcall_Headphone))
     {
         mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTL, DegradedBGain);
         mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTR, DegradedBGain);
@@ -529,7 +660,7 @@ void AudioMTKVolumeController::ApplyAmpGain(int Gain, uint32 mode, uint32 device
         ALOGW(" Calgain out of boundary mode = %d device = %0x%x", mode, device);
     }
     int DegradedBGain = mVolumeRange[device];
-    DegradedBGain = (DegradedBGain * Gain) / VOLUME_MAPPING_STEP;
+    DegradedBGain = DegradedBGain + (DEVICE_VOLUME_RANGE - DegradedBGain) * ((VOLUME_MAPPING_STEP - Gain) / VOLUME_MAPPING_STEP);
     ALOGD("DegradedBGain   = %d", DegradedBGain);
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKL, DegradedBGain);
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKR, DegradedBGain);
@@ -544,7 +675,7 @@ void AudioMTKVolumeController::ApplyExtAmpHeadPhoneGain(int Gain, uint32 mode, u
         ALOGW(" Calgain out of boundary mode = %d device = %0x%x", mode, device);
     }
     int DegradedBGain = mVolumeRange[device];
-    DegradedBGain = (DegradedBGain * Gain) / VOLUME_MAPPING_STEP;
+    DegradedBGain = DegradedBGain + (DEVICE_VOLUME_RANGE - DegradedBGain) * ((VOLUME_MAPPING_STEP - Gain) / VOLUME_MAPPING_STEP);
     ALOGD("DegradedBGain   = %d", DegradedBGain);
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTL, DegradedBGain);
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTR, DegradedBGain);
@@ -579,149 +710,149 @@ status_t AudioMTKVolumeController::setMasterVolume(float v, audio_mode_t mode, u
     mMasterVolume = v;
     switch (mode)
     {
-    case AUDIO_MODE_NORMAL :   // normal mode
-    {
-        if (android_audio_legacy::AudioSystem::popCount(devices) == 1)
+        case AUDIO_MODE_NORMAL :   // normal mode
         {
-            switch (devices)
+            if (android_audio_legacy::AudioSystem::popCount(devices) == 1)
             {
-            case (AUDIO_DEVICE_OUT_EARPIECE):
-            {
-                ApplyAudioGain(MapVolume,  mode, Audio_Earpiece);
-                break;
-            }
-            case (AUDIO_DEVICE_OUT_WIRED_HEADSET):
-            {
-                ApplyAudioGain(MapVolume,  mode, Audio_Headset);
-                break;
-            }
-            case (AUDIO_DEVICE_OUT_WIRED_HEADPHONE):
-            {
-                ApplyAudioGain(MapVolume,  mode, Audio_Headphone);
-                break;
-            }
-            case (AUDIO_DEVICE_OUT_SPEAKER) :
-            {
+                switch (devices)
+                {
+                    case (AUDIO_DEVICE_OUT_EARPIECE):
+                    {
+                        ApplyAudioGain(MapVolume,  mode, Audio_Earpiece);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_WIRED_HEADSET):
+                    {
+                        ApplyAudioGain(MapVolume,  mode, Audio_Headset);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_WIRED_HEADPHONE):
+                    {
+                        ApplyAudioGain(MapVolume,  mode, Audio_Headphone);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_SPEAKER) :
+                    {
 #ifdef USING_EXTAMP_HP
-                ApplyExtAmpHeadPhoneGain(MapVolume,  mode, Audio_Speaker);
+                        ApplyExtAmpHeadPhoneGain(MapVolume,  mode, Audio_Speaker);
 #else
-                ApplyAmpGain(MapVolume,  mode, Audio_Speaker);
+                        ApplyAmpGain(MapVolume,  mode, Audio_Speaker);
 #endif
-                break;
+                        break;
+                    }
+                    default:
+                    {
+                        ALOGD("setMasterVolume with device = 0x%x", devices);
+                        break;
+                    }
+                }
             }
-            default:
+            // pop device is more than one , should use dual mode.
+            else
             {
-                ALOGD("setMasterVolume with device = 0x%x", devices);
-                break;
+                ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_Headphone);
+                ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_speaker);
             }
-            }
-        }
-        // pop device is more than one , should use dual mode.
-        else
-        {
-            ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_Headphone);
-            ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_speaker);
-        }
-        break;
-    }
-    case AUDIO_MODE_RINGTONE :
-    {
-        if (android_audio_legacy::AudioSystem::popCount(devices) == 1)
-        {
-            switch (devices)
-            {
-            case (AUDIO_DEVICE_OUT_EARPIECE):
-            {
-                ApplyAudioGain(MapVolume,  mode, Ringtone_Earpiece);
-                break;
-            }
-            case (AUDIO_DEVICE_OUT_WIRED_HEADSET):
-            {
-                ApplyAudioGain(MapVolume,  mode, Ringtone_Headset);
-                break;
-            }
-            case (AUDIO_DEVICE_OUT_WIRED_HEADPHONE):
-            {
-                ApplyAudioGain(MapVolume,  mode, Ringtone_Headphone);
-                break;
-            }
-            case (AUDIO_DEVICE_OUT_SPEAKER) :
-            {
-            #ifdef USING_EXTAMP_HP
-                ApplyExtAmpHeadPhoneGain(MapVolume,  mode, Audio_Speaker);
-            #else
-                ApplyAmpGain(MapVolume,  mode, Audio_Speaker);
-            #endif
-                break;
-            }
-            default:
-            {
-                ALOGD("setMasterVolume with device = 0x%x", devices);
-                break;
-            }
-            }
-        }
-        // pop device is more than one , should use dual mode.
-        else
-        {
-            ALOGD("AudioMTKVolumeController setMasterVolume with dual mode");
-            ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_Headphone);
-            ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_speaker);
-        }
-        break;
-    }
-    case AUDIO_MODE_IN_CALL :
-    case AUDIO_MODE_IN_CALL_2 :
-    {
-        ALOGW("set mastervolume with in call ~~~~");
-        default:
             break;
         }
-    case AUDIO_MODE_IN_COMMUNICATION :
-    {
-        if (android_audio_legacy::AudioSystem::popCount(devices) == 1)
+        case AUDIO_MODE_RINGTONE :
         {
-            switch (devices)
+            if (android_audio_legacy::AudioSystem::popCount(devices) == 1)
             {
-            case (AUDIO_DEVICE_OUT_EARPIECE):
-            {
-                ApplyAudioGain(MapVolume, mode, Sipcall_Earpiece);
-                break;
+                switch (devices)
+                {
+                    case (AUDIO_DEVICE_OUT_EARPIECE):
+                    {
+                        ApplyAudioGain(MapVolume,  mode, Ringtone_Earpiece);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_WIRED_HEADSET):
+                    {
+                        ApplyAudioGain(MapVolume,  mode, Ringtone_Headset);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_WIRED_HEADPHONE):
+                    {
+                        ApplyAudioGain(MapVolume,  mode, Ringtone_Headphone);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_SPEAKER) :
+                    {
+#ifdef USING_EXTAMP_HP
+                        ApplyExtAmpHeadPhoneGain(MapVolume,  mode, Audio_Speaker);
+#else
+                        ApplyAmpGain(MapVolume,  mode, Audio_Speaker);
+#endif
+                        break;
+                    }
+                    default:
+                    {
+                        ALOGD("setMasterVolume with device = 0x%x", devices);
+                        break;
+                    }
+                }
             }
-            case (AUDIO_DEVICE_OUT_WIRED_HEADSET):
+            // pop device is more than one , should use dual mode.
+            else
             {
-                ApplyAudioGain(MapVolume, mode, Sipcall_Headset);
-                break;
+                ALOGD("AudioMTKVolumeController setMasterVolume with dual mode");
+                ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_Headphone);
+                ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_speaker);
             }
-            case (AUDIO_DEVICE_OUT_WIRED_HEADPHONE):
-            {
-                ApplyAudioGain(MapVolume, mode, Sipcall_Headphone);
-                break;
-            }
-            case (AUDIO_DEVICE_OUT_SPEAKER) :
-            {
-            #ifdef USING_EXTAMP_HP
-                ApplyExtAmpHeadPhoneGain(MapVolume,  mode, Sipcall_Speaker);
-            #else
-                ApplyAmpGain(MapVolume,  mode, Sipcall_Speaker);
-            #endif
-                break;
-            }
+            break;
+        }
+        case AUDIO_MODE_IN_CALL :
+        case AUDIO_MODE_IN_CALL_2 :
+        {
+            ALOGW("set mastervolume with in call ~~~~");
             default:
-            {
-                ALOGD("setMasterVolume with device = 0x%x", devices);
                 break;
             }
-            }
-        }
-        // pop device is more than one , should use dual mode.
-        else
+        case AUDIO_MODE_IN_COMMUNICATION :
         {
-            ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_Headphone);
-            ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_speaker);
+            if (android_audio_legacy::AudioSystem::popCount(devices) == 1)
+            {
+                switch (devices)
+                {
+                    case (AUDIO_DEVICE_OUT_EARPIECE):
+                    {
+                        ApplyAudioGain(MapVolume, mode, Sipcall_Earpiece);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_WIRED_HEADSET):
+                    {
+                        ApplyAudioGain(MapVolume, mode, Sipcall_Headset);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_WIRED_HEADPHONE):
+                    {
+                        ApplyAudioGain(MapVolume, mode, Sipcall_Headphone);
+                        break;
+                    }
+                    case (AUDIO_DEVICE_OUT_SPEAKER) :
+                    {
+#ifdef USING_EXTAMP_HP
+                        ApplyExtAmpHeadPhoneGain(MapVolume,  mode, Sipcall_Speaker);
+#else
+                        ApplyAmpGain(MapVolume,  mode, Sipcall_Speaker);
+#endif
+                        break;
+                    }
+                    default:
+                    {
+                        ALOGD("setMasterVolume with device = 0x%x", devices);
+                        break;
+                    }
+                }
+            }
+            // pop device is more than one , should use dual mode.
+            else
+            {
+                ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_Headphone);
+                ApplyDualmodeGain(MapVolume,  mode,  Audio_DualMode_speaker);
+            }
+            break;
         }
-        break;
-    }
     }
 
     return NO_ERROR;
@@ -739,12 +870,53 @@ bool AudioMTKVolumeController::ModeSetVoiceVolume(int mode)
             mode == AUDIO_MODE_IN_CALL_2);
 }
 
+uint32_t AudioMTKVolumeController::GetDRCVersion(uint32 device)
+{
+    int DrcSpeechModeBits = 0;
+
+    char property_value[PROPERTY_VALUE_MAX];
+    property_get(PROPERTY_KEY_SPH_DRC_VER, property_value, "0");
+    int Sph_Drc_Version = atoi(property_value);
+    if (Sph_Drc_Version)
+    {
+        ALOGD("change mSpeechDrcType to Sph_Drc_Version = %d", Sph_Drc_Version);
+    }
+
+    if (device & AUDIO_DEVICE_OUT_EARPIECE)
+    {
+        DrcSpeechModeBits = 1;
+    }
+    else if (device & AUDIO_DEVICE_OUT_WIRED_HEADSET ||  device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE)
+    {
+        DrcSpeechModeBits = 1 << 1;
+    }
+    else if (device & AUDIO_DEVICE_OUT_SPEAKER)
+    {
+        DrcSpeechModeBits = 1 << 2;
+    }
+    ALOGD("GetDRCVersion DrcSpeechModeBits = %d device= 0x%x mSpeechDrcType = 0x%x Sph_Drc_Version = 0x%x", DrcSpeechModeBits, device, mSpeechDrcType, Sph_Drc_Version);
+    if ((mSpeechDrcType & DrcSpeechModeBits) || (Sph_Drc_Version & DrcSpeechModeBits))
+    {
+        ALOGD("DRC_VERSION_2");
+        return DRC_VERSION_2;
+    }
+    else
+    {
+        ALOGD("DRC_VERSION_1");
+        return DRC_VERSION_1;
+    }
+}
+
+
 status_t AudioMTKVolumeController::setVoiceVolume(float v, audio_mode_t mode, uint32_t device)
 {
     ALOGD("AudioMTKVolumeController setVoiceVolume v = %f mode = %d routes = %d", v , mode, device);
     mVoiceVolume = v;
     int MapVolume = 0;
+    int DRCversion = GetDRCVersion(device);
     int degradeDb = 0;
+    int DigitalgradeDb = 0;  // digital gain
+    int Enh1degradeDb = 0;  // digital enh1 gain
     int VoiceAnalogRange = 0;
 
     if (ModeSetVoiceVolume(mode) == false)
@@ -752,107 +924,91 @@ status_t AudioMTKVolumeController::setVoiceVolume(float v, audio_mode_t mode, ui
         return INVALID_OPERATION;
     }
 
+    // set drc version to modem side.
+    SpeechEnhancementController::GetInstance()->SetDynamicMaskOnToAllModem(SPH_ENH_DYNAMIC_MASK_SIDEKEY_DGAIN, (bool)DRCversion);
+
+
     MapVolume = AudioMTKVolumeController::logToLinear(v);
     degradeDb = (DEVICE_VOLUME_STEP - MapVolume) / VOICE_ONEDB_STEP;
     ALOGD("degradeDb = %d MapVolume = %d", degradeDb, MapVolume);
+    if (DRCversion == DRC_VERSION_1)
+    {
+        VoiceAnalogRange = DLPGA_Gain_Map_Ver1[degradeDb];
+        DigitalgradeDb = DlDigital_Gain_Map_Ver1[degradeDb];
+        Enh1degradeDb = DlEnh1_Gain_Map_Ver1[degradeDb];
+    }
+    else
+    {
+        VoiceAnalogRange = DLPGA_Gain_Map_Ver2[degradeDb];
+        DigitalgradeDb = DlDigital_Gain_Map_Ver2[degradeDb];
+        Enh1degradeDb = DlEnh1_Gain_Map_Ver2[degradeDb];
+    }
+    ALOGD("DigitalgradeDb = %d Enh1degradeDb = %d VoiceAnalogRange = %d ", DigitalgradeDb, Enh1degradeDb, VoiceAnalogRange);
     if (device & AUDIO_DEVICE_OUT_EARPIECE)
     {
 #ifdef USING_2IN1_SPEAKER
         // 2in1 speaker adjust iv buffer gain
-        VoiceAnalogRange = DEVICE_IV_BUFFER_MAX_VOLUME - DEVICE_IV_BUFFER_MIN_VOLUME;
-        if (degradeDb <= AUDIO_IV_BUFFER_GAIN_STEP)
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, degradeDb);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, degradeDb);
-            ApplyMdDlGain(0);
-        }
-        else
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
-            degradeDb -= VoiceAnalogRange;
-            ApplyMdDlGain(degradeDb);
-        }
+        VoiceAnalogRange = DLPGA_SPKGain_Map_Ver1[degradeDb];
+        DigitalgradeDb = DlDigital_SPKGain_Map_Ver1[degradeDb];
+        Enh1degradeDb = DlEnh1_Gain_Map_Ver1[degradeDb];
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
+        ApplyMdDlGain(DigitalgradeDb);
+        ApplyMdDlEhn1Gain(Enh1degradeDb);
 #else
-        VoiceAnalogRange = DEVICE_MAX_VOLUME - DEVICE_MIN_VOLUME;
-        if (degradeDb <= AUDIO_BUFFER_HW_GAIN_STEP)
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTL, degradeDb);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTR, degradeDb);
-            ApplyMdDlGain(0);
-        }
-        else
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTL, VoiceAnalogRange);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTR, VoiceAnalogRange);
-            degradeDb -= VoiceAnalogRange;
-            ApplyMdDlGain(degradeDb);
-        }
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTL, VoiceAnalogRange);
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HSOUTR, VoiceAnalogRange);
+        ApplyMdDlGain(DigitalgradeDb);
+        ApplyMdDlEhn1Gain(Enh1degradeDb);
 #endif
-        ApplyMicGain(Normal_Mic,mode); // set incall mic gain
+        ApplyMicGain(Normal_Mic, mode); // set incall mic gain
     }
     if (device & AUDIO_DEVICE_OUT_WIRED_HEADSET ||  device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE)
     {
-        VoiceAnalogRange = DEVICE_MAX_VOLUME - DEVICE_MIN_VOLUME;
-        if (degradeDb <= AUDIO_BUFFER_HW_GAIN_STEP)
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTL, VoiceAnalogRange);
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTR, VoiceAnalogRange);
+//Do Modem Downlink Gain Ramp Up         
+#ifdef MD_DLGAIN_RAMPUP        
+        usleep(10 * 1000);
+        for (; mDLdegradeDb >= DigitalgradeDb ; mDLdegradeDb --)
         {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTL, degradeDb);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTR, degradeDb);
-            ApplyMdDlGain(0);
+            usleep(3 * 1000);
+            ApplyMdDlGain(mDLdegradeDb);
         }
-        else
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTL, VoiceAnalogRange);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTR, VoiceAnalogRange);
-            degradeDb -= VoiceAnalogRange;
-            ApplyMdDlGain(degradeDb);
-        }
-        ApplyMicGain(Headset_Mic,mode); // set incall mic gain
+#else
+        ApplyMdDlGain(DigitalgradeDb);
+
+#endif        
+        ApplyMdDlEhn1Gain(Enh1degradeDb);
+        ApplyMicGain(Headset_Mic, mode); // set incall mic gain
     }
     if (device & AUDIO_DEVICE_OUT_SPEAKER)
     {
 #ifdef USING_EXTAMP_HP
-        VoiceAnalogRange = DEVICE_MAX_VOLUME - DEVICE_MIN_VOLUME;
-        if (degradeDb <= AUDIO_BUFFER_HW_GAIN_STEP)
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTL, degradeDb);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_HPOUTR, degradeDb);
-            ApplyMdDlGain(0);
-        }
-        else
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
-            degradeDb -= VoiceAnalogRange;
-            ApplyMdDlGain(degradeDb);
-        }
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
+        ApplyMdDlGain(DigitalgradeDb);
+        ApplyMdDlEhn1Gain(Enh1degradeDb);
 #else
-        VoiceAnalogRange = DEVICE_IV_BUFFER_MAX_VOLUME - DEVICE_IV_BUFFER_MIN_VOLUME;
-        if (degradeDb <=  AUDIO_IV_BUFFER_GAIN_STEP)
-        {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKL, 3);  // 12dB for SPK
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKR, 3);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, degradeDb);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, degradeDb);
-            ApplyMdDlGain(0);
-        }
-        else
-            {
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKL, 3);  // 12dB for SPK
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKR, 3);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
-            mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
-            degradeDb -= VoiceAnalogRange;
-            ApplyMdDlGain(degradeDb);
-        }
+        VoiceAnalogRange = DLPGA_SPKGain_Map_Ver1[degradeDb];
+        DigitalgradeDb = DlDigital_SPKGain_Map_Ver1[degradeDb];
+        Enh1degradeDb = DlEnh1_Gain_Map_Ver1[degradeDb];
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKL, 3);  // 12dB for SPK
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_SPKR, 3);
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
+        mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_IV_BUFFER, VoiceAnalogRange);
+        degradeDb -= VoiceAnalogRange;
+        ApplyMdDlGain(DigitalgradeDb);
+        ApplyMdDlEhn1Gain(Enh1degradeDb);
 #endif
-        ApplyMicGain(Handfree_Mic,mode); // set incall mic gain
+        ApplyMicGain(Handfree_Mic, mode); // set incall mic gain
     }
 
     if ((device & AUDIO_DEVICE_OUT_BLUETOOTH_SCO) || (device & AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET) || (device & AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET))
     {
         //when use BT_SCO , apply digital to 0db.
         ApplyMdDlGain(0);
+        ApplyMdDlEhn1Gain(0);
         ApplyMdUlGain(0);
     }
     ApplySideTone(GetSideToneGainType(device));
@@ -884,135 +1040,6 @@ float AudioMTKVolumeController::getStreamVolume(int stream)
 }
 
 
-//static functin to get FM power state
-#define BUF_LEN 1
-static char rbuf[BUF_LEN] = {'\0'};
-static char wbuf[BUF_LEN] = {'1'};
-static const char *FM_POWER_STAUTS_PATH ="/proc/fm";
-static const char *FM_DEVICE_PATH = "dev/fm";
-
-// FM Chip MT519x_FM/MT66xx_FM
-bool AudioMTKVolumeController::Get_FMPower_info(void)
-{
-    int FMstatusFd = -1;
-    int ret =-1;
-
-// make user no 519x define , marked
-#if 0
-//#if defined(MT5192_FM) || defined(MT5193_FM)
-    ALOGD("MT519x_FM Get_FMPower_info (%d)",GetFmRxStatus());
-    return GetFmRxStatus();
-#else
-
-    ALOGD("MT66xx Get_FMPower_info");
-    // comment by FM driver owner:
-    // the ioctl to get FM power up information would spend a long time (700ms ~ 2000ms)
-    // FM owner suggest to get the power information via /proc/fm
-    FMstatusFd = open(FM_POWER_STAUTS_PATH, O_RDONLY,0);
-    if(FMstatusFd <0)
-    {
-        ALOGE("open %s error fd = %d",FM_POWER_STAUTS_PATH,FMstatusFd);
-        return false;
-    }
-    if (read(FMstatusFd, rbuf, BUF_LEN) == -1)
-    {
-        ALOGD("FMstatusFd Can't read headset");
-        close(FMstatusFd);
-        return false;
-    }
-    if (!strncmp(wbuf, rbuf, BUF_LEN))
-    {
-        ALOGD( "FMstatusFd  state  == 1" );
-        close(FMstatusFd);
-        return  true;
-    }
-    else
-    {
-        ALOGD("FMstatusFd return  false" );
-        close(FMstatusFd);
-        return  false;
-    }
-#endif
-
-}
-
-bool AudioMTKVolumeController::SetFmChipVolume(int volume)
-{
-    int fmFd=0, ret=0;
-    uint32 mute;
-    ALOGD("+%s(), volume=%d, mFmChipVolume=%d\n", __FUNCTION__, volume, mFmChipVolume);
-
-    if(volume < 0 || 0xFFFFFFFF == volume)
-        return true;
-    else if (volume >=15)
-        volume = 15;
-    if(Get_FMPower_info()== true)
-    {
-        fmFd = open(FM_DEVICE_NAME, O_RDWR);
-        if(fmFd >= 0 )
-        {
-            ALOGD("!!MT66xx, SetFmChipVolume(%d), %s fmFd(%d) open sucess", volume, FM_DEVICE_NAME, fmFd);
-            ret = ::ioctl(fmFd,FM_IOCTL_SETVOL,(uint32_t*)&volume);
-            mute = (volume==0) ? true : false;
-            ALOGD("!!MT66xx, SetFmChipMute(%d)", mute);
-            ret = ::ioctl(fmFd, FM_IOCTL_MUTE, (uint32_t*)&mute);
-            close(fmFd);
-        }
-        else
-        {
-            ALOGE("!!MT66xx, SetFmChipVolume(%d), %s fmFd(%d) open fail !!! ", volume, FM_DEVICE_NAME, fmFd);
-        }
-
-        if(volume != 0) {
-            mFmChipVolume = volume;
-        }
-    }
-    ALOGD("-%s(), mFmChipVolume=%d\n", __FUNCTION__, mFmChipVolume);
-    return true;
-}
-
-bool AudioMTKVolumeController::SetFmVolume(int volume)
-{
-    int DegradedBGain;
-    int fmFd, ret;
-    uint32 mute;
-
-    ALOGD("+%s(), volume=%d, mFmVolume=%d\n", __FUNCTION__, volume, mFmVolume);
-    if(volume < 0)
-        return true;
-    else if(volume >= 15)
-        volume = 15;
-
-    if(volume != 0) {
-        if(mFmVolume == 0) {
-            SetFmChipVolume(mFmChipVolume);
-        }
-    }
-    else {
-        SetFmChipVolume(0);
-    }
-    mFmVolume = volume;
-#if defined(FM_DIGITAL_IN_SUPPORT)
-    if(mAudioDigitalControl->GetFmDigitalStatus())
-    {
-        uint32 volumeIdx;
-        volumeIdx = mFmVolume << 4; //0~240
-        volumeIdx = GainMap[(255-volumeIdx)>>1];
-        mAudioDigitalControl->SetHwDigitalGain(volumeIdx, AudioDigitalType::HW_DIGITAL_GAIN2);
-    }
-#else
-    DegradedBGain = (15-volume) * 2;
-    mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_LINEINL, DegradedBGain);
-    mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_LINEINR, DegradedBGain);
-#endif
-    ALOGD("-%s(), mFmVolume=%d\n", __FUNCTION__, mFmVolume);
-    return true;
-}
-
-int AudioMTKVolumeController::GetFmVolume(void)
-{
-    return mFmVolume;
-}
 void AudioMTKVolumeController::GetMatvService()
 {
     sp<IServiceManager> sm = defaultServiceManager();
@@ -1021,32 +1048,34 @@ void AudioMTKVolumeController::GetMatvService()
     {
         binder = sm->getService(String16("media.ATVCtrlService"));
         if (binder != 0)
+        {
             break;
+        }
         ALOGW("ATVCtrlService not published, waiting...");
-        usleep(1000*1000); // 1 s
+        usleep(1000 * 1000); // 1 s
     }
-    while(true);
+    while (true);
     spATVCtrlService = interface_cast<IATVCtrlService>(binder);
 }
 
 
 bool AudioMTKVolumeController::SetMatvMute(bool b_mute)
 {
-    ALOGD("SetMatvMute(%d), mMatvVolume(%d)",b_mute,mMatvVolume);
+    ALOGD("SetMatvMute(%d), mMatvVolume(%d)", b_mute, mMatvVolume);
 #ifdef MATV_AUDIO_LINEIN_PATH
 #ifdef MATV_AUDIO_LINEIN_SET_CHIP_VOLUME
-    if(spATVCtrlService == NULL)
+    if (spATVCtrlService == NULL)
     {
         ALOGW("SetMatvMute, can't get spATVCtrlService");
-        GetMatvService ();
-        if(spATVCtrlService == NULL)
+        GetMatvService();
+        if (spATVCtrlService == NULL)
         {
             ALOGE("SetMatvMute cannot get matv service");
             return false;
         }
     }
 
-    if(b_mute == true)
+    if (b_mute == true)
     {
         ALOGD("SetMatvMute ATVCS_matv_adjust MATV_ITEM_SET_VOLUME(%d), volume(%d)", MATV_ITEM_SET_VOLUME, 0);
         mMatvMute = true;
@@ -1066,23 +1095,25 @@ bool AudioMTKVolumeController::SetMatvMute(bool b_mute)
 
 bool AudioMTKVolumeController::setMatvVolume(int volume)
 {
-    ALOGD("setMatvVolume volume=%d",volume);
+    ALOGD("setMatvVolume volume=%d", volume);
 #ifdef MATV_AUDIO_LINEIN_PATH
 #ifdef MATV_AUDIO_LINEIN_SET_CHIP_VOLUME
-    if(spATVCtrlService == NULL)
+    if (spATVCtrlService == NULL)
     {
         ALOGW("setMatvVolume but spATVCtrlService == NULL");
-        GetMatvService ();
-        if(spATVCtrlService == NULL)
+        GetMatvService();
+        if (spATVCtrlService == NULL)
         {
             ALOGE("setMatvVolume cannot get matv service");
             return false;
         }
     }
 
-    if(mMatvMute == false)
+    if (mMatvMute == false)
+    {
         ALOGD("setMatvVolume ATVCS_matv_adjust MATV_ITEM_SET_VOLUME(%d), volume(%d)", MATV_ITEM_SET_VOLUME, volume);
-        spATVCtrlService->ATVCS_matv_adjust(MATV_ITEM_SET_VOLUME, volume);
+    }
+    spATVCtrlService->ATVCS_matv_adjust(MATV_ITEM_SET_VOLUME, volume);
 #endif
 #endif
 
@@ -1098,7 +1129,7 @@ int AudioMTKVolumeController::GetMatvVolume(void)
 // should depend on different usage , FM ,MATV and output device to setline in gain
 status_t AudioMTKVolumeController::SetLineInPlaybackGain(int type)
 {
-    ALOGD("SetLineInPlaybackGain type stream = %d",type);
+    ALOGD("SetLineInPlaybackGain type stream = %d", type);
     int DegradedBGain =  mMicGain[type];
     if (type == Analog_PLay_Gain)
     {
@@ -1111,7 +1142,7 @@ status_t AudioMTKVolumeController::SetLineInPlaybackGain(int type)
 status_t AudioMTKVolumeController::SetLineInRecordingGain(int type)
 {
     ALOGD("SetLineInRecordingGain type stream = %d", type);
-    ApplyLevelShiftBufferGain (Level_Shift_Buffer_Gain);
+    ApplyLevelShiftBufferGain(Level_Shift_Buffer_Gain);
     return NO_ERROR;
 }
 
@@ -1143,11 +1174,17 @@ uint32_t AudioMTKVolumeController::GetSideToneGain(uint32_t device)
 uint32_t AudioMTKVolumeController::GetSideToneGainType(uint32 devices)
 {
     if (devices & AUDIO_DEVICE_OUT_EARPIECE)
+    {
         return EarPiece_SideTone_Gain;
+    }
     else if (devices & AUDIO_DEVICE_OUT_SPEAKER)
+    {
         return LoudSpk_SideTone_Gain;
+    }
     else if ((devices & AUDIO_DEVICE_OUT_WIRED_HEADPHONE) || (devices & AUDIO_DEVICE_OUT_WIRED_HEADSET))
+    {
         return Headset_SideTone_Gain;
+    }
     else
     {
         ALOGW("GetSideToneGainType with devices = 0x%x", devices);
@@ -1159,7 +1196,7 @@ status_t AudioMTKVolumeController::ApplySideTone(uint32_t Mode)
 {
     // here apply side tone gain, need base on UL and DL analog gainQuant
     uint16_t DspSideToneGain = 0;
-    int SidetoneDb =0;
+    int SidetoneDb = 0;
     ALOGD("ApplySideTone mode = %d", Mode);
     if (Mode == EarPiece_SideTone_Gain)
     {
@@ -1174,7 +1211,9 @@ status_t AudioMTKVolumeController::ApplySideTone(uint32_t Mode)
     else if (Mode == LoudSpk_SideTone_Gain)
     {
         SidetoneDb = mVolumeParam.audiovolume_sid[VOLUME_SPEAKER_MODE][3] >> 3;
-        DspSideToneGain = UpdateSidetone(mAudioAnalogControl->GetAnalogGain(AudioAnalogType::VOLUME_HSOUTR), SidetoneDb, mSwAgcGain);
+        //DspSideToneGain = UpdateSidetone(mAudioAnalogControl->GetAnalogGain(AudioAnalogType::VOLUME_HSOUTR), SidetoneDb, mSwAgcGain);
+        // mute sidetone gain when speaker mode.
+        DspSideToneGain = 0;
     }
     ALOGD("ApplySideTone mode = %d DspSideToneGain = %d", Mode, DspSideToneGain);
     SpeechDriverFactory::GetInstance()->GetSpeechDriver()->SetSidetoneGain(DspSideToneGain);
@@ -1193,17 +1232,31 @@ status_t AudioMTKVolumeController::SetMicGain(uint32_t Mode, uint32_t Gain)
     mMicGain[Mode] = Gain;
     return NO_ERROR;
 }
+status_t AudioMTKVolumeController::SetULTotalGain(uint32_t Mode, unsigned char Volume)
+{
+    if (Volume > UPLINK_GAIN_MAX)
+    {
+        Volume = UPLINK_GAIN_MAX;
+    }
 
+    ALOGD("SetULTotalGain MicMode=%d, Volume=%d", Mode, Volume);
+    mULTotalGainTable[Mode] = Volume;
+    return NO_ERROR;
+}
 bool AudioMTKVolumeController::CheckMicUsageWithMode(uint32_t MicType, int mode)
 {
     if ((MicType == Normal_Mic ||
-            MicType == Headset_Mic ||
-            MicType == Handfree_Mic) &&
-            (mode != AUDIO_MODE_IN_CALL &&
-             mode != AUDIO_MODE_IN_CALL_2))
+         MicType == Headset_Mic ||
+         MicType == Handfree_Mic) &&
+        (mode != AUDIO_MODE_IN_CALL &&
+         mode != AUDIO_MODE_IN_CALL_2))
+    {
         return true;
+    }
     else
+    {
         return false;
+    }
 }
 
 status_t AudioMTKVolumeController::ApplyMicGain(uint32_t MicType, int mode)
@@ -1214,6 +1267,7 @@ status_t AudioMTKVolumeController::ApplyMicGain(uint32_t MicType, int mode)
         return false;
     }
     mSwAgcGain = SW_AGC_GAIN_MAX;
+    mULTotalGain = mULTotalGainTable[MicType];
     // here base on mic  and use degrade gain to set hardware register
     int DegradedBGain = mMicGain[MicType];
 
@@ -1222,21 +1276,23 @@ status_t AudioMTKVolumeController::ApplyMicGain(uint32_t MicType, int mode)
     {
         DegradedBGain = AUDIO_SYSTEM_UL_GAIN_MAX;
     }
-    #if defined(MTK_DIGITAL_MIC_SUPPORT)
+#if defined(MTK_DIGITAL_MIC_SUPPORT)
     mSwAgcGain  =  Dmic_SwAgc_Gain_Map[DegradedBGain];
     DegradedBGain  =  Dmic_PGA_Gain_Map[DegradedBGain];
-    #else
+#else
     mSwAgcGain  =  SwAgc_Gain_Map[DegradedBGain];
     DegradedBGain  =  PGA_Gain_Map[DegradedBGain];
-    #endif
-    ALOGD("ApplyMicGain MicType = %d DegradedBGain = %d SwAgcGain = %d",
-          MicType, DegradedBGain, mSwAgcGain);
+#endif
+
+    ALOGD("ApplyMicGain MicType = %d DegradedBGain = %d SwAgcGain = %d, mULTotalGain = %d",
+          MicType, DegradedBGain, mSwAgcGain, mULTotalGain);
+
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_MICAMPL, DegradedBGain);
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_MICAMPR, DegradedBGain);
 
     // fix me: here need t send reminder DB to HD record or modem side
     if (mode == AUDIO_MODE_IN_CALL ||
-            mode == AUDIO_MODE_IN_CALL_2)
+        mode == AUDIO_MODE_IN_CALL_2)
     {
         ApplyMdUlGain(mSwAgcGain);
     }
@@ -1244,7 +1300,7 @@ status_t AudioMTKVolumeController::ApplyMicGain(uint32_t MicType, int mode)
     {
         // fix me ,here to apply HD record AGC gain
         //HD record will get mSwAgcGain actively when needed
-        ALOGD("ApplyMicGain mSwAgcGain = %d", mSwAgcGain);
+        ALOGD("ApplyMicGain mSwAgcGain = %d, mULTotalGain=%d", mSwAgcGain, mULTotalGain);
     }
 
     return NO_ERROR;
@@ -1264,13 +1320,13 @@ bool AudioMTKVolumeController::SetLevelShiftBufferGain(uint32 MicMode, uint32 Ga
 
 bool AudioMTKVolumeController::ApplyLevelShiftBufferGain(uint32 MicMode)
 {
-    uint32 DegradedBGain =0;
+    uint32 DegradedBGain = 0;
     if (MicMode != Level_Shift_Buffer_Gain)
     {
         ALOGD("SetLevelShiftBufferGain error");
         return false;
     }
-    ALOGD("ApplyLevelShiftBufferGain MicMode=%d, mMicGain[Level_Shift_Buffer_Gain]=%x", MicMode,mMicGain[Level_Shift_Buffer_Gain]);
+    ALOGD("ApplyLevelShiftBufferGain MicMode=%d, mMicGain[Level_Shift_Buffer_Gain]=%x", MicMode, mMicGain[Level_Shift_Buffer_Gain]);
     DegradedBGain = mMicGain[Level_Shift_Buffer_Gain];
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_LEVELSHIFTL, DegradedBGain);
     mAudioAnalogControl->SetAnalogGain(AudioAnalogType::VOLUME_LEVELSHIFTR, DegradedBGain);

@@ -86,7 +86,7 @@ static u32 unstuff_bits(u32 *resp, u32 start, u32 size)
     return __res & __mask;
 }
 
-#define UNSTUFF_BITS(r,s,sz)    unstuff_bits(r,s,sz)
+#define MSDC_DECODE_BITS(r,s,sz)    unstuff_bits(r,s,sz)
 
 #ifdef MMC_PROFILING
 static void mmc_prof_card_init(void *data, u32 id, u32 counts)
@@ -153,163 +153,6 @@ static void mmc_prof_write(void *data, u32 id, u32 counts)
 }
 #endif
 
-#ifdef FEATURE_MMC_SDIO
-static int cistpl_vers_1(struct mmc_card *card, struct sdio_func *func,
-    const unsigned char *buf, unsigned size)
-{
-    unsigned i, nr_strings;
-    char **buffer, *string;
-
-    buf += 2;
-    size -= 2;
-
-    nr_strings = 0;
-    for (i = 0; i < size; i++) {
-        if (buf[i] == 0xff)
-            break;
-        if (buf[i] == 0)
-            nr_strings++;
-    }
-
-    if (buf[i-1] != '\0') {
-        printf("SDIO: ignoring broken CISTPL_VERS_1\n");
-        return 0;
-    }
-
-    size = i;
-
-    buffer = malloc(sizeof(char*) * nr_strings + size);
-    if (!buffer)
-        return -1;
-
-    string = (char*)(buffer + nr_strings);
-
-    for (i = 0; i < nr_strings; i++) {
-        buffer[i] = string;
-        strcpy(string, buf);
-        string += strlen(string) + 1;
-        buf += strlen(buf) + 1;
-    }
-
-    if (func) {
-        func->num_info = nr_strings;
-        func->info = (const char**)buffer;
-    } else {
-        card->num_info = nr_strings;
-        card->info = (const char**)buffer;
-    }
-
-    return 0;
-}
-
-static int cistpl_manfid(struct mmc_card *card, struct sdio_func *func,
-    const unsigned char *buf, unsigned size)
-{
-    unsigned int vendor, device;
-
-    /* TPLMID_MANF */
-    vendor = buf[0] | (buf[1] << 8);
-
-    /* TPLMID_CARD */
-    device = buf[2] | (buf[3] << 8);
-
-    if (func) {
-        func->vendor = vendor;
-        func->device = device;
-    } else {
-        card->cis.vendor = vendor;
-        card->cis.device = device;
-    }
-
-    return 0;
-}
-
-static const unsigned char speed_val[16] =
-	{ 0, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80 };
-static const unsigned int speed_unit[8] =
-	{ 10000, 100000, 1000000, 10000000, 0, 0, 0, 0 };
-
-static int cistpl_funce_common(struct mmc_card *card,
-    const unsigned char *buf, unsigned size)
-{
-	if (size < 0x04 || buf[0] != 0)
-        return MMC_ERR_INVALID;
-
-    /* TPLFE_FN0_BLK_SIZE */
-    card->cis.blksize = buf[1] | (buf[2] << 8);
-
-    /* TPLFE_MAX_TRAN_SPEED */
-    card->cis.max_dtr = speed_val[(buf[3] >> 3) & 15] *
-        speed_unit[buf[3] & 7];
-
-	return 0;
-}
-
-static int cistpl_funce_func(struct sdio_func *func,
-			     const unsigned char *buf, unsigned size)
-{
-    unsigned vsn;
-    unsigned min_size;
-
-    vsn = func->card->cccr.sdio_vsn;
-    min_size = (vsn == SDIO_SDIO_REV_1_00) ? 28 : 42;
-
-    if (size < min_size || buf[0] != 1)
-        return MMC_ERR_INVALID;
-
-    /* TPLFE_MAX_BLK_SIZE */
-    func->max_blksize = buf[12] | (buf[13] << 8);
-
-    /* TPLFE_ENABLE_TIMEOUT_VAL, present in ver 1.1 and above */
-    if (vsn > SDIO_SDIO_REV_1_00)
-        func->enable_timeout = (buf[28] | (buf[29] << 8)) * 10;
-    else
-        func->enable_timeout = 10;
-
-    return 0;
-}
-
-static int cistpl_funce(struct mmc_card *card, struct sdio_func *func,
-    const unsigned char *buf, unsigned size)
-{
-	int ret;
-
-	/*
-	 * There should be two versions of the CISTPL_FUNCE tuple,
-	 * one for the common CIS (function 0) and a version used by
-	 * the individual function's CIS (1-7). Yet, the later has a
-	 * different length depending on the SDIO spec version.
-	 */
-	if (func)
-		ret = cistpl_funce_func(func, buf, size);
-	else
-		ret = cistpl_funce_common(card, buf, size);
-
-	if (ret) {
-		printf("bad CISTPL_FUNCE size %u type %u\n", size, buf[0]);
-        return ret;
-	}
-
-	return 0;
-}
-
-typedef int (tpl_parse_t)(struct mmc_card *, struct sdio_func *,
-    const unsigned char *, unsigned);
-
-struct cis_tpl {
-    unsigned char code;
-    unsigned char min_size;
-    tpl_parse_t *parse;
-};
-
-static const struct cis_tpl cis_tpl_list[] = {
-    {   0x15,   3,  cistpl_vers_1       },
-    {   0x20,   4,  cistpl_manfid       },
-    {   0x21,   2,  NULL /* cistpl_funcid */ },
-    {   0x22,   0,  cistpl_funce        },
-};
-#endif
-
 #if MMC_DEBUG
 void mmc_dump_card_status(u32 card_status)
 {
@@ -354,7 +197,7 @@ static void mmc_dump_csd(struct mmc_card *card)
         "app-spec", "I/O", "switch", "rsv."};
 
     if (mmc_card_sd(card)) {
-        csd_struct = UNSTUFF_BITS(resp, 126, 2);
+        csd_struct = MSDC_DECODE_BITS(resp, 126, 2);
         printf("[CSD] CSD %s\n", sd_csd_ver[csd_struct]);
         printf("[CSD] TACC_NS: %d ns, TACC_CLKS: %d clks\n", csd->tacc_ns, csd->tacc_clks);
         if (csd_struct == 1) {
@@ -370,7 +213,7 @@ static void mmc_dump_csd(struct mmc_card *card)
         }
         printf("\n");
     } else {
-        csd_struct = UNSTUFF_BITS(resp, 126, 2);
+        csd_struct = MSDC_DECODE_BITS(resp, 126, 2);
         printf("[CSD] CSD %s\n", mmc_csd_ver[csd_struct]);
         printf("[CSD] MMCA Spec v%d\n", csd->mmca_vsn);
         printf("[CSD] TACC_NS: %d ns, TACC_CLKS: %d clks\n", csd->tacc_ns, csd->tacc_clks);
@@ -815,7 +658,7 @@ int mmc_go_irq_state(struct mmc_host *host, struct mmc_card *card)
 {
     struct mmc_command cmd;
 
-    if (!(card->csd.cmdclass & CCC_IO_MODE)) {
+    if (!(card->csd.cmdclass & MMC_CCC_IO_MODE)) {
         printf("[SD%d] Card doesn't support I/O mode for IRQ state\n", host->id);
         return MMC_ERR_FAILED;
     }
@@ -897,46 +740,6 @@ int mmc_send_status(struct mmc_host *host, struct mmc_card *card, u32 *status)
     }
     return err;
 }
-
-#ifdef FEATURE_MMC_SDIO
-static int mmc_send_io_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
-{
-    struct mmc_command cmd;
-    int i, err = 0;
-
-    BUG_ON(!host);
-
-    memset(&cmd, 0, sizeof(struct mmc_command));
-
-    cmd.opcode = SD_IO_SEND_OP_COND;
-    cmd.arg    = ocr;
-    cmd.rsptyp = RESP_R4;
-    cmd.retries = CMD_RETRIES;
-    cmd.timeout = CMD_TIMEOUT;
-
-    for (i = 100; i; i--) {
-        err = mmc_cmd(host, &cmd);
-        if (err)
-        	break;
-
-        /* if we're just probing, do a single pass */
-        if (ocr == 0)
-        	break;
-
-        if (cmd.resp[0] & MMC_CARD_BUSY)
-        	break;
-
-        err = MMC_ERR_TIMEOUT;
-
-        mdelay(10);
-    }
-
-    if (rocr)
-    	*rocr = cmd.resp[0];
-
-    return err;
-}
-#endif
 
 static int mmc_send_if_cond(struct mmc_host *host, u32 ocr)
 {
@@ -1063,22 +866,22 @@ static void mmc_decode_cid(struct mmc_card *card)
     memset(&card->cid, 0, sizeof(struct mmc_cid));
 
     if (mmc_card_sd(card)) {
-    	/*
-    	 * SD doesn't currently have a version field so we will
-    	 * have to assume we can parse this.
-    	 */
-    	card->cid.manfid		= UNSTUFF_BITS(resp, 120, 8);
-    	card->cid.oemid			= UNSTUFF_BITS(resp, 104, 16);
-    	card->cid.prod_name[0]	= UNSTUFF_BITS(resp, 96, 8);
-    	card->cid.prod_name[1]	= UNSTUFF_BITS(resp, 88, 8);
-    	card->cid.prod_name[2]	= UNSTUFF_BITS(resp, 80, 8);
-    	card->cid.prod_name[3]	= UNSTUFF_BITS(resp, 72, 8);
-    	card->cid.prod_name[4]	= UNSTUFF_BITS(resp, 64, 8);
-    	card->cid.hwrev			= UNSTUFF_BITS(resp, 60, 4);
-    	card->cid.fwrev			= UNSTUFF_BITS(resp, 56, 4);
-    	card->cid.serial		= UNSTUFF_BITS(resp, 24, 32);
-    	card->cid.year			= UNSTUFF_BITS(resp, 12, 8);
-    	card->cid.month			= UNSTUFF_BITS(resp, 8, 4);
+        /*
+        * SD doesn't currently have a version field so we will
+        * have to assume we can parse this.
+        */
+        card->cid.month			= MSDC_DECODE_BITS(resp, 8, 4);
+        card->cid.year			= MSDC_DECODE_BITS(resp, 12, 8);
+        card->cid.serial		= MSDC_DECODE_BITS(resp, 24, 32);
+        card->cid.fwrev			= MSDC_DECODE_BITS(resp, 56, 4);
+        card->cid.hwrev			= MSDC_DECODE_BITS(resp, 60, 4);
+        card->cid.prod_name[4]	= MSDC_DECODE_BITS(resp, 64, 8);
+        card->cid.prod_name[3]	= MSDC_DECODE_BITS(resp, 72, 8);
+        card->cid.prod_name[2]	= MSDC_DECODE_BITS(resp, 80, 8);
+        card->cid.prod_name[1]	= MSDC_DECODE_BITS(resp, 88, 8);
+        card->cid.prod_name[0]	= MSDC_DECODE_BITS(resp, 96, 8);
+        card->cid.oemid			= MSDC_DECODE_BITS(resp, 104, 16);
+        card->cid.manfid		= MSDC_DECODE_BITS(resp, 120, 8);
 
     	card->cid.year += 2000; /* SD cards year offset */
     } else {
@@ -1089,36 +892,36 @@ static void mmc_decode_cid(struct mmc_card *card)
         switch (card->csd.mmca_vsn) {
         case 0: /* MMC v1.0 - v1.2 */
         case 1: /* MMC v1.4 */
-            card->cid.manfid        = UNSTUFF_BITS(resp, 104, 24);
-            card->cid.prod_name[0]  = UNSTUFF_BITS(resp, 96, 8);
-            card->cid.prod_name[1]  = UNSTUFF_BITS(resp, 88, 8);
-            card->cid.prod_name[2]  = UNSTUFF_BITS(resp, 80, 8);
-            card->cid.prod_name[3]  = UNSTUFF_BITS(resp, 72, 8);
-            card->cid.prod_name[4]  = UNSTUFF_BITS(resp, 64, 8);
-            card->cid.prod_name[5]  = UNSTUFF_BITS(resp, 56, 8);
-            card->cid.prod_name[6]  = UNSTUFF_BITS(resp, 48, 8);
-            card->cid.hwrev         = UNSTUFF_BITS(resp, 44, 4);
-            card->cid.fwrev         = UNSTUFF_BITS(resp, 40, 4);
-            card->cid.serial        = UNSTUFF_BITS(resp, 16, 24);
-            card->cid.month         = UNSTUFF_BITS(resp, 12, 4);
-            card->cid.year          = UNSTUFF_BITS(resp, 8, 4) + 1997;
+            card->cid.year          = MSDC_DECODE_BITS(resp, 8, 4) + 1997;
+            card->cid.month         = MSDC_DECODE_BITS(resp, 12, 4);
+            card->cid.serial        = MSDC_DECODE_BITS(resp, 16, 24);
+            card->cid.fwrev         = MSDC_DECODE_BITS(resp, 40, 4);
+            card->cid.hwrev         = MSDC_DECODE_BITS(resp, 44, 4);
+            card->cid.prod_name[6]  = MSDC_DECODE_BITS(resp, 48, 8);
+            card->cid.prod_name[5]  = MSDC_DECODE_BITS(resp, 56, 8);
+            card->cid.prod_name[4]  = MSDC_DECODE_BITS(resp, 64, 8);
+            card->cid.prod_name[3]  = MSDC_DECODE_BITS(resp, 72, 8);
+            card->cid.prod_name[2]  = MSDC_DECODE_BITS(resp, 80, 8);
+            card->cid.prod_name[1]  = MSDC_DECODE_BITS(resp, 88, 8);
+            card->cid.prod_name[0]  = MSDC_DECODE_BITS(resp, 96, 8);
+            card->cid.manfid        = MSDC_DECODE_BITS(resp, 104, 24);
             break;
 
         case 2: /* MMC v2.0 - v2.2 */
         case 3: /* MMC v3.1 - v3.3 */
         case 4: /* MMC v4 */
-            card->cid.manfid        = UNSTUFF_BITS(resp, 120, 8);
-            //card->cid.cbx           = UNSTUFF_BITS(resp, 112, 2);
-            card->cid.oemid         = UNSTUFF_BITS(resp, 104, 16);
-            card->cid.prod_name[0]  = UNSTUFF_BITS(resp, 96, 8);
-            card->cid.prod_name[1]  = UNSTUFF_BITS(resp, 88, 8);
-            card->cid.prod_name[2]  = UNSTUFF_BITS(resp, 80, 8);
-            card->cid.prod_name[3]  = UNSTUFF_BITS(resp, 72, 8);
-            card->cid.prod_name[4]  = UNSTUFF_BITS(resp, 64, 8);
-            card->cid.prod_name[5]  = UNSTUFF_BITS(resp, 56, 8);
-            card->cid.serial        = UNSTUFF_BITS(resp, 16, 32);
-            card->cid.month         = UNSTUFF_BITS(resp, 12, 4);
-            card->cid.year          = UNSTUFF_BITS(resp, 8, 4) + 1997;
+            card->cid.year          = MSDC_DECODE_BITS(resp, 8, 4) + 1997;
+            card->cid.month         = MSDC_DECODE_BITS(resp, 12, 4);
+            card->cid.serial        = MSDC_DECODE_BITS(resp, 16, 32);
+            card->cid.prod_name[5]  = MSDC_DECODE_BITS(resp, 56, 8);
+            card->cid.prod_name[4]  = MSDC_DECODE_BITS(resp, 64, 8);
+            card->cid.prod_name[3]  = MSDC_DECODE_BITS(resp, 72, 8);
+            card->cid.prod_name[2]  = MSDC_DECODE_BITS(resp, 80, 8);
+            card->cid.prod_name[1]  = MSDC_DECODE_BITS(resp, 88, 8);
+            card->cid.prod_name[0]  = MSDC_DECODE_BITS(resp, 96, 8);
+            card->cid.oemid         = MSDC_DECODE_BITS(resp, 104, 16);
+            //card->cid.cbx           = MSDC_DECODE_BITS(resp, 112, 2);
+            card->cid.manfid        = MSDC_DECODE_BITS(resp, 120, 8);
             break;
 
         default:
@@ -1136,41 +939,39 @@ static int mmc_decode_csd(struct mmc_card *card)
     u32 *resp = card->raw_csd;
 
     if (mmc_card_sd(card)) {
-        csd_struct = UNSTUFF_BITS(resp, 126, 2);
+        csd_struct = MSDC_DECODE_BITS(resp, 126, 2);
         csd->csd_struct = csd_struct;
 
         switch (csd_struct) {
         case 0:
-            m = UNSTUFF_BITS(resp, 115, 4);
-            e = UNSTUFF_BITS(resp, 112, 3);
-            csd->tacc_ns	 = (tacc_exp[e] * tacc_mant[m] + 9) / 10;
-            csd->tacc_clks	 = UNSTUFF_BITS(resp, 104, 8) * 100;
+            csd->tmp_wr_prot = MSDC_DECODE_BITS(resp, 12, 1);
+            csd->perm_wr_prot = MSDC_DECODE_BITS(resp, 13, 1);
+            csd->copy = MSDC_DECODE_BITS(resp, 14, 1);
+            csd->write_partial = MSDC_DECODE_BITS(resp, 21, 1);
+            csd->write_blkbits = MSDC_DECODE_BITS(resp, 22, 4);
+            csd->r2w_factor = MSDC_DECODE_BITS(resp, 26, 3);
+            csd->write_prot_grp = MSDC_DECODE_BITS(resp, 31, 1);
+            csd->write_prot_grpsz = MSDC_DECODE_BITS(resp, 32, 7);
+            csd->erase_sctsz = MSDC_DECODE_BITS(resp, 39, 7);
+            csd->dsr = MSDC_DECODE_BITS(resp, 76, 1);
+            csd->read_misalign = MSDC_DECODE_BITS(resp, 77, 1);
+            csd->write_misalign = MSDC_DECODE_BITS(resp, 78, 1);
+            csd->read_partial = MSDC_DECODE_BITS(resp, 79, 1);
+            csd->read_blkbits = MSDC_DECODE_BITS(resp, 80, 4);
+            csd->cmdclass	  = MSDC_DECODE_BITS(resp, 84, 12);
+            csd->tacc_clks	 = MSDC_DECODE_BITS(resp, 104, 8) * 100;
 
-            m = UNSTUFF_BITS(resp, 99, 4);
-            e = UNSTUFF_BITS(resp, 96, 3);
-            csd->max_dtr	  = tran_exp[e] * tran_mant[m];
-            csd->cmdclass	  = UNSTUFF_BITS(resp, 84, 12);
-
-            e = UNSTUFF_BITS(resp, 47, 3);
-            m = UNSTUFF_BITS(resp, 62, 12);
+            e = MSDC_DECODE_BITS(resp, 47, 3);
+            m = MSDC_DECODE_BITS(resp, 62, 12);
             csd->capacity	  = (1 + m) << (e + 2);
+            
+            e = MSDC_DECODE_BITS(resp, 96, 3);
+            m = MSDC_DECODE_BITS(resp, 99, 4);
+            csd->max_dtr	  = tran_exp[e] * tran_mant[m];
 
-            csd->read_blkbits = UNSTUFF_BITS(resp, 80, 4);
-            csd->read_partial = UNSTUFF_BITS(resp, 79, 1);
-            csd->write_misalign = UNSTUFF_BITS(resp, 78, 1);
-            csd->read_misalign = UNSTUFF_BITS(resp, 77, 1);
-            csd->r2w_factor = UNSTUFF_BITS(resp, 26, 3);
-            csd->write_blkbits = UNSTUFF_BITS(resp, 22, 4);
-            csd->write_partial = UNSTUFF_BITS(resp, 21, 1);
-
-            csd->erase_sctsz = UNSTUFF_BITS(resp, 39, 7);
-            csd->write_prot_grpsz = UNSTUFF_BITS(resp, 32, 7);
-            csd->write_prot_grp = UNSTUFF_BITS(resp, 31, 1);
-            csd->perm_wr_prot = UNSTUFF_BITS(resp, 13, 1);
-            csd->tmp_wr_prot = UNSTUFF_BITS(resp, 12, 1);
-            csd->copy = UNSTUFF_BITS(resp, 14, 1);
-            csd->dsr = UNSTUFF_BITS(resp, 76, 1);
-
+            e = MSDC_DECODE_BITS(resp, 112, 3);
+            m = MSDC_DECODE_BITS(resp, 115, 4);
+            csd->tacc_ns	 = (tacc_exp[e] * tacc_mant[m] + 9) / 10;
             break;
         case 1:
             /*
@@ -1184,29 +985,29 @@ static int mmc_decode_csd(struct mmc_card *card)
             csd->tacc_ns	 = 0; /* Unused */
             csd->tacc_clks	 = 0; /* Unused */
 
-            m = UNSTUFF_BITS(resp, 99, 4);
-            e = UNSTUFF_BITS(resp, 96, 3);
-            csd->max_dtr	  = tran_exp[e] * tran_mant[m];
-            csd->cmdclass	  = UNSTUFF_BITS(resp, 84, 12);
+            csd->tmp_wr_prot = MSDC_DECODE_BITS(resp, 12, 1);
+            csd->perm_wr_prot = MSDC_DECODE_BITS(resp, 13, 1);
+            csd->copy = MSDC_DECODE_BITS(resp, 14, 1);
+            csd->write_prot_grp = MSDC_DECODE_BITS(resp, 31, 1);
+            csd->write_prot_grpsz = MSDC_DECODE_BITS(resp, 32, 7);
+            csd->erase_sctsz = MSDC_DECODE_BITS(resp, 39, 7);
+            csd->dsr = MSDC_DECODE_BITS(resp, 76, 1);
+            csd->cmdclass	  = MSDC_DECODE_BITS(resp, 84, 12);
 
-            m = UNSTUFF_BITS(resp, 48, 22);
+            m = MSDC_DECODE_BITS(resp, 48, 22);
             csd->capacity     = (1 + m) << 10;
+            
+            m = MSDC_DECODE_BITS(resp, 99, 4);
+            e = MSDC_DECODE_BITS(resp, 96, 3);
+            csd->max_dtr	  = tran_exp[e] * tran_mant[m];
 
-            csd->read_blkbits = 9;
             csd->read_partial = 0;
-            csd->write_misalign = 0;
-            csd->read_misalign = 0;
-            csd->r2w_factor = 4; /* Unused */
-            csd->write_blkbits = 9;
+            csd->read_blkbits = 9;
             csd->write_partial = 0;
-
-            csd->erase_sctsz = UNSTUFF_BITS(resp, 39, 7);
-            csd->write_prot_grpsz = UNSTUFF_BITS(resp, 32, 7);
-            csd->write_prot_grp = UNSTUFF_BITS(resp, 31, 1);
-            csd->perm_wr_prot = UNSTUFF_BITS(resp, 13, 1);
-            csd->tmp_wr_prot = UNSTUFF_BITS(resp, 12, 1);
-            csd->copy = UNSTUFF_BITS(resp, 14, 1);
-            csd->dsr = UNSTUFF_BITS(resp, 76, 1);
+            csd->write_blkbits = 9;
+            csd->read_misalign = 0;
+            csd->write_misalign = 0;
+            csd->r2w_factor = 4; /* Unused */
             
             break;
         default:
@@ -1218,7 +1019,7 @@ static int mmc_decode_csd(struct mmc_card *card)
          * We only understand CSD structure v1.1 and v1.2.
          * v1.2 has extra information in bits 15, 11 and 10.
          */
-        csd_struct = UNSTUFF_BITS(resp, 126, 2);
+        csd_struct = MSDC_DECODE_BITS(resp, 126, 2);
 
         if (csd_struct != CSD_STRUCT_VER_1_0 && csd_struct != CSD_STRUCT_VER_1_1 
             && csd_struct != CSD_STRUCT_VER_1_2 && csd_struct != CSD_STRUCT_EXT_CSD) {
@@ -1227,36 +1028,35 @@ static int mmc_decode_csd(struct mmc_card *card)
         }
 
         csd->csd_struct = csd_struct;
-        csd->mmca_vsn    = UNSTUFF_BITS(resp, 122, 4);
-        m = UNSTUFF_BITS(resp, 115, 4);
-        e = UNSTUFF_BITS(resp, 112, 3);
-        csd->tacc_ns     = (tacc_exp[e] * tacc_mant[m] + 9) / 10;
-        csd->tacc_clks   = UNSTUFF_BITS(resp, 104, 8) * 100;
+        csd->tmp_wr_prot = MSDC_DECODE_BITS(resp, 12, 1);
+        csd->perm_wr_prot = MSDC_DECODE_BITS(resp, 13, 1);
+        csd->copy = MSDC_DECODE_BITS(resp, 14, 1);
+        csd->write_partial = MSDC_DECODE_BITS(resp, 21, 1);
+        csd->write_blkbits = MSDC_DECODE_BITS(resp, 22, 4);
+        csd->r2w_factor = MSDC_DECODE_BITS(resp, 26, 3);
+        csd->write_prot_grp = MSDC_DECODE_BITS(resp, 31, 1);
+        csd->write_prot_grpsz = MSDC_DECODE_BITS(resp, 32, 7);
+        csd->erase_sctsz = (MSDC_DECODE_BITS(resp, 42, 5) + 1) * (MSDC_DECODE_BITS(resp, 37, 5) + 1);
+        csd->dsr = MSDC_DECODE_BITS(resp, 76, 1);
+        csd->read_misalign = MSDC_DECODE_BITS(resp, 77, 1);
+        csd->write_misalign = MSDC_DECODE_BITS(resp, 78, 1);
+        csd->read_partial = MSDC_DECODE_BITS(resp, 79, 1);
+        csd->read_blkbits = MSDC_DECODE_BITS(resp, 80, 4);
+        csd->cmdclass     = MSDC_DECODE_BITS(resp, 84, 12);
+        csd->tacc_clks   = MSDC_DECODE_BITS(resp, 104, 8) * 100;
+        csd->mmca_vsn    = MSDC_DECODE_BITS(resp, 122, 4);
 
-        m = UNSTUFF_BITS(resp, 99, 4);
-        e = UNSTUFF_BITS(resp, 96, 3);
-        csd->max_dtr      = tran_exp[e] * mmc_tran_mant[m];
-        csd->cmdclass     = UNSTUFF_BITS(resp, 84, 12);
-
-        e = UNSTUFF_BITS(resp, 47, 3);
-        m = UNSTUFF_BITS(resp, 62, 12);
+        e = MSDC_DECODE_BITS(resp, 47, 3);
+        m = MSDC_DECODE_BITS(resp, 62, 12);
         csd->capacity     = (1 + m) << (e + 2);
-
-        csd->read_blkbits = UNSTUFF_BITS(resp, 80, 4);
-        csd->read_partial = UNSTUFF_BITS(resp, 79, 1);
-        csd->write_misalign = UNSTUFF_BITS(resp, 78, 1);
-        csd->read_misalign = UNSTUFF_BITS(resp, 77, 1);
-        csd->r2w_factor = UNSTUFF_BITS(resp, 26, 3);
-        csd->write_blkbits = UNSTUFF_BITS(resp, 22, 4);
-        csd->write_partial = UNSTUFF_BITS(resp, 21, 1);
-
-        csd->erase_sctsz = (UNSTUFF_BITS(resp, 42, 5) + 1) * (UNSTUFF_BITS(resp, 37, 5) + 1);
-        csd->write_prot_grpsz = UNSTUFF_BITS(resp, 32, 7);
-        csd->write_prot_grp = UNSTUFF_BITS(resp, 31, 1);
-        csd->perm_wr_prot = UNSTUFF_BITS(resp, 13, 1);
-        csd->tmp_wr_prot = UNSTUFF_BITS(resp, 12, 1);
-        csd->copy = UNSTUFF_BITS(resp, 14, 1);
-        csd->dsr = UNSTUFF_BITS(resp, 76, 1);
+        
+        e = MSDC_DECODE_BITS(resp, 96, 3);
+        m = MSDC_DECODE_BITS(resp, 99, 4);
+        csd->max_dtr      = tran_exp[e] * mmc_tran_mant[m];
+        
+        e = MSDC_DECODE_BITS(resp, 112, 3);
+        m = MSDC_DECODE_BITS(resp, 115, 4);
+        csd->tacc_ns     = (tacc_exp[e] * tacc_mant[m] + 9) / 10;
     }
 
 #if MMC_DEBUG
@@ -1438,11 +1238,11 @@ int mmc_switch(struct mmc_host *host, struct mmc_card *card,
             printf("[SD%d] Fail to send status %d\n", host->id, err);
             break;
         }
-        if (status & R1_SWITCH_ERROR) {
+        if (status & STA_SWITCH_ERROR) {
             printf("[SD%d] switch error. arg(0x%x)\n", host->id, cmd.arg);
             return MMC_ERR_FAILED;
         }
-    } while (!(status & R1_READY_FOR_DATA) || (R1_CURRENT_STATE(status) == 7));
+    } while (!(status & STA_READY_FOR_DATA) || (STA_CURRENT_STATE(status) == 7));
 
     return err;
 }
@@ -1549,7 +1349,7 @@ static int mmc_switch_volt(struct mmc_host *host, struct mmc_card *card)
     err = mmc_cmd(host, &cmd);
 
     if (err == MMC_ERR_NONE)
-        err = msdc_switch_volt(host, MMC_VDD_18_19);
+        err = msdc_switch_volt(host, MSDC_VDD_18_19);
 
     return err;
 }
@@ -1691,7 +1491,7 @@ static int mmc_read_scrs(struct mmc_host *host, struct mmc_card *card)
 	msdc_reset_tune_counter(host);
 	do{
     mmc_app_cmd(host, &cmd, card->rca, CMD_RETRIES);
-    if ((err != MMC_ERR_NONE) || !(cmd.resp[0] & R1_APP_CMD))
+    if ((err != MMC_ERR_NONE) || !(cmd.resp[0] & STA_APP_CMD))
         return MMC_ERR_FAILED;
 
     retries = 50000;
@@ -1716,20 +1516,20 @@ static int mmc_read_scrs(struct mmc_host *host, struct mmc_card *card)
     resp[2] = card->raw_scr[1];
     resp[3] = card->raw_scr[0];
 
-    if (UNSTUFF_BITS(resp, 60, 4) != 0) {
+    if (MSDC_DECODE_BITS(resp, 60, 4) != 0) {
         printf("[SD%d] Unknown SCR ver %d\n",
-            mmc_card_id(card), UNSTUFF_BITS(resp, 60, 4));
+            mmc_card_id(card), MSDC_DECODE_BITS(resp, 60, 4));
         return MMC_ERR_INVALID;
     }
 
-    scr->scr_struct = UNSTUFF_BITS(resp, 60, 4);
-    scr->sda_vsn = UNSTUFF_BITS(resp, 56, 4);
-    scr->data_bit_after_erase = UNSTUFF_BITS(resp, 55, 1);
-    scr->security = UNSTUFF_BITS(resp, 52, 3);
-    scr->bus_widths = UNSTUFF_BITS(resp, 48, 4);
-    scr->sda_vsn3 = UNSTUFF_BITS(resp, 47, 1);
-    scr->ex_security = UNSTUFF_BITS(resp, 43, 4);
-    scr->cmd_support = UNSTUFF_BITS(resp, 32, 2);
+    scr->scr_struct = MSDC_DECODE_BITS(resp, 60, 4);
+    scr->sda_vsn = MSDC_DECODE_BITS(resp, 56, 4);
+    scr->data_bit_after_erase = MSDC_DECODE_BITS(resp, 55, 1);
+    scr->security = MSDC_DECODE_BITS(resp, 52, 3);
+    scr->bus_widths = MSDC_DECODE_BITS(resp, 48, 4);
+    scr->sda_vsn3 = MSDC_DECODE_BITS(resp, 47, 1);
+    scr->ex_security = MSDC_DECODE_BITS(resp, 43, 4);
+    scr->cmd_support = MSDC_DECODE_BITS(resp, 32, 2);
     printf("[SD%d] SD_SPEC(%d) SD_SPEC3(%d) SD_BUS_WIDTH=%d\n", 
         mmc_card_id(card), scr->sda_vsn, scr->sda_vsn3, scr->bus_widths);        
     printf("[SD%d] SD_SECU(%d) EX_SECU(%d), CMD_SUPP(%d): CMD23(%d), CMD20(%d)\n", 
@@ -1852,828 +1652,6 @@ out:
     return err;
 }
 
-#ifdef FEATURE_MMC_SDIO
-int mmc_io_rw_direct(struct mmc_card *card, int write, unsigned fn,	
-    unsigned addr, u8 in, u8* out)
-{
-    struct mmc_command cmd;
-    int err;
-
-    BUG_ON(!card);
-    BUG_ON(fn > 7);
-
-    memset(&cmd, 0, sizeof(struct mmc_command));
-
-    cmd.opcode = SD_IO_RW_DIRECT;
-    cmd.arg = write ? 0x80000000 : 0x00000000;
-    cmd.arg |= fn << 28;
-    cmd.arg |= (write && out) ? 0x08000000 : 0x00000000;
-    cmd.arg |= addr << 9;
-    cmd.arg |= in;
-    cmd.rsptyp  = RESP_R5;
-    cmd.retries = CMD_RETRIES;
-    cmd.timeout = CMD_TIMEOUT;	
-
-    err = mmc_cmd(card->host, &cmd);
-
-    if (err)
-        return err;
-
-    if (cmd.resp[0] & R5_ERROR)
-        return MMC_ERR_FAILED;
-    if (cmd.resp[0] & R5_FUNCTION_NUMBER)
-        return MMC_ERR_INVALID;
-    if (cmd.resp[0] & R5_OUT_OF_RANGE)
-        return MMC_ERR_INVALID;
-
-    if (out)
-        *out = cmd.resp[0] & 0xFF;
-
-    return MMC_ERR_NONE;
-}
-
-int mmc_io_rw_extended(struct mmc_card *card, int write, unsigned fn,
-	unsigned addr, int incr_addr, u8 *buf, unsigned blocks, unsigned blksz)
-{
-    int err;
-
-    BUG_ON(!card);
-    BUG_ON(fn > 7);
-    BUG_ON(blocks == 1 && blksz > 512);
-    WARN_ON(blocks == 0);
-    WARN_ON(blksz == 0);
-
-    /* sanity check */
-    if (addr & ~0x1FFFF)
-        return MMC_ERR_INVALID;
-
-    err = msdc_iorw(card, write, fn, addr, incr_addr, buf, blocks, blksz);
-
-    return err;
-}
-
-static unsigned int mmc_sdio_max_byte_size(struct sdio_func *func)
-{
-	unsigned mval =	min(func->card->host->max_seg_size,
-			    func->card->host->max_blk_size);
-	mval = min(mval, func->max_blksize);
-	return min(mval, 512u); /* maximum size for byte mode */
-}
-
-/* Split an arbitrarily sized data transfer into several IO_RW_EXTENDED commands. */
-static int mmc_sdio_io_rw_ext_helper(struct sdio_func *func, int write,
-	unsigned addr, int incr_addr, u8 *buf, unsigned size)
-{
-	unsigned remainder = size;
-	unsigned max_blocks;
-	int ret;
-
-	/* Do the bulk of the transfer using block mode (if supported). */
-	if (func->card->cccr.multi_block && (size > mmc_sdio_max_byte_size(func))) {
-		/* Blocks per command is limited by host count, host transfer
-		 * size (we only use a single sg entry) and the maximum for
-		 * IO_RW_EXTENDED of 511 blocks. */
-		max_blocks = min(func->card->host->max_blk_count,
-			func->card->host->max_seg_size / func->cur_blksize);
-		max_blocks = min(max_blocks, 511u);
-
-		while (remainder > func->cur_blksize) {
-			unsigned blocks;
-
-			blocks = remainder / func->cur_blksize;
-			if (blocks > max_blocks)
-				blocks = max_blocks;
-			size = blocks * func->cur_blksize;
-
-			ret = mmc_io_rw_extended(func->card, write,
-				func->num, addr, incr_addr, buf,
-				blocks, func->cur_blksize);
-			if (ret)
-				return ret;
-
-			remainder -= size;
-			buf += size;
-			if (incr_addr)
-				addr += size;
-		}
-	}
-
-	/* Write the remainder using byte mode. */
-	while (remainder > 0) {
-		size = min(remainder, mmc_sdio_max_byte_size(func));
-
-		ret = mmc_io_rw_extended(func->card, write, func->num, addr,
-			 incr_addr, buf, 1, size);
-		if (ret)
-			return ret;
-
-		remainder -= size;
-		buf += size;
-		if (incr_addr)
-			addr += size;
-	}
-	return 0;
-}
-
-int mmc_sdio_memcpy_fromio(struct sdio_func *func, void *dst,
-	unsigned int addr, int count)
-{
-	return mmc_sdio_io_rw_ext_helper(func, 0, addr, 1, dst, count);
-}
-
-int mmc_sdio_memcpy_toio(struct sdio_func *func, unsigned int addr,
-	void *src, int count)
-{
-	return mmc_sdio_io_rw_ext_helper(func, 1, addr, 1, src, count);
-}
-
-int mmc_sdio_readsb(struct sdio_func *func, void *dst, unsigned int addr,
-	int count)
-{
-	return mmc_sdio_io_rw_ext_helper(func, 0, addr, 0, dst, count);
-}
-
-int mmc_sdio_writesb(struct sdio_func *func, unsigned int addr, void *src,
-	int count)
-{
-	return mmc_sdio_io_rw_ext_helper(func, 1, addr, 0, src, count);
-}
-
-u16 mmc_sdio_readw(struct sdio_func *func, unsigned int addr, int *err_ret)
-{
-	int ret;
-	u16 tmp;
-
-	if (err_ret)
-		*err_ret = 0;
-
-	ret = mmc_sdio_memcpy_fromio(func, func->tmpbuf, addr, 2);
-	if (ret) {
-		if (err_ret)
-			*err_ret = ret;
-		return 0xFFFF;
-	}
-
-	memcpy(&tmp, func->tmpbuf, sizeof(u16));
-
-	return tmp;
-}
-
-void mmc_sdio_writew(struct sdio_func *func, u16 b, unsigned int addr, int *err_ret)
-{
-	int ret;
-
-    memcpy(&func->tmpbuf[0], &b, sizeof(u16));
-
-	ret = mmc_sdio_memcpy_toio(func, addr, func->tmpbuf, 2);
-	if (err_ret)
-		*err_ret = ret;
-}
-
-u32 mmc_sdio_readl(struct sdio_func *func, unsigned int addr, int *err_ret)
-{
-	int ret;
-	u32 tmp;
-
-	if (err_ret)
-		*err_ret = 0;
-
-	ret = mmc_sdio_memcpy_fromio(func, func->tmpbuf, addr, 4);
-	if (ret) {
-		if (err_ret)
-			*err_ret = ret;
-		return 0xFFFFFFFF;
-	}
-
-    memcpy(&tmp, func->tmpbuf, sizeof(u32));
-    
-	return tmp;
-}
-
-void mmc_sdio_writel(struct sdio_func *func, u32 b, unsigned int addr, int *err_ret)
-{
-    int ret;
-
-    memcpy(&func->tmpbuf[0], &b, sizeof(u32));
-
-    ret = mmc_sdio_memcpy_toio(func, addr, func->tmpbuf, 4);
-    if (err_ret)
-        *err_ret = ret;
-}
-
-unsigned char mmc_sdio_f0_readb(struct sdio_func *func, unsigned int addr,
-	int *err_ret)
-{
-	int ret;
-	unsigned char val;
-
-	BUG_ON(!func);
-
-	if (err_ret)
-		*err_ret = 0;
-
-	ret = mmc_io_rw_direct(func->card, 0, 0, addr, 0, &val);
-	if (ret) {
-		if (err_ret)
-			*err_ret = ret;
-		return 0xFF;
-	}
-
-	return val;
-}
-#if 0
-void mmc_sdio_f0_writeb(struct sdio_func *func, unsigned char b, unsigned int addr,
-	int *err_ret)
-{
-	int ret;
-
-	BUG_ON(!func);
-
-	if ((addr < 0xF0 || addr > 0xFF) && (!mmc_card_lenient_fn0(func->card))) {
-		if (err_ret)
-			*err_ret = MMC_ERR_INVALID;
-		return;
-	}
-
-	ret = mmc_io_rw_direct(func->card, 1, 0, addr, b, NULL);
-	if (err_ret)
-		*err_ret = ret;
-}
-#endif
-
-int mmc_sdio_enable_func(struct sdio_func *func)
-{
-	int ret;
-	unsigned char reg;
-	unsigned long timeout;
-
-	BUG_ON(!func);
-	BUG_ON(!func->card);
-
-	printf("SDIO: Enabling device ...\n");
-
-	ret = mmc_io_rw_direct(func->card, 0, 0, SDIO_CCCR_IOEx, 0, &reg);
-	if (ret)
-		goto err;
-
-	reg |= 1 << func->num;
-
-	ret = mmc_io_rw_direct(func->card, 1, 0, SDIO_CCCR_IOEx, reg, NULL);
-	if (ret)
-		goto err;
-
-	while (1) {
-		ret = mmc_io_rw_direct(func->card, 0, 0, SDIO_CCCR_IORx, 0, &reg);
-		if (ret)
-			goto err;
-		if (reg & (1 << func->num))
-			break;
-	}
-
-	printf("SDIO: Enabled device\n");
-
-	return 0;
-
-err:
-	printf("SDIO: Failed to enable device\n");
-	return ret;
-}
-
-int mmc_sdio_set_block_size(struct sdio_func *func, unsigned blksz)
-{
-	int ret;
-
-	if (blksz > func->card->host->max_blk_size)
-		return MMC_ERR_INVALID;
-
-	if (blksz == 0) {
-		blksz = min(func->max_blksize, func->card->host->max_blk_size);
-		blksz = min(blksz, 512u);
-	}
-
-	ret = mmc_io_rw_direct(func->card, 1, 0,
-		SDIO_FBR_BASE(func->num) + SDIO_FBR_BLKSIZE,
-		blksz & 0xff, NULL);
-	if (ret)
-		return ret;
-	ret = mmc_io_rw_direct(func->card, 1, 0,
-		SDIO_FBR_BASE(func->num) + SDIO_FBR_BLKSIZE + 1,
-		(blksz >> 8) & 0xff, NULL);
-	if (ret)
-		return ret;
-	func->cur_blksize = blksz;
-	return 0;
-}
-
-int mmc_sdio_disable_func(struct sdio_func *func)
-{
-	int ret;
-	unsigned char reg;
-
-	BUG_ON(!func);
-	BUG_ON(!func->card);
-
-	printf("SDIO: Disabling device...\n");
-
-	ret = mmc_io_rw_direct(func->card, 0, 0, SDIO_CCCR_IOEx, 0, &reg);
-	if (ret)
-		goto err;
-
-	reg &= ~(1 << func->num);
-
-	ret = mmc_io_rw_direct(func->card, 1, 0, SDIO_CCCR_IOEx, reg, NULL);
-	if (ret)
-		goto err;
-
-	printf("SDIO: Disabled device\n");
-
-	return 0;
-
-err:
-	printf("SDIO: Failed to disable device %s\n");
-	return MMC_ERR_FAILED;
-}
-
-static int mmc_sdio_read_cis(struct mmc_card *card, struct sdio_func *func)
-{
-    int ret;
-    struct sdio_func_tuple *this, **prev;
-    unsigned i, ptr = 0;
-
-    /*
-    * Note that this works for the common CIS (function number 0) as
-    * well as a function's CIS * since SDIO_CCCR_CIS and SDIO_FBR_CIS
-    * have the same offset.
-    */
-    for (i = 0; i < 3; i++) {
-        unsigned char x, fn;
-
-        if (func)
-            fn = func->num;
-        else
-            fn = 0;
-
-        ret = mmc_io_rw_direct(card, 0, 0,
-            SDIO_FBR_BASE(fn) + SDIO_FBR_CIS + i, 0, &x);
-        if (ret)
-            return ret;
-        ptr |= x << (i * 8);
-    }
-
-    if (func)
-        prev = &func->tuples;
-    else
-        prev = &card->tuples;
-
-    BUG_ON(*prev);
-
-    do {
-        unsigned char tpl_code, tpl_link;
-
-        ret = mmc_io_rw_direct(card, 0, 0, ptr++, 0, &tpl_code);
-        if (ret)
-            break;
-
-        /* 0xff means we're done */
-        if (tpl_code == 0xff)
-            break;
-
-        ret = mmc_io_rw_direct(card, 0, 0, ptr++, 0, &tpl_link);
-        if (ret)
-            break;
-
-        this = malloc(sizeof(*this) + tpl_link);
-        if (!this)
-            return -__LINE__;
-
-        for (i = 0; i < tpl_link; i++) {
-            ret = mmc_io_rw_direct(card, 0, 0,
-                ptr + i, 0, &this->data[i]);
-            if (ret)
-                break;
-        }
-        if (ret) {
-            free(this);
-            break;
-        }
-
-        for (i = 0; i < ARRAY_SIZE(cis_tpl_list); i++)
-            if (cis_tpl_list[i].code == tpl_code)
-                break;
-
-        if (i >= ARRAY_SIZE(cis_tpl_list)) {
-            /* this tuple is unknown to the core */
-            this->next = NULL;
-            this->code = tpl_code;
-            this->size = tpl_link;
-            *prev = this;
-            prev = &this->next;
-            printf("queuing CIS tuple 0x%02x length %u\n", tpl_code, tpl_link);
-        } else {
-            const struct cis_tpl *tpl = cis_tpl_list + i;
-            if (tpl_link < tpl->min_size) {
-            printf("bad CIS tuple 0x%02x (length = %u, expected >= %u)\n",
-                tpl_code, tpl_link, tpl->min_size);
-            ret = -__LINE__;
-            } else if (tpl->parse) {
-                ret = tpl->parse(card, func, this->data, tpl_link);
-            }
-            free(this);
-        }
-
-        ptr += tpl_link;
-    } while (!ret);
-
-    /*
-    * Link in all unknown tuples found in the common CIS so that
-    * drivers don't have to go digging in two places.
-    */
-    if (func)
-        *prev = card->tuples;
-
-    return ret;
-}
-
-int mmc_sdio_read_common_cis(struct mmc_card *card)
-{
-	return mmc_sdio_read_cis(card, NULL);
-}
-
-void mmc_sdio_free_common_cis(struct mmc_card *card)
-{
-    struct sdio_func_tuple *tuple, *victim;
-
-    tuple = card->tuples;
-
-    while (tuple) {
-        victim = tuple;
-        tuple = tuple->next;
-        free(victim);
-    }
-
-    card->tuples = NULL;
-}
-
-int mmc_sdio_read_func_cis(struct sdio_func *func)
-{
-    int ret;
-
-    ret = mmc_sdio_read_cis(func->card, func);
-    if (ret)
-        return ret;
-
-    /*
-    * Vendor/device id is optional for function CIS, so
-    * copy it from the card structure as needed.
-    */
-    if (func->vendor == 0) {
-        func->vendor = func->card->cis.vendor;
-        func->device = func->card->cis.device;
-    }
-
-    return 0;
-}
-
-void mmc_sdio_free_func_cis(struct sdio_func *func)
-{
-    struct sdio_func_tuple *tuple, *victim;
-
-    tuple = func->tuples;
-
-    while (tuple && tuple != func->card->tuples) {
-    	victim = tuple;
-    	tuple = tuple->next;
-    	free(victim);
-    }
-
-    func->tuples = NULL;
-}
-
-
-int mmc_sdio_read_fbr(struct sdio_func *func)
-{
-	int ret;
-	unsigned char data;
-
-	ret = mmc_io_rw_direct(func->card, 0, 0,
-		SDIO_FBR_BASE(func->num) + SDIO_FBR_STD_IF, 0, &data);
-	if (ret)
-		goto out;
-
-	data &= 0x0f;
-
-	if (data == 0x0f) {
-		ret = mmc_io_rw_direct(func->card, 0, 0,
-			SDIO_FBR_BASE(func->num) + SDIO_FBR_STD_IF_EXT, 0, &data);
-		if (ret)
-			goto out;
-	}
-
-	func->class = data;
-
-out:
-	return ret;
-}
-
-int mmc_sdio_init_func(struct mmc_card *card, unsigned int fn)
-{
-	int ret;
-	struct sdio_func *func;
-
-	BUG_ON(fn > SDIO_MAX_FUNCS);
-
-	func = malloc(sizeof(struct sdio_func));
-	if (!func)
-		return -1;
-
-    func->card = card;
-	func->num  = fn;
-
-	ret = mmc_sdio_read_fbr(func);
-	if (ret)
-		goto fail;
-
-	ret = mmc_sdio_read_func_cis(func);
-	if (ret)
-		goto fail;
-
-	card->io_func[fn - 1] = func;
-
-	return 0;
-
-fail:
-
-	return ret;
-}
-
-int mmc_sdio_read_cccr(struct mmc_card *card)
-{
-    int ret;
-    int cccr_vsn;
-    unsigned char data;
-
-    memset(&card->cccr, 0, sizeof(struct sdio_cccr));
-
-    ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_CCCR, 0, &data);
-    if (ret)
-        goto out;
-
-    cccr_vsn = data & 0x0f;
-
-    if (cccr_vsn > SDIO_CCCR_REV_1_20) {
-        printf("unrecognised CCCR structure version %d\n", cccr_vsn);
-        return MMC_ERR_INVALID;
-    }
-
-    card->cccr.sdio_vsn = (data & 0xf0) >> 4;
-
-    ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_CAPS, 0, &data);
-    if (ret)
-        goto out;
-
-    if (data & SDIO_CCCR_CAP_SMB)
-        card->cccr.multi_block = 1;
-    if (data & SDIO_CCCR_CAP_LSC)
-        card->cccr.low_speed = 1;
-    if (data & SDIO_CCCR_CAP_4BLS)
-        card->cccr.wide_bus = 1;
-    if (data & SDIO_CCCR_CAP_S4MI)
-        card->cccr.intr_multi_block = 1;
-
-    if (cccr_vsn >= SDIO_CCCR_REV_1_10) {
-        ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_POWER, 0, &data);
-        if (ret)
-            goto out;
-
-        if (data & SDIO_POWER_SMPC)
-            card->cccr.high_power = 1;
-    }
-
-    if (cccr_vsn >= SDIO_CCCR_REV_1_20) {
-        ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_SPEED, 0, &data);
-        if (ret)
-            goto out;
-
-        if (data & SDIO_SPEED_SHS)
-            card->cccr.high_speed = 1;
-    }
-
-out:
-    return ret;
-}
-
-int mmc_sdio_proc_pending_irqs(struct mmc_card *card)
-{
-    int id = card->host->id;
-    int i, ret, count;
-    unsigned char pending;
-
-    ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_INTx, 0, &pending);
-    if (ret) {
-        printf("[SD%d] error %d reading SDIO_CCCR_INTx\n", id, ret);
-        return ret;
-    }
-
-    count = 0;
-    for (i = 1; i <= 7; i++) {
-        if (pending & (1 << i)) {
-            struct sdio_func *func = card->io_func[i - 1];
-            if (!func) {
-                printf("[SD%d] pending IRQ for non-existant function\n", id);
-                ret = MMC_ERR_INVALID;
-            } else if (func->irq_handler) {
-                func->irq_handler(func);
-                count++;
-            } else {
-                printf("[SD%d] pending IRQ with no handler\n", id);
-                ret = MMC_ERR_INVALID;
-            }
-        }
-    }
-
-    if (count)
-        return count;
-
-    return ret;
-}
-
-static int mmc_sdio_card_irq_get(struct mmc_card *card)
-{
-    struct mmc_host *host = card->host;
-
-    msdc_intr_sdio(card->host, 1);
-    
-    return 0;
-}
-
-static int mmc_sdio_card_irq_put(struct mmc_card *card)
-{
-    struct mmc_host *host = card->host;
-
-    msdc_intr_sdio(card->host, 0);
-
-    return 0;
-}
-
-int mmc_sdio_register_irq(struct mmc_card *card, hw_irq_handler_t handler)
-{
-    msdc_register_hwirq(card->host, handler);
-
-    return 0;
-}
-
-int mmc_sdio_claim_irq(struct sdio_func *func, sdio_irq_handler_t *handler)
-{
-	int ret;
-	unsigned char reg;
-
-	BUG_ON(!func);
-	BUG_ON(!func->card);
-
-	printf("SDIO: Enabling IRQ...\n");
-
-	if (func->irq_handler) {
-		printf("SDIO: IRQ already in use.\n");
-		return MMC_ERR_FAILED;
-	}
-
-	ret = mmc_io_rw_direct(func->card, 0, 0, SDIO_CCCR_IENx, 0, &reg);
-	if (ret)
-		return ret;
-
-	reg |= 1 << func->num;
-
-	reg |= 1; /* Master interrupt enable */
-
-	ret = mmc_io_rw_direct(func->card, 1, 0, SDIO_CCCR_IENx, reg, NULL);
-	if (ret)
-		return ret;
-
-	func->irq_handler = handler;
-	ret = mmc_sdio_card_irq_get(func->card);	
-	if (ret)
-		func->irq_handler = NULL;
-
-	return ret;
-}
-
-int mmc_sdio_release_irq(struct sdio_func *func)
-{
-	int ret;
-	unsigned char reg;
-
-	BUG_ON(!func);
-	BUG_ON(!func->card);
-
-	printf("SDIO: Disabling IRQ...\n");
-
-	if (func->irq_handler) {
-		func->irq_handler = NULL;
-		mmc_sdio_card_irq_put(func->card);
-    }
-	ret = mmc_io_rw_direct(func->card, 0, 0, SDIO_CCCR_IENx, 0, &reg);
-	if (ret)
-		return ret;
-
-	reg &= ~(1 << func->num);
-
-	/* Disable master interrupt with the last function interrupt */
-	if (!(reg & 0xFE))
-		reg = 0;
-
-	ret = mmc_io_rw_direct(func->card, 1, 0, SDIO_CCCR_IENx, reg, NULL);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-int mmc_sdio_enable_irq_gap(struct mmc_card *card, int enable)
-{
-    int ret;
-    u8 ctrl;
-
-    if (!(card->host->caps & MMC_CAP_4_BIT_DATA))
-        return -1;
-
-    if (!card->cccr.intr_multi_block)
-        return -1;
-
-    ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_CAPS, 0, &ctrl);
-    if (ret)
-        return ret;
-
-    if (enable) {
-        ctrl |= SDIO_CCCR_CAP_E4MI;
-    } else {
-        ctrl &= ~SDIO_CCCR_CAP_E4MI;
-    }
-
-    ret = mmc_io_rw_direct(card, 1, 0, SDIO_CCCR_CAPS, ctrl, NULL);
-    if (ret)
-        return ret;
-
-    msdc_intr_sdio_gap(card->host, enable);
-
-    return 0;
-}
-
-int mmc_sdio_enable_wide(struct mmc_card *card)
-{
-	int ret;
-	u8 ctrl;
-
-	if (!(card->host->caps & MMC_CAP_4_BIT_DATA))
-		return 0;
-
-	if (card->cccr.low_speed && !card->cccr.wide_bus)
-		return 0;
-
-	ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_IF, 0, &ctrl);
-	if (ret)
-		return ret;
-
-	ctrl |= SDIO_BUS_WIDTH_4BIT;
-
-	ret = mmc_io_rw_direct(card, 1, 0, SDIO_CCCR_IF, ctrl, NULL);
-	if (ret)
-		return ret;
-
-    msdc_config_bus(card->host, HOST_BUS_WIDTH_4);
-
-	return 0;
-}
-
-/*
- * Test if the card supports high-speed mode and, if so, switch to it.
- */
-static int mmc_sdio_enable_hs(struct mmc_card *card)
-{
-	int ret;
-	u8 speed;
-
-	if (!(card->host->caps & MMC_CAP_SD_HIGHSPEED))
-		return 0;
-
-	if (!card->cccr.high_speed)
-		return 0;
-
-	ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_SPEED, 0, &speed);
-	if (ret)
-		return ret;
-
-	speed |= SDIO_SPEED_EHS;
-
-	ret = mmc_io_rw_direct(card, 1, 0, SDIO_CCCR_SPEED, speed, NULL);
-	if (ret)
-		return ret;
-
-	mmc_card_set_highspeed(card);
-
-	return 0;
-}
-#endif
-
 #if 0
 static int mmc_deselect_cards(struct mmc_host *host)
 {
@@ -2732,7 +1710,7 @@ int mmc_erase_start(struct mmc_card *card, u64 addr)
 {
     struct mmc_command cmd;
 
-    if (!(card->csd.cmdclass & CCC_ERASE)) {
+    if (!(card->csd.cmdclass & MMC_CCC_ERASE)) {
         return MMC_ERR_INVALID;
     }
 
@@ -2757,7 +1735,7 @@ int mmc_erase_end(struct mmc_card *card, u64 addr)
 {
     struct mmc_command cmd;
 
-    if (!(card->csd.cmdclass & CCC_ERASE)) {
+    if (!(card->csd.cmdclass & MMC_CCC_ERASE)) {
         return MMC_ERR_INVALID;
     }
 
@@ -2784,7 +1762,7 @@ int mmc_erase(struct mmc_card *card, u32 arg)
     u32 status;
     struct mmc_command cmd;
 
-    if (!(card->csd.cmdclass & CCC_ERASE)) {
+    if (!(card->csd.cmdclass & MMC_CCC_ERASE)) {
         return MMC_ERR_INVALID;
     }
 
@@ -2816,8 +1794,8 @@ int mmc_erase(struct mmc_card *card, u32 arg)
             #if MMC_DEBUG
             mmc_dump_card_status(status);
             #endif
-            if (R1_STATUS(status) != 0) break;
-        } while (R1_CURRENT_STATE(status) == 7);        
+            if (STA_STATUS(status) != 0) break;
+        } while (STA_CURRENT_STATE(status) == 7);        
     }    
     return err;
 }
@@ -3484,8 +2462,8 @@ static int mmc_dev_bwrite(struct mmc_card *card, unsigned long blknr, u32 blkcnt
                     printf("[SD%d] Fail to send status %d\n", host->id, err);
                     break;
                 }
-            } while (!(status & R1_READY_FOR_DATA) ||
-                (R1_CURRENT_STATE(status) == 7));
+            } while (!(status & STA_READY_FOR_DATA) ||
+                (STA_CURRENT_STATE(status) == 7));
             mmc_prof_stop();
             mmc_prof_update(mmc_prof_write, blkcnt, mmc_prof_handle(host->id));
             MSG(OPS, "[SD%d] Write %d bytes (DONE)\n", 
@@ -3716,7 +2694,7 @@ int mmc_init_mem_card(struct mmc_host *host, struct mmc_card *card, u32 ocr)
             goto out;
         }
 
-        if ((card->csd.cmdclass & CCC_SWITCH) && 
+        if ((card->csd.cmdclass & MMC_CCC_SWITCH) && 
             (mmc_read_switch(host, card) == MMC_ERR_NONE)) {
             do {
                 #ifdef FEATURE_MMC_UHS1
@@ -3840,103 +2818,6 @@ out:
     return err;
 }
 
-#ifdef FEATURE_MMC_SDIO
-int mmc_init_sdio_card(struct mmc_host *host, struct mmc_card *card, u32 ocr)
-{
-    int err, i, id = host->id;
-
-    /*
-     * Sanity check the voltages that the card claims to
-     * support.
-     */
-    if (ocr & 0x7F) {
-    	printf("card claims to support voltages "
-    	       "below the defined range. These will be ignored.\n");
-    	ocr &= ~0x7F;
-    }
-
-    ocr = host->ocr = mmc_select_voltage(host, ocr);
-
-    /* Can we support the voltage(s) of the card(s)? */
-    if (!host->ocr) {
-    	err = MMC_ERR_FAILED;
-    	goto out;
-    }
-
-    err = mmc_send_io_op_cond(host, host->ocr_avail, &ocr);
-    if (err)
-        goto out;
-
-    card->host = host;
-    card->sdio_funcs = (ocr & 0x70000000) >> 28;
-
-    /* send rca */
-    err = mmc_send_relative_addr(host, card, &card->rca);
-    if (err != MMC_ERR_NONE) {
-        printf("[SD%d] Fail in SEND_RCA cmd\n", id);
-        goto out;
-    }
-
-    err = mmc_select_card(host, card);
-    if (err != MMC_ERR_NONE) {
-        printf("[SD%d] Fail in select card\n", id);
-        goto out;        
-    }
-
-    /* read the common registers */
-    err = mmc_sdio_read_cccr(card);
-    if (err != MMC_ERR_NONE) {
-        printf("[SD%d] Fail in reading the common register\n", id);
-        goto out;        
-    }
-
-    /* read the common CIS tuples */
-    err = mmc_sdio_read_common_cis(card);
-    if (err != MMC_ERR_NONE) {
-        printf("[SD%d] Fail in reading the common CIS\n", id);
-        goto out;        
-    }
-
-    /* switch to high speed mode */
-    err = mmc_sdio_enable_hs(card);
-    if (err != MMC_ERR_NONE) {
-        printf("[SD%d] Fail in enable SDIO HS\n", id);
-        goto out;        
-    }
-
-	/*
-	 * Change to the card's maximum speed.
-	 */
-	if (mmc_card_highspeed(card)) {
-		/*
-		 * The SDIO specification doesn't mention how
-		 * the CIS transfer speed register relates to
-		 * high-speed, but it seems that 50 MHz is
-		 * mandatory.
-		 */
-		mmc_set_clock(host, mmc_card_ddr(card), 50000000);
-	} else {
-		mmc_set_clock(host, mmc_card_ddr(card), card->cis.max_dtr);
-	}
-
-    /* switch to wider bus (if supported) */
-    err = mmc_sdio_enable_wide(card);
-
-    /* initialize (but don't add) all present function */
-    for (i = 0;i < (int)card->sdio_funcs;i++) {
-        err = mmc_sdio_init_func(card, i + 1);
-        if (err)
-            goto out;
-    }
-
-    mmc_card_set_sdio(card);
-    printf("[SD%d] SDIO Initialized\n", host->id);    
-
-out:
-    return err;
-}
-#endif
-
 // Apply ett tool result
 #if 0
 static int msdc_ett_offline_to_ub(struct mmc_host *host, struct mmc_card *card)
@@ -4007,20 +2888,7 @@ int mmc_init_card(struct mmc_host *host, struct mmc_card *card)
 
     /* send interface condition */
     mmc_send_if_cond(host, host->ocr_avail);
-#ifdef FEATURE_MMC_SDIO
-    if (mmc_send_io_op_cond(host, 0, &ocr) == MMC_ERR_NONE) {
-        mmc_card_set_sdio(card);
-        err = mmc_init_sdio_card(host, card, ocr);
-        if (err != MMC_ERR_NONE) {
-            printf("[SD%d] Fail in init sdio card\n", id);
-            goto out;        
-        }
-        /* no memory present */
-        if ((ocr & 0x08000000) == 0) {
-            goto out;
-        }
-    }
-#endif
+
     /* query operation condition */ 
     err = mmc_send_app_op_cond(host, 0, &ocr);
     if (err != MMC_ERR_NONE) {        
@@ -4178,11 +3046,7 @@ int mmc_legacy_init(int verbose)
 		mmc_addr_trans_tbl_init();
 		printf("addr_trans_init done\n");
         /* fill in device description */
-        bdev->if_type     = IF_TYPE_MMC;
-        bdev->part_type   = PART_TYPE_DOS;
         bdev->dev         = id;
-        bdev->lun         = 0;
-        bdev->removable   = 1;
         bdev->blksz       = MMC_BLOCK_SIZE;
         bdev->lba         = card->nblks * card->blklen / MMC_BLOCK_SIZE;
         bdev->block_read  = mmc_wrap_bread;
@@ -4192,8 +3056,6 @@ int mmc_legacy_init(int verbose)
 
         /* FIXME. only one RAW_BOOT dev */
         if (host->boot_type == RAW_BOOT) {
-            bdev->part_type = PART_TYPE_UNKNOWN; 
-            bdev->removable = 0;
             boot_dev.id = id;
             boot_dev.init = 1;
             boot_dev.blkdev = bdev;

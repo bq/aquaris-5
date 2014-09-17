@@ -1,19 +1,17 @@
 #ifndef _AUDIO_DIGITAL_TYPE_H
 #define _AUDIO_DIGITAL_TYPE_H
-
-//#define MTK_MERGE_INTERFACE_SUPPORT  //move to ProjectConfig.mk
+#include "AudioType.h"
 
 /*!
  *     AudioDigitalType is a public class to let user to use of defined enum
  */
-#define FM_I2S_IN_DEFAULT_SAMPLE_RATE   44100
-#define MATV_I2S_IN_DEFAULT_SAMPLE_RATE 32000
 
 class AudioDigitalType
 {
     public:
 
-        enum Digital_Block {
+        enum Digital_Block
+        {
             // memmory interfrace
             MEM_DL1,
             MEM_DL2,
@@ -43,12 +41,14 @@ class AudioDigitalType
         };
 
 
-        enum MemIF_Direction {
+        enum MemIF_Direction
+        {
             DIRECTION_OUTPUT,
             DIRECTION_INPUT
         };
 
-        enum InterConnectionInput {
+        enum InterConnectionInput
+        {
             I00,
             I01,
             I02,
@@ -69,7 +69,8 @@ class AudioDigitalType
             Num_Input
         };
 
-        enum InterConnectionOutput {
+        enum InterConnectionOutput
+        {
             O00,
             O01,
             O02,
@@ -92,13 +93,15 @@ class AudioDigitalType
             Num_Output
         };
 
-        enum InterConnectionState {
+        enum InterConnectionState
+        {
             DisConnect = 0x0,
             Connection = 0x1,
             ConnectionShift = 0x2
         };
 
-        enum TopClockType {
+        enum TopClockType
+        {
             APB_CLOCK = 1,
             AFE_CLOCK = 2,
             I2S_INPUT_CLOCK = 6,
@@ -108,7 +111,8 @@ class AudioDigitalType
             PDN_SPDIF_CK    = 21
         };
 
-        enum AFEClockType {
+        enum AFEClockType
+        {
             AFE_ON = 0,
             DL1_ON = 1,
             DL2_ON = 2,
@@ -119,52 +123,73 @@ class AudioDigitalType
             MOD_PCM_ON = 7
         };
 
-        enum IRQ_MCU_MODE {
+        enum IRQ_MCU_MODE
+        {
             IRQ1_MCU_MODE = 0,
             IRQ2_MCU_MODE,
             IRQ3_MCU_MODE,
             NUM_OF_IRQ_MODE
         };
-        enum Hw_Digital_Gain {
+        enum Hw_Digital_Gain
+        {
             HW_DIGITAL_GAIN1,
             HW_DIGITAL_GAIN2
+        };
+
+        enum OUTPUT_DATA_FORMAT
+        {
+            OUTPUT_DATA_FORMAT_16BIT = 0,
+            OUTPUT_DATA_FORMAT_24BIT
         };
 };
 
 class AudioDigtalI2S
 {
     public:
-        enum LR_SWAP {
+        enum LR_SWAP
+        {
             NO_SWAP = 0,
             LR_DATASWAP = 1
         };
 
-        enum INV_LRCK {
+        enum I2S_HD_EN
+        {
+            NORMAL_CLOCK = 0,
+            LOW_JITTER_CLOCK = 1
+        };
+
+        enum INV_LRCK
+        {
             NO_INVERSE = 0,
             INVESE_LRCK = 1
         };
 
-        enum I2S_DIR {
+        enum I2S_DIR
+        {
             I2S_OUTPUT = 0,
             I2S_INPUT = 1
         };
 
-        enum I2S_FORMAT {
+        enum I2S_FORMAT
+        {
             EIAJ = 0,
             I2S  = 1
         };
 
-        enum I2S_SRC {
+        enum I2S_SRC
+        {
             MASTER_MODE = 0,
             SLAVE_MODE = 1
         };
 
-        enum I2S_WLEN {
+        enum I2S_WLEN
+        {
             WLEN_16BITS = 0 ,
             WLEN_32BITS = 1
         };
 
-        enum I2S_SAMPLERATE {
+        enum I2S_SAMPLERATE
+        {
             I2S_8K = 0,
             I2S_11K = 1,
             I2S_12K = 2,
@@ -177,6 +202,7 @@ class AudioDigtalI2S
         };
 
         bool mLR_SWAP;
+        bool mI2S_HD_EN;
         bool mI2S_SLAVE;
         int mI2S_SAMPLERATE;
         bool mINV_LRCK;
@@ -194,52 +220,62 @@ class AudioDigtalI2S
 class AudioDigitalPCM
 {
     public:
-        enum TX_LCH_RPT {
+        enum TX_LCH_RPT
+        {
             TX_LCH_NO_REPEAT = 0,
             TX_LCH_REPEAT    = 1
         };
 
-        enum VBT_16K_MODE {
+        enum VBT_16K_MODE
+        {
             VBT_16K_MODE_DISABLE = 0,
             VBT_16K_MODE_ENABLE  = 1
         };
 
-        enum EXT_MODEM {
+        enum EXT_MODEM
+        {
             MODEM_2_USE_INTERNAL_MODEM = 0,
             MODEM_2_USE_EXTERNAL_MODEM = 1
         };
 
-        enum PCM_SYNC_TYPE {
+        enum PCM_SYNC_TYPE
+        {
             BCK_CYCLE_SYNC        = 0, // bck sync length = 1
             EXTEND_BCK_CYCLE_SYNC = 1  // bck sync length = PCM_INTF_CON[9:13]
         };
 
-        enum BT_MODE {
+        enum BT_MODE
+        {
             DUAL_MIC_ON_TX   = 0,
             SINGLE_MIC_ON_TX = 1
         };
 
-        enum BYPASS_SRC {
+        enum BYPASS_SRC
+        {
             SLAVE_USE_ASRC       = 0, // slave mode & external modem uses different crystal
             SLAVE_USE_ASYNC_FIFO = 1  // slave mode & external modem uses the same crystal
         };
 
-        enum PCM_CLOCK_SOURCE {
+        enum PCM_CLOCK_SOURCE
+        {
             MASTER_MODE = 0,
             SALVE_MODE  = 1
         };
 
-        enum PCM_WLEN_LEN {
+        enum PCM_WLEN_LEN
+        {
             PCM_16BIT = 0,
             PCM_32BIT = 1
         };
 
-        enum PCM_MODE {
+        enum PCM_MODE
+        {
             PCM_MODE_8K  = 0,
             PCM_MODE_16K = 1
         };
 
-        enum PCM_FMT {
+        enum PCM_FMT
+        {
             PCM_I2S    = 0,
             PCM_EIAJ   = 1,
             PCM_MODE_A = 2,
@@ -263,22 +299,26 @@ class AudioDigitalPCM
 class AudioDigitalDAIBT
 {
     public:
-        enum BT_DAI_INPUT {
+        enum BT_DAI_INPUT
+        {
             FROM_BT,
             FROM_MGRIF
         };
 
-        enum DATBT_MODE {
+        enum DATBT_MODE
+        {
             Mode8K,
             Mode16K
         };
 
-        enum DAI_DEL {
+        enum DAI_DEL
+        {
             HighWord,
             LowWord
         };
 
-        enum BTSYNC {
+        enum BTSYNC
+        {
             Short_Sync,
             Long_Sync
         };
@@ -296,7 +336,8 @@ class AudioDigitalDAIBT
 class AudioMrgIf
 {
     public:
-        enum MRFIF_I2S_SAMPLERATE {
+        enum MRFIF_I2S_SAMPLERATE
+        {
             MRFIF_I2S_8K = 0,
             MRFIF_I2S_11K = 1,
             MRFIF_I2S_12K = 2,

@@ -3509,6 +3509,57 @@ MRESULT mrCCAPAESetExpLine_Cmd(const MUINT32 a_u4Argc, MUINT8 *a_pprArgv[])
 }
 
 /////////////////////////////////////////////////////////////////////////
+// ACDK_CCT_OP_DEV_AE_SET_TARGET
+/////////////////////////////////////////////////////////////////////////
+MRESULT mrCCAPAESetTarget_Cmd(const MUINT32 a_u4Argc, MUINT8 *a_pprArgv[])
+{
+     if (!g_bAcdkOpend )
+    {
+        return E_ACDK_IF_API_FAIL;
+    }
+
+    ACDK_LOGD("ACDK_CCT_OP_DEV_AE_SET_TARGET\n");
+
+    if (a_u4Argc != 1)
+    {
+        ACDK_LOGD("Usage: AE target value\n");
+        return E_ACDK_IF_API_FAIL;
+    }
+    //! ====================================================
+    //! 1. Fill the input / output data  here
+    //!     or anything you need to initialize
+    //! ====================================================
+    MUINT32 u4RetLen = 0;
+    MUINT32 u4AETargetValue;
+
+    u4AETargetValue = (MUINT32) atoi((char *)a_pprArgv[0]);
+
+    ACDK_LOGD("AE target value = %d\n", u4AETargetValue);
+
+    //! ====================================================
+    //! 2. Modify the input data, size, and output data, size
+    //! ====================================================
+    BOOL bRet = bSendDataToACDK(ACDK_CCT_OP_DEV_AE_SET_TARGET,
+                                (UINT8 *)&u4AETargetValue,
+                                sizeof(MUINT32),
+                                NULL,
+                                0,
+                                &u4RetLen);
+
+    //! ====================================================
+    //! 3. Check the output
+    //!     Do what you want to do
+    //! ====================================================
+
+    if (!bRet)
+    {
+        return E_ACDK_CCAP_API_FAIL;
+    }
+
+    return S_ACDK_CCAP_OK;
+}
+
+/////////////////////////////////////////////////////////////////////////
 // ACDK_CCT_V2_OP_AWB_ENABLE_AUTO_RUN
 /////////////////////////////////////////////////////////////////////////
 MRESULT mrCCAPAWBEnableAutoRun_Cmd(const MUINT32 a_u4Argc, MUINT8 *a_pprArgv[])
@@ -7576,6 +7627,7 @@ static const Acdk_CLICmd g_prAcdkCCAPCLICmds [] =
     {"sAEParam",         "ACDK_CCT_OP_DEV_AE_SAVE_INFO_NVRAM",    mrCCAPAESaveInfoToNVRAM_Cmd},
     {"gAECaliEV",        "ACDK_CCT_OP_DEV_AE_GET_EV_CALIBRATION", mrCCAPAEGetEVCalibration_Cmd},
     {"sAEExpLine",       "ACDK_CCT_OP_AE_SET_SENSOR_EXP_LINE",    mrCCAPAESetExpLine_Cmd},
+    {"sAETarget",       "ACDK_CCT_OP_DEV_AE_SET_TARGET",    mrCCAPAESetTarget_Cmd},
 
     //AWB
     {"enAWB",             "ACDK_CCT_V2_OP_AWB_ENABLE_AUTO_RUN",   mrCCAPAWBEnableAutoRun_Cmd},

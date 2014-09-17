@@ -119,7 +119,7 @@ __RCSID("$NetBSD: res_send.c,v 1.9 2006/01/24 17:41:25 christos Exp $");
 #  include <resolv_cache.h>
 #endif
 
-#include "logd.h"
+#include "libc_logging.h"
 
 #ifndef DE_CONST
 #define DE_CONST(c,v)   v = ((c) ? \
@@ -370,10 +370,13 @@ res_nsend(res_state statp,
         ResolvCacheStatus     cache_status = RESOLV_CACHE_UNSUPPORTED;
 #endif
 
+#if !USE_RESOLV_CACHE
 	if (statp->nscount == 0) {
 		errno = ESRCH;
 		return (-1);
 	}
+#endif
+
 	if (anssiz < HFIXEDSZ) {
 		errno = EINVAL;
 		return (-1);
@@ -385,17 +388,27 @@ res_nsend(res_state statp,
 	terrno = ETIMEDOUT;
 
 #if USE_RESOLV_CACHE
-        cache = __get_res_cache();
-        if (cache != NULL) {
-            int  anslen = 0;
-            cache_status = _resolv_cache_lookup(
-                                cache, buf, buflen,
-                                ans, anssiz, &anslen);
+	// get the cache associated with the interface
+	cache = __get_res_cache(statp->iface);
+	if (cache != NULL) {
+		int  anslen = 0;
+		cache_status = _resolv_cache_lookup(
+				cache, buf, buflen,
+				ans, anssiz, &anslen);
 
-            if (cache_status == RESOLV_CACHE_FOUND) {
-                return anslen;
-            }
-        }
+		if (cache_status == RESOLV_CACHE_FOUND) {
+			return anslen;
+		} else {
+			// had a cache miss for a known interface, so populate the thread private
+			// data so the normal resolve path can do its thing
+			_resolv_populate_res_for_iface(statp);
+		}
+	}
+
+	if (statp->nscount == 0) {
+		errno = ESRCH;
+		return (-1);
+	}
 #endif
 
 	/*
@@ -542,7 +555,7 @@ res_nsend(res_state statp,
 				    ns);
 
 			if (DBG) {
-				__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
+				__libc_format_log(ANDROID_LOG_DEBUG, "libc",
 					"used send_vc %d\n", n);
 			}
 
@@ -554,15 +567,13 @@ res_nsend(res_state statp,
 		} else {
 			/* Use datagrams. */
 			if (DBG) {
-				__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
-					"using send_dg\n");
+				__libc_format_log(ANDROID_LOG_DEBUG, "libc", "using send_dg\n");
 			}
 
 			n = send_dg(statp, buf, buflen, ans, anssiz, &terrno,
 				    ns, &v_circuit, &gotsomewhere);
 			if (DBG) {
-				__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
-					"used send_dg %d\n",n);
+				__libc_format_log(ANDROID_LOG_DEBUG, "libc", "used send_dg %d\n",n);
 			}
 
 			if (n < 0)
@@ -570,8 +581,8 @@ res_nsend(res_state statp,
 			if (n == 0)
 				goto next_ns;
 			if (DBG) {
-				__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
-					"time=%d, %d\n",time(NULL), time(NULL)%2);
+				__libc_format_log(ANDROID_LOG_DEBUG, "libc", "time=%ld\n",
+                                                  time(NULL));
 			}
 			if (v_circuit)
 				goto same_ns;
@@ -715,8 +726,7 @@ static int get_timeout(const res_state statp, const int ns)
 		timeout = 1;
 	}
 	if (DBG) {
-		__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
-			"using timeout of %d sec\n", timeout);
+		__libc_format_log(ANDROID_LOG_DEBUG, "libc", "using timeout of %d sec\n", timeout);
 	}
 
 	return timeout;
@@ -738,7 +748,7 @@ send_vc(res_state statp,
 	void *tmp;
 
 	if (DBG) {
-		__libc_android_log_print(ANDROID_LOG_DEBUG, "libc", "using send_vc\n");
+		__libc_format_log(ANDROID_LOG_DEBUG, "libc", "using send_vc\n");
 	}
 
 	nsap = get_nsaddr(statp, (size_t)ns);
@@ -752,10 +762,13 @@ send_vc(res_state statp,
 	if (statp->_vcsock >= 0 && (statp->_flags & RES_F_VC) != 0) {
 		struct sockaddr_storage peer;
 		socklen_t size = sizeof peer;
-
+		int old_mark;
+		int mark_size = sizeof(old_mark);
 		if (getpeername(statp->_vcsock,
 				(struct sockaddr *)(void *)&peer, &size) < 0 ||
-		    !sock_eq((struct sockaddr *)(void *)&peer, nsap)) {
+		    !sock_eq((struct sockaddr *)(void *)&peer, nsap) ||
+			getsockopt(statp->_vcsock, SOL_SOCKET, SO_MARK, &old_mark, &mark_size) < 0 ||
+			old_mark != statp->_mark) {
 			res_nclose(statp);
 			statp->_flags &= ~RES_F_VC;
 		}
@@ -783,6 +796,14 @@ send_vc(res_state statp,
 				*terrno = errno;
 				Perror(statp, stderr, "socket(vc)", errno);
 				return (-1);
+			}
+		}
+		if (statp->_mark != 0) {
+			if (setsockopt(statp->_vcsock, SOL_SOCKET,
+				        SO_MARK, &statp->_mark, sizeof(statp->_mark)) < 0) {
+				*terrno = errno;
+				Perror(statp, stderr, "setsockopt", errno);
+				return -1;
 			}
 		}
 		errno = 0;
@@ -939,8 +960,7 @@ connect_with_timeout(int sock, const struct sockaddr *nsap, socklen_t salen, int
 		timeout = evConsTime((long)sec, 0L);
 		finish = evAddTime(now, timeout);
 		if (DBG) {
-			__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
-				"  %d send_vc\n", sock);
+			__libc_format_log(ANDROID_LOG_DEBUG, "libc", "  %d send_vc\n", sock);
 		}
 
 		res = retrying_select(sock, &rset, &wset, &finish);
@@ -951,8 +971,8 @@ connect_with_timeout(int sock, const struct sockaddr *nsap, socklen_t salen, int
 done:
 	fcntl(sock, F_SETFL, origflags);
 	if (DBG) {
-		__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
-			"  %d connect_with_timeout returning %s\n", sock, res);
+		__libc_format_log(ANDROID_LOG_DEBUG, "libc",
+			"  %d connect_with_timeout returning %d\n", sock, res);
 	}
 	return res;
 }
@@ -967,7 +987,7 @@ retrying_select(const int sock, fd_set *readset, fd_set *writeset, const struct 
 
 retry:
 	if (DBG) {
-		__libc_android_log_print(ANDROID_LOG_DEBUG, "libc", "  %d retying_select\n", sock);
+		__libc_format_log(ANDROID_LOG_DEBUG, "libc", "  %d retying_select\n", sock);
 	}
 
 	now = evNowTime();
@@ -987,7 +1007,7 @@ retry:
 	n = pselect(sock + 1, readset, writeset, NULL, &timeout, NULL);
 	if (n == 0) {
 		if (DBG) {
-			__libc_android_log_print(ANDROID_LOG_DEBUG, " libc",
+			__libc_format_log(ANDROID_LOG_DEBUG, " libc",
 				"  %d retrying_select timeout\n", sock);
 		}
 		errno = ETIMEDOUT;
@@ -997,7 +1017,7 @@ retry:
 		if (errno == EINTR)
 			goto retry;
 		if (DBG) {
-			__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
+			__libc_format_log(ANDROID_LOG_DEBUG, "libc",
 				"  %d retrying_select got error %d\n",sock, n);
 		}
 		return n;
@@ -1007,7 +1027,7 @@ retry:
 		if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error) {
 			errno = error;
 			if (DBG) {
-				__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
+				__libc_format_log(ANDROID_LOG_DEBUG, "libc",
 					"  %d retrying_select dot error2 %d\n", sock, errno);
 			}
 
@@ -1015,8 +1035,8 @@ retry:
 		}
 	}
 	if (DBG) {
-		__libc_android_log_print(ANDROID_LOG_DEBUG, "libc",
-			"  %d retrying_select returning %d for %d\n",sock, n);
+		__libc_format_log(ANDROID_LOG_DEBUG, "libc",
+			"  %d retrying_select returning %d\n",sock, n);
 	}
 
 	return n;
@@ -1061,6 +1081,14 @@ send_dg(res_state statp,
 				return (-1);
 			}
 		}
+
+		if (statp->_mark != 0) {
+			if (setsockopt(EXT(statp).nssocks[ns], SOL_SOCKET,
+					SO_MARK, &(statp->_mark), sizeof(statp->_mark)) < 0) {
+				res_nclose(statp);
+				return -1;
+			}
+		}
 #ifndef CANNOT_CONNECT_DGRAM
 		/*
 		 * On a 4.3BSD+ machine (client and server,
@@ -1088,6 +1116,7 @@ send_dg(res_state statp,
 #endif /* !CANNOT_CONNECT_DGRAM */
 		Dprint(statp->options & RES_DEBUG,
 		       (stdout, ";; new DG socket\n"))
+
 	}
 	s = EXT(statp).nssocks[ns];
 #ifndef CANNOT_CONNECT_DGRAM

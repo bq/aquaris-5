@@ -35,10 +35,6 @@
 #include "wcio.h"
 #include "fileext.h"
 
-#ifndef DEFFILEMODE
-#define DEFFILEMODE  (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH)
-#endif
-
 
 /*
  * Information local to this implementation of stdio,
@@ -62,7 +58,10 @@ int	__swsetup(FILE *);
 int	__sflags(const char *, int *);
 int	__vfprintf(FILE *, const char *, __va_list);
 
-extern void __atexit_register_cleanup(void (*)(void));
+/*
+ * Function to clean up streams, called from abort() and exit().
+ */
+extern void (*__cleanup)(void);
 extern int __sdidinit;
 
 /*

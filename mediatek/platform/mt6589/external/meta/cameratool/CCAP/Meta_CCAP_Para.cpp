@@ -225,7 +225,7 @@ static META_BOOL bSendDataToACDK(/*ACDK_CCT_FEATURE_ENUM*/int	FeatureID,
     rAcdkFeatureInfo.pu4RealParaOutLen = pRealOutByeCnt; 
     
 
-    return (MDK_IOControl(FeatureID, &rAcdkFeatureInfo));
+    return (Mdk_IOControl(FeatureID, &rAcdkFeatureInfo));
 }
 
 static VOID vPrvCb(VOID *a_pParam)
@@ -260,11 +260,13 @@ META_BOOL FT_ACDK_CCT_OP_PREVIEW_LCD_START(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pC
 
       ACDK_LOGD("FT_CCT_OP_PREVIEW_LCD_START"); 
 
-      ACDK_CCT_CAMERA_PREVIEW_STRUCT rCCTPreviewConfig; 
+      //ACDK_CCT_CAMERA_PREVIEW_STRUCT rCCTPreviewConfig;
+      ACDK_PREVIEW_STRUCT rCCTPreviewConfig;
 
-      rCCTPreviewConfig.fpPrvCB = vPrvCb; 
-      rCCTPreviewConfig.u2PreviewWidth = 320; 
-      rCCTPreviewConfig.u2PreviewHeight = 240; 
+      rCCTPreviewConfig.fpPrvCB = vPrvCb;
+      rCCTPreviewConfig.u4PrvW = 320;
+      rCCTPreviewConfig.u4PrvH = 240;
+      rCCTPreviewConfig.u16PreviewTestPatEn = 0;
   
       UINT32 u4RetLen = 0; 
 
@@ -277,7 +279,7 @@ META_BOOL FT_ACDK_CCT_OP_PREVIEW_LCD_START(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pC
 			  g_FT_CCT_StateMachine.is_fb_init = KAL_TRUE;
       }
 //*/
-      META_BOOL bRet = bSendDataToACDK (ACDK_CCT_OP_PREVIEW_LCD_START, (UINT8 *)&rCCTPreviewConfig,sizeof(ACDK_CCT_CAMERA_PREVIEW_STRUCT),                                      
+      META_BOOL bRet = bSendDataToACDK (ACDK_CMD_PREVIEW_START, (UINT8 *)&rCCTPreviewConfig,sizeof(ACDK_CCT_CAMERA_PREVIEW_STRUCT),
                                                                                                                 NULL,
                                                                                                                 0,
                                                                                                                 &u4RetLen);
@@ -314,13 +316,13 @@ META_BOOL FT_ACDK_CCT_OP_PREVIEW_LCD_STOP(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pCN
 {
        if (!g_bAcdkOpend )
        {
-           return E_ACDK_IF_API_FAIL;
+           return FALSE;
        }
 
        ACDK_LOGD("FT_CCT_OP_PREVIEW_LCD_STOP");     
 
        UINT32 u4RetLen = 0; 
-       META_BOOL bRet = bSendDataToACDK(ACDK_CCT_OP_PREVIEW_LCD_STOP, NULL, 0, NULL, 0, &u4RetLen);
+       META_BOOL bRet = bSendDataToACDK(ACDK_CMD_PREVIEW_STOP, NULL, 0, NULL, 0, &u4RetLen);
        if (!bRet)
        {
        	pCNF->status = FT_CCT_ERR_INVALID_SENSOR_ID;
@@ -333,8 +335,8 @@ META_BOOL FT_ACDK_CCT_OP_PREVIEW_LCD_STOP(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pCN
        }
     	 pCNF->status = FT_CCT_ERR_PREVIEW_ALREADY_STOPPED;
 	     g_FT_CCT_StateMachine.p_preview_sensor = NULL;
-		MDK_DeInit();
-		MDK_Close();
+		Mdk_DeInit();
+		Mdk_Close();
 		ACDK_LOGD("MDK_DeInit() in  FT_ACDK_CCT_OP_PREVIEW_LCD_STOP\n"); 
 		g_bAcdkOpend = FALSE;
 		
@@ -351,16 +353,16 @@ BOOL Set_srcDev(UINT32 srcDev)
     //====== Check If Change Device Without Preview Start/Stop Process ======
     if(g_acdkState == -1 && g_bAcdkOpend == TRUE)
     {
-        MDK_DeInit();
-        MDK_Close();
+        Mdk_DeInit();
+        Mdk_Close();
 	 ACDK_LOGD("MDK_DeInit() in  Set_srcDev()1\n"); 
         g_bAcdkOpend = FALSE;
     }
 		if(!g_bAcdkOpend)
 		{
-			 	if (MDK_Open() == FALSE)
+			 	if (Mdk_Open() == FALSE)
   			{
-      		ACDK_LOGE("MDK_Open() Fail \n"); 
+      		ACDK_LOGE("Mdk_Open() Fail \n"); 
       		return FALSE;
   			}
   			else
@@ -382,31 +384,31 @@ BOOL Set_srcDev(UINT32 srcDev)
 		rAcdkFeatureInfo.pu4RealParaOutLen = &u4RetLen; 
 	
 		LOGD("Set main/sub sensor for sensorInit() in IspHal::init():%d \n",srcDev); 
-		bRet = MDK_IOControl(ACDK_CCT_FEATURE_SET_SRC_DEV, &rAcdkFeatureInfo);
+		bRet = Mdk_IOControl(ACDK_CCT_FEATURE_SET_SRC_DEV, &rAcdkFeatureInfo);
 		if (!bRet) {
 			LOGD("ACDK_FEATURE_SET_SRC_DEV Fail: %d \n",srcDev); 
-			return E_ACDK_CCAP_API_FAIL; 
+			return E_CCT_CCAP_API_FAIL; 
 		}
 
 		LOGE("lln::init ACDK\n");
-		if(MDK_Init()==false)
+		if(Mdk_Init()==false)
 		{
 			LOGE("MDK_Init fail\n");
 			ACDK_LOGD("MDK_DeInit() in  Set_srcDev()2\n"); 
-			MDK_DeInit();
-			MDK_Close();
+			Mdk_DeInit();
+			Mdk_Close();
     	g_bAcdkOpend = FALSE;
 			
-			return E_ACDK_CCAP_API_FAIL; 
+			return E_CCT_CCAP_API_FAIL; 
 			
 			
 		}
-		ACDK_LOGD("MDK_Init() in  Set_srcDev()3\n"); 
+		ACDK_LOGD("Mdk_Init() in  Set_srcDev()3\n"); 
 		
     	g_bAcdkOpend = TRUE; 
 	g_init_flag =TRUE;
 	ACDK_LOGD("[Set_srcDev] -\n"); 
-    	return S_ACDK_CCAP_OK; 
+    	return S_CCT_CCAP_OK; 
 		
 }
 BOOL Set_SubCamera()
@@ -417,23 +419,23 @@ BOOL Set_SubCamera()
     //====== Check If Change Device Without Preview Start/Stop Process ======
     if(g_acdkState == -1 && g_bAcdkOpend == TRUE)
     {
-        MDK_DeInit();
-        MDK_Close();
-		ACDK_LOGD("MDK_DeInit() in Set_SubCamera 1\n"); 
+        Mdk_DeInit();
+        Mdk_Close();
+		ACDK_LOGD("Mdk_DeInit() in Set_SubCamera 1\n"); 
         g_bAcdkOpend = FALSE;
     }
 		if(!g_bAcdkOpend)
 		{
-			 	if (MDK_Open() == FALSE)
+			 	if (Mdk_Open() == FALSE)
   			{
-      		ACDK_LOGE("MDK_Open() Fail \n"); 
+      		ACDK_LOGE("Mdk_Open() Fail \n");
       		return FALSE;
   			}
   			else
   			{
             g_bAcdkOpend = TRUE;
   			}
-			ACDK_LOGD("MDK_Open() in Set_SubCamera 2\n"); 
+			ACDK_LOGD("Mdk_Open() in Set_SubCamera 2\n"); 
 		}
 		
   
@@ -449,30 +451,30 @@ BOOL Set_SubCamera()
 		rAcdkFeatureInfo.pu4RealParaOutLen = &u4RetLen; 
 	
 		LOGD("Set main/sub sensor for sensorInit() in IspHal::init():%d \n",srcDev); 
-		bRet = MDK_IOControl(ACDK_CCT_FEATURE_SET_SRC_DEV, &rAcdkFeatureInfo);
+		bRet = Mdk_IOControl(ACDK_CCT_FEATURE_SET_SRC_DEV, &rAcdkFeatureInfo);
 		if (!bRet) {
 			LOGD("ACDK_FEATURE_SET_SRC_DEV Fail: %d \n",srcDev); 
-			return E_ACDK_CCAP_API_FAIL; 
+			return E_CCT_CCAP_API_FAIL; 
 		}
 
 		LOGE("lln::init ACDK\n");
-		if(MDK_Init()==false)
+		if(Mdk_Init()==false)
 		{
-			LOGE("MDK_Init fail\n");
-			MDK_DeInit();
-			MDK_Close();
+			LOGE("Mdk_Init fail\n");
+			Mdk_DeInit();
+			Mdk_Close();
     	g_bAcdkOpend = FALSE;
-			ACDK_LOGD("MDK_DeInit() in Set_SubCamera 3\n"); 
-			return E_ACDK_CCAP_API_FAIL; 
+			ACDK_LOGD("Mdk_DeInit() in Set_SubCamera 3\n"); 
+			return E_CCT_CCAP_API_FAIL; 
 			
 			
 		}
-		ACDK_LOGD("MDK_Init() in Set_SubCamera 4\n"); 
+		ACDK_LOGD("Mdk_Init() in Set_SubCamera 4\n"); 
 		
     	g_bAcdkOpend = TRUE; 
 	g_init_flag =FALSE;//active main
 
-    	return S_ACDK_CCAP_OK; 
+    	return S_CCT_CCAP_OK; 
 		
 }
 
@@ -484,16 +486,16 @@ BOOL Set_Main2Camera()
     //====== Check If Change Device Without Preview Start/Stop Process ======
     if(g_acdkState == -1 && g_bAcdkOpend == TRUE)
     {
-        MDK_DeInit();
-        MDK_Close();
-		ACDK_LOGD("MDK_DeInit() in Set_Main2Camera 1\n"); 
+        Mdk_DeInit();
+        Mdk_Close();
+		ACDK_LOGD("Mdk_DeInit() in Set_Main2Camera 1\n"); 
         g_bAcdkOpend = FALSE;
     }
 		if(!g_bAcdkOpend)
 		{
-			 	if (MDK_Open() == FALSE)
+			 	if (Mdk_Open() == FALSE)
   			{
-      		ACDK_LOGE("MDK_Open() Fail \n"); 
+      		ACDK_LOGE("Mdk_Open() Fail \n");
       		return FALSE;
   			}
   			else
@@ -516,22 +518,22 @@ BOOL Set_Main2Camera()
 		rAcdkFeatureInfo.pu4RealParaOutLen = &u4RetLen; 
 	
 		ACDK_LOGD("Set main/sub sensor for sensorInit() in IspHal::init():%d \n",srcDev); 
-		bRet = MDK_IOControl(ACDK_CCT_FEATURE_SET_SRC_DEV, &rAcdkFeatureInfo);
+		bRet = Mdk_IOControl(ACDK_CCT_FEATURE_SET_SRC_DEV, &rAcdkFeatureInfo);
 		if (!bRet) {
 			ACDK_LOGD("ACDK_FEATURE_SET_SRC_DEV Fail: %d \n",srcDev); 
-			return E_ACDK_CCAP_API_FAIL; 
+			return E_CCT_CCAP_API_FAIL; 
 		}
 
 		ACDK_LOGE("lln::init ACDK\n");
-		if(MDK_Init()==false)
+		if(Mdk_Init()==false)
 		{
-			ACDK_LOGE("MDK_Init fail\n");
-			MDK_DeInit();
-			MDK_Close();
+			ACDK_LOGE("Mdk_Init fail\n");
+			Mdk_DeInit();
+			Mdk_Close();
 			ACDK_LOGD("MDK_DeInit() in Set_Main2Camera 3\n"); 
 			g_bAcdkOpend = FALSE;
 			
-			return E_ACDK_CCAP_API_FAIL; 
+			return E_CCT_CCAP_API_FAIL; 
 			
 			
 		}	
@@ -540,7 +542,7 @@ BOOL Set_Main2Camera()
     	g_bAcdkOpend = TRUE; 
 	g_init_flag =FALSE;//active main
 
-    	return S_ACDK_CCAP_OK; 
+    	return S_CCT_CCAP_OK; 
 		
 }
 
@@ -556,16 +558,18 @@ BOOL FT_ACDK_CCT_OP_SUBPREVIEW_LCD_START(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pCNF
 
       ACDK_LOGD("FT_CCT_OP_SUBPREVIEW_LCD_START\n"); 
 
-      ACDK_CCT_CAMERA_PREVIEW_STRUCT rCCTPreviewConfig; 
+      //ACDK_CCT_CAMERA_PREVIEW_STRUCT rCCTPreviewConfig;
+      ACDK_PREVIEW_STRUCT rCCTPreviewConfig;
 
-      rCCTPreviewConfig.fpPrvCB = vPrvCb; 
-      rCCTPreviewConfig.u2PreviewWidth = 320; 
-      rCCTPreviewConfig.u2PreviewHeight = 240; 
+      rCCTPreviewConfig.fpPrvCB = vPrvCb;
+      rCCTPreviewConfig.u4PrvW = 320;
+      rCCTPreviewConfig.u4PrvH = 240;
+      rCCTPreviewConfig.u16PreviewTestPatEn = 0;
   
       UINT32 u4RetLen = 0; 
     
 
-      BOOL bRet = bSendDataToACDK (ACDK_CCT_OP_PREVIEW_LCD_START, (UINT8 *)&rCCTPreviewConfig,sizeof(ACDK_CCT_CAMERA_PREVIEW_STRUCT),                                      
+      BOOL bRet = bSendDataToACDK (ACDK_CMD_PREVIEW_START, (UINT8 *)&rCCTPreviewConfig,sizeof(ACDK_CCT_CAMERA_PREVIEW_STRUCT),
                                                                                                                 NULL,
                                                                                                                 0,
                                                                                                                 &u4RetLen);
@@ -627,13 +631,13 @@ BOOL FT_ACDK_CCT_OP_SUBPREVIEW_LCD_STOP(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pCNF,
 {
        if (!g_bAcdkOpend )
        {
-           return E_ACDK_IF_API_FAIL;
+           return FALSE;
        }
 
        ACDK_LOGD("FT_CCT_OP_SUBPREVIEW_LCD_STOP\n");     
 
        UINT32 u4RetLen = 0; 
-       BOOL bRet = bSendDataToACDK(ACDK_CCT_OP_PREVIEW_LCD_STOP, NULL, 0, NULL, 0, &u4RetLen);
+       BOOL bRet = bSendDataToACDK(ACDK_CMD_PREVIEW_STOP, NULL, 0, NULL, 0, &u4RetLen);
        if (!bRet)
        {
        		pCNF->status = FT_CCT_ERR_INVALID_SENSOR_ID;
@@ -642,8 +646,8 @@ BOOL FT_ACDK_CCT_OP_SUBPREVIEW_LCD_STOP(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pCNF,
 	   pCNF->status = FT_CCT_ERR_PREVIEW_ALREADY_STOPPED;
 	   g_FT_CCT_StateMachine.p_preview_sensor = NULL;
 
-	   	MDK_DeInit();
-		MDK_Close();
+	   	Mdk_DeInit();
+		Mdk_Close();
 		ACDK_LOGD("MDK_DeInit in FT_ACDK_CCT_OP_SUBPREVIEW_LCD_STOP\n");     
 		g_bAcdkOpend = FALSE;
 	   
@@ -664,16 +668,18 @@ BOOL FT_ACDK_CCT_OP_MAIN2PREVIEW_LCD_START(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pC
 
       ACDK_LOGD("FT_CCT_OP_MAIN2PREVIEW_LCD_START\n"); 
 
-      ACDK_CCT_CAMERA_PREVIEW_STRUCT rCCTPreviewConfig; 
+	ACDK_PREVIEW_STRUCT rCCTPreviewConfig;
+      //ACDK_CCT_CAMERA_PREVIEW_STRUCT rCCTPreviewConfig;
 
-      rCCTPreviewConfig.fpPrvCB = vPrvCb; 
-      rCCTPreviewConfig.u2PreviewWidth = 320; 
-      rCCTPreviewConfig.u2PreviewHeight = 240; 
+      rCCTPreviewConfig.fpPrvCB = vPrvCb;
+      rCCTPreviewConfig.u4PrvW= 320;
+      rCCTPreviewConfig.u4PrvH= 240;
+      rCCTPreviewConfig.u16PreviewTestPatEn = 0;
   
       UINT32 u4RetLen = 0; 
     
 
-      BOOL bRet = bSendDataToACDK (ACDK_CCT_OP_PREVIEW_LCD_START, (UINT8 *)&rCCTPreviewConfig,sizeof(ACDK_CCT_CAMERA_PREVIEW_STRUCT),                                      
+      BOOL bRet = bSendDataToACDK (ACDK_CMD_PREVIEW_START, (UINT8 *)&rCCTPreviewConfig,sizeof(ACDK_CCT_CAMERA_PREVIEW_STRUCT),
                                                                                                                 NULL,
                                                                                                                 0,
                                                                                                                 &u4RetLen);
@@ -696,13 +702,13 @@ BOOL FT_ACDK_CCT_OP_MAIN2PREVIEW_LCD_STOP(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pCN
 {
        if (!g_bAcdkOpend )
        {
-           return E_ACDK_IF_API_FAIL;
+           return FALSE;
        }
 
        ACDK_LOGD("FT_CCT_OP_MAIN2PREVIEW_LCD_STOP\n");     
 
        UINT32 u4RetLen = 0; 
-       BOOL bRet = bSendDataToACDK(ACDK_CCT_OP_PREVIEW_LCD_STOP, NULL, 0, NULL, 0, &u4RetLen);
+       BOOL bRet = bSendDataToACDK(ACDK_CMD_PREVIEW_STOP, NULL, 0, NULL, 0, &u4RetLen);
        if (!bRet)
        {
        		pCNF->status = FT_CCT_ERR_INVALID_SENSOR_ID;
@@ -711,8 +717,8 @@ BOOL FT_ACDK_CCT_OP_MAIN2PREVIEW_LCD_STOP(const FT_CCT_REQ* pREQ,FT_CCT_CNF* pCN
 	   pCNF->status = FT_CCT_ERR_PREVIEW_ALREADY_STOPPED;
 	   g_FT_CCT_StateMachine.p_preview_sensor = NULL;
 
-	   	MDK_DeInit();
-		MDK_Close();
+	   	Mdk_DeInit();
+		Mdk_Close();
 		ACDK_LOGD("MDK_DeInit in FT_ACDK_CCT_OP_MAIN2PREVIEW_LCD_STOP\n");     
 		g_bAcdkOpend = FALSE;
 	   
@@ -1334,6 +1340,12 @@ bool FT_ACDK_CCT_OP_SINGLE_SHOT_CAPTURE_EX	(const FT_CCT_REQ* pREQ,FT_CCT_CNF* p
         memset(&StillCaptureConfigPara, 0, sizeof(ACDK_CCT_STILL_CAPTURE_STRUCT));
 
 	StillCaptureConfigPara.eOperaMode = ACDK_OPT_META_MODE;
+
+	ACDK_LOGD("OUTPUT_JPEG: %d", OUTPUT_JPEG);
+	ACDK_LOGD("OUTPUT_PURE_RAW8: %d", OUTPUT_PURE_RAW8);
+	ACDK_LOGD("OUTPUT_PROCESSED_RAW8: %d", OUTPUT_PROCESSED_RAW8);
+	ACDK_LOGD("OUTPUT_PURE_RAW10: %d", OUTPUT_PURE_RAW10);
+	ACDK_LOGD("OUTPUT_PROCESSED_RAW10: %d", OUTPUT_PROCESSED_RAW10);
 
 	if( NULL == (s_sensor=get_sensor_by_id(pREQ->type, pREQ->device_id))) {
 			pCNF->status = FT_CCT_ERR_INVALID_SENSOR_ID;
@@ -6490,18 +6502,18 @@ META_BOOL META_CCAP_init()
 	if(g_bAcdkOpend)
 		return TRUE;
 	ACDK_LOGE("[META_CCAP_init] +"); 
-  if (MDK_Open() == FALSE)
+  if (Mdk_Open() == FALSE )
   {
-      ACDK_LOGE("MDK_Open() Fail "); 
+      ACDK_LOGE("Mdk_Open() Fail ");
       return FALSE;
   }
-  ACDK_LOGD("MDK_Open() in  META_CCAP_init 1"); 
-	if (MDK_Init() == FALSE) 
+  ACDK_LOGD("Mdk_Open() in  META_CCAP_init 1"); 
+	if (Mdk_Init() == FALSE)
        {
-           ACDK_LOGE("MDK_Init() Fail "); 
+           ACDK_LOGE("Mdk_Init() Fail ");
            goto Exit; 
        }
-	ACDK_LOGD("MDK_Init() in  META_CCAP_init 2"); 
+  ACDK_LOGD("Mdk_Init() in  META_CCAP_init 2"); 
 
   g_bAcdkOpend = TRUE; 
     g_acdkState = -1;
@@ -6514,9 +6526,9 @@ META_BOOL META_CCAP_init()
 	ACDK_LOGE("[META_CCAP_init] -"); 
 	return TRUE;
 Exit:
-	  MDK_DeInit(); 
-    MDK_Close();     
-	ACDK_LOGD("MDK_DeInit() in  META_CCAP_init 3"); 
+	Mdk_DeInit();
+    	Mdk_Close();
+	ACDK_LOGD("Mdk_DeInit() in  META_CCAP_init 3"); 
     ACDK_LOGD("umount SDCard file system"); 
 	ACDK_LOGE("[META_CCAP_init] -"); 
     return FALSE;
@@ -6528,9 +6540,9 @@ void META_CCAP_deinit()
     ACDK_LOGD("META_CCAP_deinit"); 
     
     g_acdkState = -1;
-       MDK_DeInit(); 
-       MDK_Close();
-	ACDK_LOGD("MDK_DeInit() in  META_CCAP_deinit"); 
+	Mdk_DeInit();
+       Mdk_Close();
+	ACDK_LOGD("Mdk_DeInit() in  META_CCAP_deinit"); 
 }
 
 

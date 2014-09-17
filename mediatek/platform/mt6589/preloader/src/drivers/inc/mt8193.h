@@ -100,6 +100,15 @@
 #define REG_RW_CKMISC_CTRL            0x050
 #define CKGEN_CKMISC_CTRL_DCXO_MODE_EN         1
 
+#define REG_RW_GPIO_EN                       0x144
+#define GPIO_EN_PAD_INT_OUT_EN        (1U<<0)
+
+#define REG_RW_GPIO_OUT_2                    0x120
+#define GPIO_OUT_2_PAD_INT_OUT_HIGH        (1U<<0)
+
+
+
+
 
 #define REG_RW_PMUX0                 0x200
 #define REG_RW_PMUX1                 0x204
@@ -108,7 +117,10 @@
 #define REG_RW_PMUX4                 0x210
 #define REG_RW_PMUX5                 0x214
 #define REG_RW_PMUX6                 0x218
+
 #define REG_RW_PMUX7                 0x21c
+#define PMUX7_PAD_INT_SHIFT   (15)
+
 #define REG_RW_PMUX8                 0x220
 #define REG_RW_PMUX9                 0x224
 
@@ -117,9 +129,14 @@
 #define CKGEN_LVDSWRAP_CTRL1_NFIPLL_MON_EN   (1U<<7)
 #define CKGEN_LVDSWRAP_CTRL1_DCXO_POR_MON_EN   (1U<<8)
 
-#define REG_RW_PLL_GPANACFG0              0x34c
+#define REG_RW_PLLGP_ANACFG0              0x34c
+#define PLLGP_ANACFG0_PLL1_RESERVED             1
+#define PLLGP_ANACFG0_PLL1_NFIPLL_EN      (1U<<1)
+#define PLLGP_ANACFG0_PLL1_EN             (1U<<31)
 
-#define REG_RW_PLL_GPANACFG2              0x354
+
+#define REG_RW_PLLGP_ANACFG2              0x354
+#define PLLGP_ANACFG2_PLLGP_BIAS_EN       (1U<<20)
 
 #define REG_RW_PLL_GPANACFG3              0x358
 
@@ -128,6 +145,36 @@
 #define REG_RW_LVDS_ANACFG3              0x31c
 
 #define REG_RW_LVDS_ANACFG4              0x320
+
+/* DCXO */
+
+#define REG_RW_DCXO_ANACFG2              0x308
+#define DCXO_ANACFG2_LDO4_EN             (1U<<2)
+#define DCXO_ANACFG2_LDO4_MAN_EN         (1U<<3)
+#define DCXO_ANACFG2_LDO3_EN             (1U<<4)
+#define DCXO_ANACFG2_LDO3_MAN_EN         (1U<<5)
+#define DCXO_ANACFG2_LDO2_EN             (1U<<6)
+#define DCXO_ANACFG2_LDO2_MAN_EN         (1U<<7)
+#define DCXO_ANACFG2_LDO1_EN             (1U<<8)
+#define DCXO_ANACFG2_LDO1_MAN_EN         (1U<<9)
+#define DCXO_ANACFG2_PO_MAN              (1U<<29)
+
+
+
+
+#define REG_RW_DCXO_ANACFG4              0x370
+#define DCXO_ANACFG4_BT_MAN             (1U<<18)
+#define DCXO_ANACFG4_EXT2_MAN           (1U<<19)
+#define DCXO_ANACFG4_EXT1_MAN           (1U<<20)
+
+
+
+#define REG_RW_DCXO_ANACFG9              0x388
+#define DCXO_ANACFG9_BUS_CK_SOURCE_SEL_SHIFT   9
+#define DCXO_ANACFG9_BUS_CK_SOURCE_SEL_MASK    0x7
+
+
+
 
 
 

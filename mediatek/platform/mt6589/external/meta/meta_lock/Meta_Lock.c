@@ -11,12 +11,14 @@
 //#include "../../../../../external/mtd_util/mtd_utilc.h"
 
 
+#define INVALID_HANDLE  -1
 
 static int META_Lock_WriteFlash(unsigned int iMagicNum)
 {
-      int fd;
-      int iWriteSize,iRealWriteSize;
-      int result;
+      int fd = INVALID_HANDLE;
+      int iWriteSize = 0;
+	  int iRealWriteSize = 0;
+      int result = 0;
       unsigned int iReadValue=0;
       int *tempBuf=NULL;
       struct mtd_info_user info;
@@ -63,14 +65,12 @@ static int META_Lock_WriteFlash(unsigned int iMagicNum)
       if(result!=(END_BLOCK))
 	   {
           META_LOG("[META_LOCK]:mtd first lseek error\r\n");
-          free(tempBuf);
           goto end;
 	   }
       result=write(fd,tempBuf,iWriteSize);
       if(result!=iWriteSize)
 	    {
           META_LOG("[META_LOCK]:mtd write error,iWriteSize:%d\r\n",iWriteSize);
-          free(tempBuf);
           goto end;
       	}
       memset(tempBuf,0,iWriteSize);
@@ -78,29 +78,44 @@ static int META_Lock_WriteFlash(unsigned int iMagicNum)
       if(result!=(END_BLOCK))
 	    {
           META_LOG("[META_LOCK]:mtd second lseek error\r\n");
-          free(tempBuf);
           goto end;
 	    }
       result=read(fd,tempBuf,iRealWriteSize);
       if(result!=iRealWriteSize)
           {
            META_LOG("[META_LOCK]:mtd read error\r\n");
-           free(tempBuf);
            goto end;
           }
       memcpy(&iReadValue,tempBuf,iRealWriteSize);
-      free(tempBuf);
-      close(fd);
+      if(tempBuf!=NULL)
+  	  {
+          free(tempBuf);
+		  tempBuf = NULL;
+  	  }
+	  if (fd != INVALID_HANDLE)
+      {
+          close(fd);
+		  fd = INVALID_HANDLE;
+	  }
 	  
       if(iReadValue!=iMagicNum)
 	    {   
 	     META_LOG("[META_LOCK]:mtd readed value error,iReadValue:%d,iMagicNum:%d\r\n",iReadValue,iMagicNum);
-	     goto end;
+	     return 0;
 	    }
 	  
       return 1;
   end:
-  	  close(fd);
+  	  if(tempBuf!=NULL)
+  	  {
+  	      free(tempBuf);
+		  tempBuf = NULL;
+  	  }
+  	  if (fd != INVALID_HANDLE)
+      {
+  	      close(fd);
+		  fd = INVALID_HANDLE;
+	  }
   	  return 0;
 }
 

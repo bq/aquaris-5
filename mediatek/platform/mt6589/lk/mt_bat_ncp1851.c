@@ -26,6 +26,10 @@
 //#define CONFIG_DEBUG_MSG
 #define GPT_TIMER // when sleep driver ready, open this define
 
+#ifdef MTK_KERNEL_POWER_OFF_CHARGING
+bool g_boot_reason_change = false;
+#endif
+
 /*****************************************************************************
  *  Type define
  ****************************************************************************/
@@ -238,19 +242,48 @@ typedef struct{
 
 int get_bat_sense_volt_ch0(int times)
 {
-    kal_uint32 ret;
 	//RG_SOURCE_CH0_NORM_SEL set to 0 for bat_sense
-    ret=pmic_config_interface(AUXADC_CON14, 0x0, PMIC_RG_SOURCE_CH0_NORM_SEL_MASK, PMIC_RG_SOURCE_CH0_NORM_SEL_SHIFT);	
+    pmic_config_interface(AUXADC_CON14, 0x0, PMIC_RG_SOURCE_CH0_NORM_SEL_MASK, PMIC_RG_SOURCE_CH0_NORM_SEL_SHIFT);	
     return PMIC_IMM_GetOneChannelValue(0,times,1);
 }
 
 int get_i_sense_volt_ch0(int times)
 {
-    kal_uint32 ret;
 	//RG_SOURCE_CH0_NORM_SEL set to 1 for i_sense
-    ret=pmic_config_interface(AUXADC_CON14, 0x1, PMIC_RG_SOURCE_CH0_NORM_SEL_MASK, PMIC_RG_SOURCE_CH0_NORM_SEL_SHIFT);	
+    pmic_config_interface(AUXADC_CON14, 0x1, PMIC_RG_SOURCE_CH0_NORM_SEL_MASK, PMIC_RG_SOURCE_CH0_NORM_SEL_SHIFT);	
     return PMIC_IMM_GetOneChannelValue(0,times,1); //i sense use channel 0 as well
 }
+
+#ifdef MTK_BATLOWV_NO_PANEL_ON_EARLY
+kal_bool is_low_battery(void)
+{    
+    kal_uint32 ncp1851_status;
+    
+    BMT_status.bat_vol = get_i_sense_volt_ch0(5);
+
+    if (BMT_status.bat_vol < BATTERY_LOWVOL_THRESOLD)
+    {
+        printf("%s, TRUE\n", __FUNCTION__);
+        return KAL_TRUE;
+    }
+    else
+    {
+        //battery protect check for A3 platform        
+        if (BMT_status.bat_vol <= 3800)
+        {	
+            ncp1851_status = ncp1851_get_chip_status();
+            if((ncp1851_status == 0x8) || (ncp1851_status == 0x9) || (ncp1851_status == 0xA)) //WEAK WAIT, WEAK SAFE, WEAK CHARGE
+            {
+                printf("%s, battery protect TRUE\n", __FUNCTION__);
+                return KAL_TRUE;
+            }    
+        }    
+    }
+    
+    printf("%s, FALSE\n", __FUNCTION__);
+    return KAL_FALSE;
+}
+#endif
 
 /* convert register to temperature  */
 INT16 BattThermistorConverTemp(INT32 Res)
@@ -1042,7 +1075,7 @@ void BAT_LkAnimationControl(kal_bool display)
             if (!bl_switch) {
                 mt_disp_power(TRUE);
                 bl_switch_timer++;
-                mt65xx_backlight_on();
+                //mt65xx_backlight_on();
                 g_bl_on = 1;
             }
             if (bl_switch_timer > BL_SWITCH_TIMEOUT) {
@@ -1060,6 +1093,7 @@ void BAT_LkAnimationControl(kal_bool display)
                 if(g_bl_on == 1)
                 {
                     mt_disp_show_battery_full();
+                    mt65xx_backlight_on();
                 }
                 user_view_flag = KAL_TRUE;
             }
@@ -1075,6 +1109,7 @@ void BAT_LkAnimationControl(kal_bool display)
                 if(g_bl_on == 1)
                 {
                     mt_disp_show_battery_capacity(prog);
+                    mt65xx_backlight_on();
                 }
                 prog += BATTERY_BAR;
                 if (prog > 100) prog = prog_temp;
@@ -1117,8 +1152,6 @@ void BAT_LkAnimationControl(kal_bool display)
 
 int BAT_CheckBatteryStatus_ncp1851(void)
 {
-    static int cnt = 9;
-	int vol_batfet_disabled = 0;
     int i = 0;
     int bat_temperature_volt=0;
     /* Get Battery Information : start --------------------------------------------------------------------------*/
@@ -1176,6 +1209,12 @@ int BAT_CheckBatteryStatus_ncp1851(void)
     {
         bat_volt_cp_flag = 1;
         bat_volt_check_point = BMT_status.SOC;
+        
+        /* sync mechanism to avoid ambiguous full battery */
+		if (bat_volt_check_point >= 100)
+		{
+		    bat_volt_check_point = 99;
+		}
     }
     /* User smooth View when discharging : end */
 
@@ -1232,6 +1271,12 @@ int BAT_CheckBatteryStatus_ncp1851(void)
 	/* SOC only UP when charging */
 	if ( BMT_status.SOC > bat_volt_check_point ) {
 		bat_volt_check_point = BMT_status.SOC;
+		
+		/* sync mechanism to avoid ambiguous full battery */
+		if (bat_volt_check_point >= 100)
+		{
+		    bat_volt_check_point = 99;
+		}
 	}
 	
 	/* LK charging LED */
@@ -1420,8 +1465,6 @@ void BAT_thread_ncp1851(void)
 {
     int BAT_status = 0;
     kal_uint32 ncp1851_status=0;
-    kal_uint32 tmp32;
-    int i = 0;
     int chr_err_cnt = 0;
 
     printf("[BAT_thread_ncp1851] mtk_wdt_restart()\n");
@@ -1681,7 +1724,115 @@ void check_point_sync_leds(void)
     }
 }
 
+//enter this function when low battery with charger
+void check_bat_protect_status()
+{
+	kal_uint32 ncp1851_status;
+
+    printf("%s\n", __FUNCTION__);
+    
+    if ((BMT_status.charger_type != STANDARD_HOST) && (BMT_status.charger_type != CHARGER_UNKNOWN))
+    {
+        printf("no trap, keep booting!\n");
+        return;
+    }
+        
+    kick_charger_wdt();               
+    upmu_set_rg_vcdt_hv_en(1);      //VCDT_HV_EN
+
+    //add charger ov detection
+    bmt_charger_ov_check();
+    
+	ncp1851_status = ncp1851_get_chip_status();
+    
+	while ((ncp1851_status == 0x8) ||
+           (ncp1851_status == 0x9) ||
+           (ncp1851_status == 0xA) ||
+           (BMT_status.bat_vol < BATTERY_LOWVOL_THRESOLD)) //WEAK WAIT, WEAK SAFE, WEAK CHARGE
+    {                
+        rtc_boot_check(false);
+        BAT_thread_ncp1851();
+        printf("-");
+
+    #ifdef GPT_TIMER
+        mtk_sleep(5000, KAL_TRUE);
+    #else
+        tmo2 = get_timer(0);
+        while(get_timer(tmo2) <= 5000 /* ms */);
+    #endif		
+        
+        ncp1851_status = ncp1851_get_chip_status();
+        
+        //debug
+        printf("BMT_status.bat_vol = %d, ncp1851_status = %d\n", BMT_status.bat_vol, ncp1851_status);
+    }
+    
+    printf("leave %s\n", __FUNCTION__);
+}
+
 extern bool g_boot_menu;
+
+#ifdef MTK_KERNEL_POWER_OFF_CHARGING
+void mt65xx_bat_init(void)
+{
+    kal_uint32 ncp1851_status;
+    
+    BMT_status.bat_full = false;
+    BMT_status.bat_vol = get_i_sense_volt_ch0(5);    
+    
+    printf("check VBAT=%d mV with %d mV\n", BMT_status.bat_vol, BATTERY_LOWVOL_THRESOLD);
+
+    if ((upmu_is_chr_det() == KAL_TRUE))
+    {        
+        printf("[mt65xx_bat_init] ncp1851 init\n");
+        pmu_init_for_ncp1851();
+        ncp1851_dump_register();
+        
+        CHR_Type_num = mt_charger_type_detection();
+        BMT_status.charger_type = CHR_Type_num;
+                
+		pchr_turn_on_charging_ncp1851();
+    }
+	pmic_config_interface(INT_STATUS0,0x1,0x1,9);
+	if(g_boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT && (upmu_get_pwrkey_deb()==0) ) {
+		printf("[mt65xx_bat_init] KPOC+PWRKEY=>change boot mode\n");
+		g_boot_reason_change = true;
+	}
+    if(upmu_is_chr_det() == KAL_TRUE)
+        check_point_sync_leds();
+
+    rtc_boot_check(false);
+
+    ncp1851_status = ncp1851_get_chip_status();
+
+    if ((BMT_status.bat_vol < BATTERY_LOWVOL_THRESOLD) || (ncp1851_status == 0xA)) { //weak charge
+        if(g_boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT && upmu_is_chr_det() == KAL_TRUE) {
+            printf("[%s] Kernel Low Battery Power Off Charging Mode\n", __func__);
+            g_boot_mode = LOW_POWER_OFF_CHARGING_BOOT;
+            check_bat_protect_status();
+            return;
+        }
+        else
+        {
+            if ((BMT_status.charger_type != STANDARD_HOST) && (BMT_status.charger_type != CHARGER_UNKNOWN))
+            {
+                printf("with power path, keep booting!");
+                return;
+            }
+            
+            printf("[BATTERY] battery voltage(%dmV) <= CLV ! Can not Boot Linux Kernel !! \n\r",BMT_status.bat_vol);
+#ifndef NO_POWER_OFF
+            mt6575_power_off();
+#endif			
+            while(1)
+            {
+                printf("If you see the log, please check with RTC power off API\n\r");
+            }
+        }
+    }
+    return;
+}
+#else
 
 void mt65xx_bat_init(void)
 {
@@ -1844,12 +1995,12 @@ void mt65xx_bat_init(void)
     
                     if (g_boot_mode != ALARM_BOOT)
                     {
-                        mt_disp_show_boot_logo();
+                        //mt_disp_show_boot_logo();
                         
                         // update twice here to ensure the LCM is ready to show the
                         // boot logo before turn on backlight, OR user may glimpse
                         // at the previous battery charging screen
-                        mt_disp_show_boot_logo();
+                        //mt_disp_show_boot_logo();
                         mt_disp_wait_idle();
                     }
                     else
@@ -1978,12 +2129,12 @@ void mt65xx_bat_init(void)
     
             if (g_boot_mode != ALARM_BOOT)
             {
-                mt_disp_show_boot_logo();
+                //mt_disp_show_boot_logo();
                         
                 // update twice here to ensure the LCM is ready to show the
                 // boot logo before turn on backlight, OR user may glimpse
                 // at the previous battery charging screen
-                mt_disp_show_boot_logo();
+                //mt_disp_show_boot_logo();
                 mt_disp_wait_idle();
             }
             else
@@ -2024,7 +2175,7 @@ void mt65xx_bat_init(void)
     sc_mod_exit();
     return;
 }
-
+#endif
 #else
 
 #include <platform/mt_typedefs.h>

@@ -47,9 +47,9 @@ static unsigned long g_u4CurrPosition   = 0;
 
 static int g_sr = 3;
 
-extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
-extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
-extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
+//extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
+//extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
+//extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
 
 
 static int s4AR0833AF_ReadReg(unsigned short * a_pu2Result)
@@ -360,7 +360,7 @@ inline static int Register_AR0833AF_CharDrv(void)
         return -EAGAIN;
     }
 
-    actuator_class = class_create(THIS_MODULE, "actuatordrv5");
+    actuator_class = class_create(THIS_MODULE, "actuatordrv6");
     if (IS_ERR(actuator_class)) {
         int ret = PTR_ERR(actuator_class);
         AR0833DB("Unable to create class, err = %d\n", ret);
@@ -468,14 +468,14 @@ static struct platform_driver g_stAR0833AF_Driver = {
     .suspend	= AR0833AF_suspend,
     .resume	= AR0833AF_resume,
     .driver		= {
-        .name	= "lens_actuator5",
+        .name	= "lens_actuator6",
         .owner	= THIS_MODULE,
     }
 };
 
 static int __init AR0833AF_i2C_init(void)
 {
-	// i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
+	i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
 	AR0833DB("[AR0833AF] AR0833AF_i2C_init!! \n");
 
 	if(platform_driver_register(&g_stAR0833AF_Driver)){

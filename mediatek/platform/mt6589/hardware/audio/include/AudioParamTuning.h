@@ -49,7 +49,8 @@
 #include "AudioSpeechEnhanceInfo.h"
 #endif
 
-typedef struct {
+typedef struct
+{
     unsigned short cmd_type;
     unsigned short slected_fir_index;
     unsigned short dlDigitalGain;
@@ -57,9 +58,10 @@ typedef struct {
     unsigned short phone_mode;
     unsigned short wb_mode;
     char input_file[FILE_NAME_LEN_MAX];
-}AudioTasteTuningStruct;
+} AudioTasteTuningStruct;
 
-typedef enum {
+typedef enum
+{
     AUD_TASTE_STOP = 0,
     AUD_TASTE_START,
     AUD_TASTE_DLDG_SETTING,
@@ -67,147 +69,152 @@ typedef enum {
     AUD_TASTE_INDEX_SETTING,
 
     AUD_TASTE_CMD_NUM
-}AUD_TASTE_CMD_TYPE;
+} AUD_TASTE_CMD_TYPE;
 
-typedef enum {
+typedef enum
+{
     PCM_FORMAT = 0,
     WAVE_FORMAT,
 
     UNSUPPORT_FORMAT
-}FILE_FORMAT;
+} FILE_FORMAT;
 
 #if defined(MTK_DUAL_MIC_SUPPORT) || defined(MTK_AUDIO_HD_REC_SUPPORT)
-typedef enum {
+typedef enum
+{
     AUD_MIC_GAIN = 0,
     AUD_RECEIVER_GAIN,
     AUD_HS_GAIN,
 
     AUD_GAIN_TYPE_NUM
-}DMNRGainType;
+} DMNRGainType;
 
-typedef enum {
-	DUAL_MIC_REC_PLAY_STOP=	0,
-	DUAL_MIC_REC,
-	DUAL_MIC_REC_PLAY,
-	DUAL_MIC_REC_PLAY_HS,
-	   
-	DMNR_TUNING_CMD_CNT
-}DMNRTuningCmdType;
+typedef enum
+{
+    DUAL_MIC_REC_PLAY_STOP = 0,
+    DUAL_MIC_REC,
+    DUAL_MIC_REC_PLAY,
+    DUAL_MIC_REC_PLAY_HS,
 
-typedef struct{
-	unsigned int ChunkID;
-	unsigned int ChunkSize;
-	unsigned int Format;
-	unsigned int Subchunk1ID;
-	unsigned int Subchunk1IDSize;
-	unsigned short AudioFormat;
-	unsigned short NumChannels;
-	unsigned int SampleRate;
-	unsigned int ByteRate;
-	unsigned short BlockAlign;
-	unsigned short BitsPerSample;
-	unsigned int SubChunk2ID;
-	unsigned int SubChunk2Size;
-}WAVEHDR;
+    DMNR_TUNING_CMD_CNT
+} DMNRTuningCmdType;
+
+typedef struct
+{
+    unsigned int ChunkID;
+    unsigned int ChunkSize;
+    unsigned int Format;
+    unsigned int Subchunk1ID;
+    unsigned int Subchunk1IDSize;
+    unsigned short AudioFormat;
+    unsigned short NumChannels;
+    unsigned int SampleRate;
+    unsigned int ByteRate;
+    unsigned short BlockAlign;
+    unsigned short BitsPerSample;
+    unsigned int SubChunk2ID;
+    unsigned int SubChunk2Size;
+} WAVEHDR;
 #endif
 
-namespace android {
+namespace android
+{
 #define MODE_NUM NUM_OF_VOL_MODE
 
 class AudioParamTuning
 {
-public:
-    AudioParamTuning();
-    ~AudioParamTuning();
+    public:
+        AudioParamTuning();
+        ~AudioParamTuning();
 
-    static AudioParamTuning *getInstance();
-   
-    //for taste tool
-    bool isPlaying();
-    status_t setMode(uint32 mode);
-    uint32 getMode();
-    status_t setPlaybackFileName(const char *fileName);
-    status_t setDLPGA(uint32 gain);
-    void updataOutputFIRCoffes(AudioTasteTuningStruct *pCustParam);
-    status_t enableModemPlaybackVIASPHPROC(bool bEnable, bool bWB=false);
-    
-    FILE_FORMAT playbackFileFormat();
+        static AudioParamTuning *getInstance();
 
-    // protect Play PCM With Speech Enhancement buffers
-    pthread_mutex_t mPlayBufMutex;  
-    pthread_cond_t mPPSExit_Cond;
-    pthread_mutex_t mPPSMutex;
-    pthread_mutex_t mP2WMutex;
+        //for taste tool
+        bool isPlaying();
+        status_t setMode(uint32 mode);
+        uint32 getMode();
+        status_t setPlaybackFileName(const char *fileName);
+        status_t setDLPGA(uint32 gain);
+        void updataOutputFIRCoffes(AudioTasteTuningStruct *pCustParam);
+        status_t enableModemPlaybackVIASPHPROC(bool bEnable, bool bWB = false);
 
-    bool m_bPPSThreadExit;
-    bool m_bWBMode;
-    FILE *m_pInputFile;
+        FILE_FORMAT playbackFileFormat();
+
+        // protect Play PCM With Speech Enhancement buffers
+        pthread_mutex_t mPlayBufMutex;
+        pthread_cond_t mPPSExit_Cond;
+        pthread_mutex_t mPPSMutex;
+        pthread_mutex_t mP2WMutex;
+
+        bool m_bPPSThreadExit;
+        bool m_bWBMode;
+        FILE *m_pInputFile;
 
 #if defined(MTK_DUAL_MIC_SUPPORT) || defined(MTK_AUDIO_HD_REC_SUPPORT)
-    // For DMNR Tuning	
-    status_t setRecordFileName(const char *fileName);
-    status_t setDMNRGain(unsigned short type, unsigned short value); //for DMNR
-    status_t getDMNRGain(unsigned short type, unsigned short *value); //for DMNR
+        // For DMNR Tuning
+        status_t setRecordFileName(const char *fileName);
+        status_t setDMNRGain(unsigned short type, unsigned short value); //for DMNR
+        status_t getDMNRGain(unsigned short type, unsigned short *value); //for DMNR
 #ifdef DMNR_TUNNING_AT_MODEMSIDE
-    status_t enableDMNRModem2Way(bool bEnable, bool bWBMode, unsigned short outputDevice, unsigned short workMode);
+        status_t enableDMNRModem2Way(bool bEnable, bool bWBMode, unsigned short outputDevice, unsigned short workMode);
 #else
-    AudioMTKStreamManagerInterface *getStreamManager(){return mAudioMtkStreamManager;}
-    AudioSpeechEnhanceInfo  *getSpeechEnhanceInfoInst(){return mAudioSpeechEnhanceInfoInstance;}
-    int getPlaybackDb(){return mPlaybackDb_index;}
-    status_t setPlaybackVolume(uint32 mode, uint32 gain);
-    status_t enableDMNRAtApSide(bool bEnable, bool bWBMode, unsigned short outputDevice, unsigned short workMode);
+        AudioMTKStreamManagerInterface *getStreamManager() {return mAudioMtkStreamManager;}
+        AudioSpeechEnhanceInfo  *getSpeechEnhanceInfoInst() {return mAudioSpeechEnhanceInfoInstance;}
+        int getPlaybackDb() {return mPlaybackDb_index;}
+        status_t setPlaybackVolume(uint32 mode, uint32 gain);
+        status_t enableDMNRAtApSide(bool bEnable, bool bWBMode, unsigned short outputDevice, unsigned short workMode);
 #endif
-    // for DMNR playback+record thread
-    //rb m_sRecBuf;
+        // for DMNR playback+record thread
+        //rb m_sRecBuf;
 
-    // protect DMNR Playback+record buffers
-    pthread_mutex_t mDMNRMutex;	
-    pthread_mutex_t mRecBufMutex;  
-    pthread_cond_t mDMNRExit_Cond;
+        // protect DMNR Playback+record buffers
+        pthread_mutex_t mDMNRMutex;
+        pthread_mutex_t mRecBufMutex;
+        pthread_cond_t mDMNRExit_Cond;
 
-    bool m_bDMNRThreadExit;
-    FILE *m_pOutputFile;
-    
-    Play2Way *mPlay2WayInstance;
-    Record2Way *mRec2WayInstance;
+        bool m_bDMNRThreadExit;
+        FILE *m_pOutputFile;
+
+        Play2Way *mPlay2WayInstance;
+        Record2Way *mRec2WayInstance;
 #endif
-	
-private:
 
-    status_t setSphVolume(uint32 mode, uint32 gain);
-    status_t openModemDualMicCtlFlow(bool bWB, bool bRecPly);
-    status_t closeModemDualMicCtlFlow(bool bRecPly);
-		
-    // the uniqe
-    static AudioParamTuning *UniqueTuningInstance;
+    private:
 
-    SpeechDriverFactory *mSpeechDriverFactory;
-    AudioMTKVolumeInterface *mAudioVolumeInstance;
-    AudioAnalogControlInterface *mAudioAnalogInstance;
-    AudioDigitalControlInterface *mAudioDigitalInstance;
-    AudioResourceManagerInterface *mAudioResourceManager; 
-    SpeechPhoneCallController *mSphPhonecallCtrl;
-    uint32 mSideTone;
-    uint32 mOutputVolume[MODE_NUM];
-    uint32 mMode;
-    char m_strInputFileName[FILE_NAME_LEN_MAX];
-    bool m_bPlaying;
+        status_t setSphVolume(uint32 mode, uint32 gain);
+        status_t openModemDualMicCtlFlow(bool bWB, bool bRecPly);
+        status_t closeModemDualMicCtlFlow(bool bRecPly);
 
-    pthread_t mTasteThreadID;
+        // the uniqe
+        static AudioParamTuning *UniqueTuningInstance;
+
+        SpeechDriverFactory *mSpeechDriverFactory;
+        AudioMTKVolumeInterface *mAudioVolumeInstance;
+        AudioAnalogControlInterface *mAudioAnalogInstance;
+        AudioDigitalControlInterface *mAudioDigitalInstance;
+        AudioResourceManagerInterface *mAudioResourceManager;
+        SpeechPhoneCallController *mSphPhonecallCtrl;
+        uint32 mSideTone;
+        uint32 mOutputVolume[MODE_NUM];
+        uint32 mMode;
+        char m_strInputFileName[FILE_NAME_LEN_MAX];
+        bool m_bPlaying;
+
+        pthread_t mTasteThreadID;
 
 #if defined(MTK_DUAL_MIC_SUPPORT) || defined(MTK_AUDIO_HD_REC_SUPPORT)
-    bool m_bDMNRPlaying;
-    char m_strOutFileName[FILE_NAME_LEN_MAX]; // for reord
-    unsigned short mDualMicTool_micGain;
-    unsigned short mDualMicTool_receiverGain;
-    unsigned short mDualMicTool_headsetGain;
-    unsigned short mDualMicTool_micGain_default;    
-    pthread_t mDMNRThreadID;
+        bool m_bDMNRPlaying;
+        char m_strOutFileName[FILE_NAME_LEN_MAX]; // for reord
+        unsigned short mDualMicTool_micGain;
+        unsigned short mDualMicTool_receiverGain;
+        unsigned short mDualMicTool_headsetGain;
+        unsigned short mDualMicTool_micGain_default;
+        pthread_t mDMNRThreadID;
 #ifndef DMNR_TUNNING_AT_MODEMSIDE
-    AudioMTKStreamManagerInterface *mAudioMtkStreamManager;
-    AudioSpeechEnhanceInfo * mAudioSpeechEnhanceInfoInstance;
-    int mPlaybackDb_index;
-#endif    
+        AudioMTKStreamManagerInterface *mAudioMtkStreamManager;
+        AudioSpeechEnhanceInfo *mAudioSpeechEnhanceInfoInstance;
+        int mPlaybackDb_index;
+#endif
 #endif
 };
 }

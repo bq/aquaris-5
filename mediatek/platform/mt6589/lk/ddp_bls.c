@@ -1,7 +1,13 @@
 #include <platform/ddp_reg.h>
 #include <platform/ddp_path.h>
 
+#include <cust_leds.h>
+
 #define POLLING_TIME_OUT 10000
+
+#define PWM_DEFAULT_DIV_VALUE 0x24
+
+static int gPWMDiv = PWM_DEFAULT_DIV_VALUE;
 
 static int gBLSMutexID = 3;
 
@@ -52,7 +58,6 @@ int disp_poll_for_reg(unsigned int addr, unsigned int value, unsigned int mask, 
 
 static int disp_bls_get_mutex()
 {
-#if !defined(MTK_AAL_SUPPORT)    
     if (gBLSMutexID < 0)
         return -1;
 
@@ -63,13 +68,11 @@ static int disp_bls_get_mutex()
         disp_dump_reg(DISP_MODULE_CONFIG);        
         return -1;
     }
-#endif    
     return 0;
 }
 
 static int disp_bls_release_mutex()
 {
-#if !defined(MTK_AAL_SUPPORT)    
     if (gBLSMutexID < 0)
         return -1;
     
@@ -80,23 +83,26 @@ static int disp_bls_release_mutex()
         disp_dump_reg(DISP_MODULE_CONFIG);
         return -1;
     }
-#endif    
     return 0;
-}
-
-void disp_bls_init(unsigned int srcWidth, unsigned int srcHeight)
-{
-    printf("[DDP] disp_bls_init : srcWidth = %d, srcHeight = %d\n", srcWidth, srcHeight);
-    DISP_REG_SET(DISP_REG_BLS_SRC_SIZE, (srcHeight << 16) | srcWidth);
-    DISP_REG_SET(DISP_REG_BLS_PWM_DUTY, DISP_REG_GET(DISP_REG_BLS_PWM_DUTY));
-    DISP_REG_SET(DISP_REG_BLS_PWM_CON, 0x00050024);
-    DISP_REG_SET(DISP_REG_BLS_PWM_DUTY_GAIN, 0x00000100);
-    DISP_REG_SET(DISP_REG_BLS_EN, 0x80000000);                      // only enable PWM
 }
 
 int disp_bls_config(void)
 {
-#if !defined(MTK_AAL_SUPPORT) 
+    struct cust_mt65xx_led *cust_led_list = get_cust_led_list();
+    struct cust_mt65xx_led *cust = NULL;
+    struct PWM_config *config_data = NULL;
+
+    if(cust_led_list)
+    {
+        cust = &cust_led_list[MT65XX_LED_TYPE_LCD];
+        if((strcmp(cust->name,"lcd-backlight") == 0) && (cust->mode == MT65XX_LED_MODE_CUST_BLS_PWM))
+        {
+            config_data = &cust->config_data;
+            gPWMDiv = (config_data->div == 0)?PWM_DEFAULT_DIV_VALUE:config_data->div;
+            printf("disp_bls_config : PWM config data (%d,%d)\n", config_data->clock_source, config_data->div);
+        }
+    }
+
     printf("[DDP] disp_bls_config : gBLSMutexID = %d\n", gBLSMutexID);
     DISP_REG_SET(DISP_REG_CONFIG_MUTEX_RST(gBLSMutexID), 1);
     DISP_REG_SET(DISP_REG_CONFIG_MUTEX_RST(gBLSMutexID), 0);
@@ -109,11 +115,11 @@ int disp_bls_config(void)
         g_previous_level = (DISP_REG_GET(DISP_REG_BLS_PWM_CON) & 0x80 > 7) * 0xFF;
         g_previous_wavenum = 0;
         DISP_REG_SET(DISP_REG_BLS_PWM_DUTY, 0x00000080);
-        DISP_REG_SET(DISP_REG_BLS_PWM_CON, 0x00050024 | (DISP_REG_GET(DISP_REG_BLS_PWM_CON) & 0x80));    
+        DISP_REG_SET(DISP_REG_BLS_PWM_CON, (0x00050000 | gPWMDiv) | (DISP_REG_GET(DISP_REG_BLS_PWM_CON) & 0x80));    
         DISP_REG_SET(DISP_REG_BLS_EN, 0x00000000);
 #else
         DISP_REG_SET(DISP_REG_BLS_PWM_DUTY, DISP_REG_GET(DISP_REG_BLS_PWM_DUTY));
-        DISP_REG_SET(DISP_REG_BLS_PWM_CON, 0x00050024);
+        DISP_REG_SET(DISP_REG_BLS_PWM_CON, 0x00050000 | gPWMDiv);
         DISP_REG_SET(DISP_REG_BLS_EN, 0x80000000);
 #endif
         DISP_REG_SET(DISP_REG_BLS_PWM_DUTY_GAIN, 0x00000100);
@@ -122,8 +128,6 @@ int disp_bls_config(void)
             return 0;
     }
     return -1;
-#endif
-    return 0;
 }
 
 
@@ -140,8 +144,8 @@ int disp_bls_set_backlight(unsigned int level)
     if (level > 0)
         wavenum = MAX_PWM_WAVENUM - brightness_mapping(level);
 
-    printf("[DDP] disp_bls_set_backlight: level = %d (%d), previous level = %d (%d)\n",
-        level, wavenum, g_previous_level, g_previous_wavenum);
+    printf("[DDP] disp_bls_set_backlight: level = %d (%d), previous level = %d (%d), PWM div %d\n",
+        level, wavenum, g_previous_level, g_previous_wavenum, gPWMDiv);
 
     // [Case 1] y => 0
     //          disable PWM, idle value set to low
@@ -211,7 +215,7 @@ Exit:
 #else
 int disp_bls_set_backlight(unsigned int level)
 {
-    printf("[DDP] disp_bls_set_backlight: %d\n", level);
+    printf("[DDP] disp_bls_set_backlight: %d, PWM div %d\n", level, gPWMDiv);
     disp_bls_get_mutex();
     DISP_REG_SET(DISP_REG_BLS_PWM_DUTY, brightness_mapping(level));
     disp_bls_release_mutex();

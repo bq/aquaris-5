@@ -47,7 +47,7 @@ static unsigned int reboot_from = RE_BOOT_FROM_UNKNOW;
 static unsigned int rgu_mode = 0;
 unsigned int g_rgu_status = RE_BOOT_REASON_UNKNOW;
 
-static void mtk_wdt_disable(void)
+void mtk_wdt_disable(void)
 {
     u32 tmp;
 
@@ -313,7 +313,7 @@ int mtk_wdt_boot_check(void)
      * For DA download hope to timeout reboot, and boot to u-boot/kernel configurable reason,
      * we set both timeout reboot and software reboot can check whether bypass power key.
      */
-    if (wdt_sta & (MTK_WDT_STATUS_HWWDT_RST|MTK_WDT_STATUS_SWWDT_RST)) {
+    if (wdt_sta & (MTK_WDT_STATUS_HWWDT_RST|MTK_WDT_STATUS_SWWDT_RST|MTK_WDT_STATUS_SPMWDT_RST)) {
         if (rgu_mode & MTK_WDT_MODE_AUTO_RESTART) {
             /* HW/SW reboot, and auto restart is set, means bypass power key */
             print ("SW reset with bypass power key flag\n");
@@ -361,6 +361,11 @@ void mtk_wdt_init(void)
 	{
 	   g_rgu_status |= RE_BOOT_WITH_INTTERUPT;
 	}
+
+	if(wdt_sta & MTK_WDT_STATUS_SPMWDT_RST)
+	{
+	   g_rgu_status |= RE_BOOT_BY_SPM_THERMAL;
+	}
     print ("RGU: g_rgu_satus:%d\n", g_rgu_status);	    
     mtk_wdt_mode_config(FALSE, FALSE, FALSE, FALSE, FALSE); // Wirte Mode register will clear status register
     mtk_wdt_check_trig_reboot_reason();
@@ -369,7 +374,7 @@ void mtk_wdt_init(void)
 
     //#if !defined CFG_APWDT_DISABLE
     /* Config HW reboot mode */
-    mtk_wdt_mode_config(TRUE, FALSE, FALSE, FALSE, TRUE); 
+    mtk_wdt_mode_config(TRUE, TRUE, TRUE, FALSE, TRUE); 
     mtk_wdt_restart();
    // #endif
 }

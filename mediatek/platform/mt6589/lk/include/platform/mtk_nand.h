@@ -404,66 +404,18 @@ do {	\
 #define NAND_MAX_OOBSIZE	218
 #define NAND_MAX_PAGESIZE	4096
 
-/* Select the chip by setting nCE to low */
-#define NAND_NCE		0x01
-/* Select the command latch by setting CLE to high */
-#define NAND_CLE		0x02
-/* Select the address latch by setting ALE to high */
-#define NAND_ALE		0x04
-
-#define NAND_CTRL_CLE		(NAND_NCE | NAND_CLE)
-#define NAND_CTRL_ALE		(NAND_NCE | NAND_ALE)
-#define NAND_CTRL_CHANGE	0x80
-
-/*
- * Standard NAND flash commands
- */
-#define NAND_CMD_READ0		0
-#define NAND_CMD_READ1		1
-#define NAND_CMD_RNDOUT		5
-#define NAND_CMD_PAGEPROG	0x10
-#define NAND_CMD_READOOB	0x50
-#define NAND_CMD_ERASE1		0x60
+#define NAND_CMD_READ_0		(0)
+#define NAND_CMD_READ_1		(1)
+#define NAND_CMD_RNDOUT		(5)
+#define NAND_CMD_PAGE_PROG	(0x10)
+#define NAND_CMD_READ_OOB	(0x50)
+#define NAND_CMD_ERASE_1		(0x60)
+#define NAND_CMD_ERASE_2		(0xd0)
 #define NAND_CMD_STATUS		0x70
-#define NAND_CMD_STATUS_MULTI	0x71
-#define NAND_CMD_SEQIN		0x80
-#define NAND_CMD_RNDIN		0x85
-#define NAND_CMD_READID		0x90
-#define NAND_CMD_ERASE2		0xd0
-#define NAND_CMD_RESET		0xff
-
-/* Extended commands for large page devices */
-#define NAND_CMD_READSTART	0x30
-#define NAND_CMD_RNDOUTSTART	0xE0
-#define NAND_CMD_CACHEDPROG	0x15
-
-/* Extended commands for AG-AND device */
-/*
- * Note: the command for NAND_CMD_DEPLETE1 is really 0x00 but
- *       there is no way to distinguish that from NAND_CMD_READ0
- *       until the remaining sequence of commands has been completed
- *       so add a high order bit and mask it off in the command.
- */
-#define NAND_CMD_DEPLETE1	0x100
-#define NAND_CMD_DEPLETE2	0x38
-#define NAND_CMD_STATUS_MULTI	0x71
-#define NAND_CMD_STATUS_ERROR	0x72
-/* multi-bank error status (banks 0-3) */
-#define NAND_CMD_STATUS_ERROR0	0x73
-#define NAND_CMD_STATUS_ERROR1	0x74
-#define NAND_CMD_STATUS_ERROR2	0x75
-#define NAND_CMD_STATUS_ERROR3	0x76
-#define NAND_CMD_STATUS_RESET	0x7f
-#define NAND_CMD_STATUS_CLEAR	0xff
-
-#define NAND_CMD_NONE		-1
-
-/* Status bits */
-#define NAND_STATUS_FAIL	0x01
-#define NAND_STATUS_FAIL_N1	0x02
-#define NAND_STATUS_TRUE_READY	0x20
-#define NAND_STATUS_READY	0x40
-#define NAND_STATUS_WP		0x80
+#define NAND_CMD_SEQIN		(0x80)
+#define NAND_CMD_READ_ID		(0x90)
+#define NAND_CMD_RESET		(0xff)
+#define NAND_CMD_READ_START	(0x30)
 
 #define NAND_BUSWIDTH_16	0x00000002
 

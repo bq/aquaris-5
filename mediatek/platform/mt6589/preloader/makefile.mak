@@ -20,6 +20,7 @@ STRIP	= $(CROSS_COMPILE)strip
 OBJCOPY = $(CROSS_COMPILE)objcopy
 OBJDUMP = $(CROSS_COMPILE)objdump
 RANLIB	= $(CROSS_COMPILE)RANLIB
+THUMB_MODE = TRUE
 
 ###################################################################
 # Initialize GCC Compile Parameter 
@@ -29,16 +30,19 @@ OBJCFLAGS 	 = --gap-fill=0xff
 AFLAGS_DEBUG 	 = -Wa,-gstabs,
 STRIP_SYMBOL	 = -fdata-sections -ffunction-sections
 INCLUDE_FILE     =  \
+    -I$(MTK_ROOT_OUT)/PRELOADER_OBJ/inc \
     -I$(MTK_PATH_PLATFORM)/src/security/inc \
     -I$(MTK_PATH_PLATFORM)/src/drivers/inc \
     -I$(MTK_PATH_PLATFORM)/src/core/inc \
     -I$(MTK_PATH_PLATFORM)/src/init/inc \
     -I$(MTK_PATH_PLATFORM)/src/security/inc \
+    -I$(MTK_ROOT_OUT)/EMIGEN/inc \
     -I$(MTK_PATH_CUSTOM)/inc \
     -I$(D_ROOT)/custom/common/inc \
     -I$(D_ROOT)/inc/$(_CHIP) \
-    -I$(MTK_ROOT_CUSTOM)/$(MTK_PROJECT)/common \
-    -I$(MTK_ROOT_CUSTOM_OUT)/kernel/dct
+    -I$(MTK_ROOT_CUSTOM_OUT)/kernel/dct \
+    -I$(MTK_ROOT_OUT)/PTGEN/common \
+    -I$(MTK_ROOT_OUT)/NANDGEN/common
 
 ###################################################################
 # GCC Compile Options 
@@ -53,18 +57,27 @@ INCLUDE_FILE     +=  \
     -I$(MTK_PATH_PLATFORM)/src/secure_lib/crypto_lib/opt \
 
 # if it's security.lib, we must remove gcc debug message
-C_OPTION	 := -Os -fdata-sections -ffunction-sections -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -mno-thumb-interwork -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__  -DPRELOADER_HEAP
-C_OPTION_OPTIMIZE	 := -Os -fdata-sections -ffunction-sections -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -mno-thumb-interwork -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__  -DPRELOADER_HEAP
+C_OPTION	 := -Os -fdata-sections -ffunction-sections -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -mno-thumb-interwork -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__  -DPRELOADER_HEAP -mno-unaligned-access
+C_OPTION_OPTIMIZE	 := -Os -fdata-sections -ffunction-sections -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -mno-thumb-interwork -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__  -DPRELOADER_HEAP -mno-unaligned-access
 AFLAGS 		 := -c -march=armv7-a -g
 AFLAGS_OPTIMIZE	 := -c -march=armv7-a -g
 
 else
 	
-C_OPTION	 := -Os $(STRIP_SYMBOL) -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -mno-thumb-interwork -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__ -g
-C_OPTION_OPTIMIZE	 := -Os $(STRIP_SYMBOL) -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -mno-thumb-interwork -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__ -g
+C_OPTION	    := -Os $(STRIP_SYMBOL) -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__ -g -mno-unaligned-access
+C_OPTION_OPTIMIZE   := -Os $(STRIP_SYMBOL) -fno-strict-aliasing -fno-common -ffixed-r8 -fno-builtin -ffreestanding -pipe -Wstrict-prototypes -march=armv7-a $(DEFINE) -c $(INCLUDE_FILE) -msoft-float -D__ASSEMBLY__ -g -mno-unaligned-access
 AFLAGS 		 := -c -march=armv7-a -g
 AFLAGS_OPTIMIZE	 := -c -march=armv7-a -g
 
+endif
+
+ifeq ($(THUMB_MODE),TRUE)
+#thumb
+C_OPTION            += -mthumb-interwork -mthumb
+C_OPTION_OPTIMIZE   += -mthumb-interwork -mthumb
+else
+C_OPTION	    += -mno-thumb-interwork
+C_OPTION_OPTIMIZE   += -mno-thumb-interwork
 endif
 
 MTK_CDEFS := $(PL_MTK_CDEFS)

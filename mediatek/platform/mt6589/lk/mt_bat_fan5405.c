@@ -1867,7 +1867,7 @@ void BAT_thread_fan5405(void)
             BMT_status.POSTFULL_charging_time = 0;    
             g_HW_Charging_Done = 1;            
             //pchr_turn_off_charging_fan5405();
-            printk("[BATTERY:fan5405] Battery real full and disable charging (%ld) \n", fan5405_status); 
+            printk("[BATTERY:fan5405] Battery real full and disable charging (%d) \n", fan5405_status); 
             return;
         }
 
@@ -1875,7 +1875,7 @@ void BAT_thread_fan5405(void)
         BMT_status.total_charging_time += BAT_TASK_PERIOD;
         pchr_turn_on_charging_fan5405();        
         if (Enable_BATDRV_LOG == 1) {
-                printk(  "[BATTERY:fan5405] Total charging timer=%ld, fan5405_status=%ld \n\r", 
+                printk(  "[BATTERY:fan5405] Total charging timer=%d, fan5405_status=%d \n\r", 
                     BMT_status.total_charging_time, fan5405_status);    
         }            
     }

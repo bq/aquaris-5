@@ -96,7 +96,7 @@
 #include <mach/mt_typedefs.h>
 #include <mach/mt_gpio.h>
 #include <mach/mt_pm_ldo.h>
-
+#include <mach/eint.h>
 
 //#ifdef MT6516
 //#define POWER_NONE_MACRO MT6516_POWER_NONE
@@ -139,42 +139,14 @@
 /******************************************************************************
  * extern functions
 *******************************************************************************/
-/*for interrup work mode support --add by liaoxl.lenovo 12.08.2011*/
-//#ifdef MT6575
-//	extern void mt65xx_eint_unmask(unsigned int line);
-//	extern void mt65xx_eint_mask(unsigned int line);
-//	extern void mt65xx_eint_set_polarity(kal_uint8 eintno, kal_bool ACT_Polarity);
-//	extern void mt65xx_eint_set_hw_debounce(kal_uint8 eintno, kal_uint32 ms);
-//	extern kal_uint32 mt65xx_eint_set_sens(kal_uint8 eintno, kal_bool sens);
-//	extern void mt65xx_eint_registration(kal_uint8 eintno, kal_bool Dbounce_En,
-//										 kal_bool ACT_Polarity, void (EINT_FUNC_PTR)(void),
-//										 kal_bool auto_umask);
-//	
-//#endif
+extern void mt_eint_mask(unsigned int eint_num);
+extern void mt_eint_unmask(unsigned int eint_num);
+extern void mt_eint_set_hw_debounce(unsigned int eint_num, unsigned int ms);
+extern void mt_eint_set_polarity(unsigned int eint_num, unsigned int pol);
+extern unsigned int mt_eint_set_sens(unsigned int eint_num, unsigned int sens);
+extern void mt_eint_registration(unsigned int eint_num, unsigned int flow, void (EINT_FUNC_PTR)(void), unsigned int is_auto_umask);
+extern void mt_eint_print_status(void);
 
-//#ifdef MT6577
-	extern void mt65xx_eint_unmask(unsigned int line);
-	extern void mt65xx_eint_mask(unsigned int line);
-	extern void mt65xx_eint_set_polarity(kal_uint8 eintno, kal_bool ACT_Polarity);
-	extern void mt65xx_eint_set_hw_debounce(kal_uint8 eintno, kal_uint32 ms);
-	extern kal_uint32 mt65xx_eint_set_sens(kal_uint8 eintno, kal_bool sens);
-	extern void mt65xx_eint_registration(kal_uint8 eintno, kal_bool Dbounce_En,
-										 kal_bool ACT_Polarity, void (EINT_FUNC_PTR)(void),
-										 kal_bool auto_umask);
-	
-//#endif
-
-
-//#ifdef MT6516
-//extern void MT6516_EINTIRQUnmask(unsigned int line);
-//extern void MT6516_EINTIRQMask(unsigned int line);
-//extern void MT6516_EINT_Set_Polarity(kal_uint8 eintno, kal_bool ACT_Polarity);
-//extern void MT6516_EINT_Set_HW_Debounce(kal_uint8 eintno, kal_uint32 ms);
-//extern kal_uint32 MT6516_EINT_Set_Sensitivity(kal_uint8 eintno, kal_bool sens);
-//extern void MT6516_EINT_Registration(kal_uint8 eintno, kal_bool Dbounce_En,
-//                                     kal_bool ACT_Polarity, void (EINT_FUNC_PTR)(void),
-//                                     kal_bool auto_umask);
-//#endif
 /*----------------------------------------------------------------------------*/
 static struct i2c_client *tmd2771_i2c_client = NULL;
 /*----------------------------------------------------------------------------*/
@@ -628,7 +600,7 @@ static long tmd2771_enable_ps(struct i2c_client *client, int enable)
 				return TMD2771_ERR_I2C;
 			}
 		
-			mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
+			mt_eint_unmask(CUST_EINT_ALS_NUM);
 		}
 	}
 	else
@@ -647,7 +619,7 @@ static long tmd2771_enable_ps(struct i2c_client *client, int enable)
 		if(0 == obj->hw->polling_mode_ps)
 		{
 			cancel_work_sync(&obj->eint_work);
-			mt65xx_eint_mask(CUST_EINT_ALS_NUM);
+			mt_eint_mask(CUST_EINT_ALS_NUM);
 		}
 	}
 #endif
@@ -815,7 +787,7 @@ static long tmd2771_enable_ps(struct i2c_client *client, int enable)
 			printk("Yucong:0x%x, %d, %s\n", reg_value[0], __LINE__, __FUNCTION__);
 			#endif
 		
-			mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
+			mt_eint_unmask(CUST_EINT_ALS_NUM);
 		}
 	}
 	else
@@ -846,7 +818,7 @@ static long tmd2771_enable_ps(struct i2c_client *client, int enable)
 		if(0 == obj->hw->polling_mode_ps)
 		{
 			cancel_work_sync(&obj->eint_work);
-			mt65xx_eint_mask(CUST_EINT_ALS_NUM);
+			mt_eint_mask(CUST_EINT_ALS_NUM);
 		}
 	}
 #endif
@@ -1089,17 +1061,16 @@ int tmd2771_setup_eint(struct i2c_client *client)
 
 	g_tmd2771_ptr = obj;
 	
+
+    mt_set_gpio_mode(GPIO_ALS_EINT_PIN, GPIO_ALS_EINT_PIN_M_EINT);
 	mt_set_gpio_dir(GPIO_ALS_EINT_PIN, GPIO_DIR_IN);
-	mt_set_gpio_mode(GPIO_ALS_EINT_PIN, GPIO_ALS_EINT_PIN_M_EINT);
-	mt_set_gpio_pull_enable(GPIO_ALS_EINT_PIN, TRUE);
+    mt_set_gpio_pull_enable(GPIO_ALS_EINT_PIN, GPIO_PULL_ENABLE);
 	mt_set_gpio_pull_select(GPIO_ALS_EINT_PIN, GPIO_PULL_UP);
 
-	mt65xx_eint_set_sens(CUST_EINT_ALS_NUM, CUST_EINT_ALS_SENSITIVE);
-	mt65xx_eint_set_polarity(CUST_EINT_ALS_NUM, CUST_EINT_ALS_POLARITY);
-	mt65xx_eint_set_hw_debounce(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_CN);
-	mt65xx_eint_registration(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_EN, CUST_EINT_ALS_POLARITY, tmd2771_eint_func, 0);
+	mt_eint_set_hw_debounce(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_CN);
+	mt_eint_registration(CUST_EINT_ALS_NUM, CUST_EINT_ALS_TYPE, tmd2771_eint_func, 0);
 
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);  
+	mt_eint_unmask(CUST_EINT_ALS_NUM);
     return 0;
 }
 
@@ -1861,7 +1832,7 @@ static void tmd2771_eint_work(struct work_struct *work)
 		}
 	}
 	tmd2771_clear_intr(obj->client);
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);      
+	mt_eint_unmask(CUST_EINT_ALS_NUM);      
 }
 
 
@@ -2831,7 +2802,7 @@ static int tmd2771_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	cancel_work_sync(&obj->eint_work);
 	if(0 == obj->hw->polling_mode_ps)
 	{
-		mt65xx_eint_mask(CUST_EINT_ALS_NUM);
+		mt_eint_mask(CUST_EINT_ALS_NUM);
 	}
 	//i2c_detach_client(client);
 	//exit_kfree:

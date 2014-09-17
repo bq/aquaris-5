@@ -47,7 +47,8 @@ static const char LOOPBACK_WAKELOCK_NAME[] = "LOOPBACK_WAKELOCK_NAME";
 LoopbackManager *LoopbackManager::mLoopbackManager = NULL;
 LoopbackManager *LoopbackManager::GetInstance()
 {
-    if (mLoopbackManager == NULL) {
+    if (mLoopbackManager == NULL)
+    {
         mLoopbackManager = new LoopbackManager();
     }
     ASSERT(mLoopbackManager != NULL);
@@ -86,11 +87,13 @@ status_t LoopbackManager::SetLoopbackOn(loopback_t loopback_type, loopback_outpu
 
     ALOGD("+%s(), loopback_type = %d, loopback_output_device = %d", __FUNCTION__,  loopback_type, loopback_output_device);
 
-    if (mLoopbackType != NO_LOOPBACK) { // check no loobpack function on
+    if (mLoopbackType != NO_LOOPBACK)   // check no loobpack function on
+    {
         ALOGD("-%s() : Please Turn off Loopback Type %d First!!", __FUNCTION__, mLoopbackType);
         return ALREADY_EXISTS;
     }
-    else if (CheckLoopbackTypeIsValid(loopback_type) != NO_ERROR) { // to avoid using undefined loopback type & ref/dual mic in single mic project
+    else if (CheckLoopbackTypeIsValid(loopback_type) != NO_ERROR)   // to avoid using undefined loopback type & ref/dual mic in single mic project
+    {
         ALOGW("-%s(): No such Loopback type %d", __FUNCTION__, loopback_type);
         return BAD_TYPE;
     }
@@ -113,42 +116,60 @@ status_t LoopbackManager::SetLoopbackOn(loopback_t loopback_type, loopback_outpu
     audio_devices_t output_device = GetOutputDeviceByLoopbackType(loopback_type, loopback_output_device);
 
     // check modem status
-    SpeechDriverInterface *pSpeechDriver = SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex(mWorkingModemIndex);
-    if (pSpeechDriver->CheckModemIsReady() == false) { // modem is sleep...
-        for (int modem_index = MODEM_1; modem_index < NUM_MODEM; modem_index++) { // get working modem index
-            pSpeechDriver = SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex((modem_index_t)modem_index);
-            if (pSpeechDriver != NULL && pSpeechDriver->CheckModemIsReady() == true) {
-                mWorkingModemIndex = (modem_index_t)modem_index;
-                break;
+    if (loopback_type == MD_MAIN_MIC_ACOUSTIC_LOOPBACK ||
+        loopback_type == MD_HEADSET_MIC_ACOUSTIC_LOOPBACK ||
+        loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR ||
+        loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR ||
+        loopback_type == MD_REF_MIC_ACOUSTIC_LOOPBACK ||
+        loopback_type == MD_BT_LOOPBACK)
+    {
+        SpeechDriverInterface *pSpeechDriver = SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex(mWorkingModemIndex);
+        if (pSpeechDriver->CheckModemIsReady() == false)   // modem is sleep...
+        {
+            for (int modem_index = MODEM_1; modem_index < NUM_MODEM; modem_index++)   // get working modem index
+            {
+                pSpeechDriver = SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex((modem_index_t)modem_index);
+                if (pSpeechDriver != NULL && pSpeechDriver->CheckModemIsReady() == true)
+                {
+                    mWorkingModemIndex = (modem_index_t)modem_index;
+                    break;
+                }
             }
         }
     }
 
     // to avoid BT test being interferenced by modem side speech enhancement
-    if (loopback_type == MD_BT_LOOPBACK) {
-        SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex(mWorkingModemIndex)->SetSpeechEnhancement(false);
+    mBtHeadsetNrecOnCopy = SpeechEnhancementController::GetInstance()->GetBtHeadsetNrecOn();
+    if (loopback_type == MD_BT_LOOPBACK)
+    {
+        SpeechEnhancementController::GetInstance()->SetBtHeadsetNrecOnToAllModem(false);
     }
 
     // to turn on/off DMNR
     if (loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR ||
-        loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR) {
+        loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR)
+    {
         mMaskCopy = SpeechEnhancementController::GetInstance()->GetSpeechEnhancementMask(); // copy DMNR mask
         sph_enh_mask_struct_t mask = mMaskCopy;
-        if (loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR) {
+        if (loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR)
+        {
             mask.dynamic_func &= (~SPH_ENH_DYNAMIC_MASK_DMNR);
         }
-        else if (loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR) {
+        else if (loopback_type == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR)
+        {
             mask.dynamic_func |= SPH_ENH_DYNAMIC_MASK_DMNR;
         }
         SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex(mWorkingModemIndex)->SetSpeechEnhancementMask(mask);
     }
 
     // Enable loopback function
-    switch (loopback_type) {
+    switch (loopback_type)
+    {
         case AP_MAIN_MIC_AFE_LOOPBACK:
         case AP_HEADSET_MIC_AFE_LOOPBACK:
         case AP_REF_MIC_AFE_LOOPBACK:
-        case AP_BT_LOOPBACK: {
+        case AP_BT_LOOPBACK:
+        {
             AudioLoopbackController::GetInstance()->OpenAudioLoopbackControlFlow(input_device, output_device);
             break;
         }
@@ -157,11 +178,13 @@ status_t LoopbackManager::SetLoopbackOn(loopback_t loopback_type, loopback_outpu
         case MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR:
         case MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR:
         case MD_REF_MIC_ACOUSTIC_LOOPBACK:
-        case MD_BT_LOOPBACK: {
+        case MD_BT_LOOPBACK:
+        {
             SpeechLoopbackController::GetInstance()->OpenModemLoopbackControlFlow(mWorkingModemIndex, input_device, output_device);
             break;
         }
-        default: {
+        default:
+        {
             ALOGW("%s(): Loopback type %d not implemented!!", __FUNCTION__, loopback_type);
             ASSERT(0);
         }
@@ -169,7 +192,8 @@ status_t LoopbackManager::SetLoopbackOn(loopback_t loopback_type, loopback_outpu
 
     // only use L ch data, so mute R ch. (Disconnect ADC_I2S_IN_R -> MODEM_PCM_TX_R)
     if (loopback_type == MD_MAIN_MIC_ACOUSTIC_LOOPBACK ||
-        loopback_type == MD_REF_MIC_ACOUSTIC_LOOPBACK) {
+        loopback_type == MD_REF_MIC_ACOUSTIC_LOOPBACK)
+    {
         AudioDigitalControlFactory::CreateAudioDigitalControl()->SetinputConnection(
             AudioDigitalType::DisConnect,
             AudioDigitalType::I04,
@@ -197,7 +221,8 @@ status_t LoopbackManager::SetLoopbackOff()
     Mutex::Autolock _l(mLock);
 
     ALOGD("+%s(), mLoopbackType = %d", __FUNCTION__, mLoopbackType);
-    if (mLoopbackType == NO_LOOPBACK) { // check loobpack do exist to be turned off
+    if (mLoopbackType == NO_LOOPBACK)   // check loobpack do exist to be turned off
+    {
         ALOGD("-%s() : No looback to be closed", __FUNCTION__);
         return INVALID_OPERATION;
     }
@@ -212,11 +237,13 @@ status_t LoopbackManager::SetLoopbackOff()
     AudioMTKStreamManager::getInstance()->ForceAllStandby();
 
     // Disable Loopback function
-    switch (mLoopbackType) {
+    switch (mLoopbackType)
+    {
         case AP_MAIN_MIC_AFE_LOOPBACK:
         case AP_HEADSET_MIC_AFE_LOOPBACK:
         case AP_REF_MIC_AFE_LOOPBACK:
-        case AP_BT_LOOPBACK: {
+        case AP_BT_LOOPBACK:
+        {
             AudioLoopbackController::GetInstance()->CloseAudioLoopbackControlFlow();
             break;
         }
@@ -225,11 +252,13 @@ status_t LoopbackManager::SetLoopbackOff()
         case MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR:
         case MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR:
         case MD_REF_MIC_ACOUSTIC_LOOPBACK:
-        case MD_BT_LOOPBACK: {
+        case MD_BT_LOOPBACK:
+        {
             SpeechLoopbackController::GetInstance()->CloseModemLoopbackControlFlow(mWorkingModemIndex);
             break;
         }
-        default: {
+        default:
+        {
             ALOGW("%s(): Loopback type %d not implemented!!", __FUNCTION__, mLoopbackType);
             ASSERT(0);
         }
@@ -237,13 +266,15 @@ status_t LoopbackManager::SetLoopbackOff()
 
     // recover DMNR
     if (mLoopbackType == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR ||
-        mLoopbackType == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR) {
+        mLoopbackType == MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR)
+    {
         SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex(mWorkingModemIndex)->SetSpeechEnhancementMask(mMaskCopy);
     }
 
     // recover modem side speech enhancement
-    if (mLoopbackType == MD_BT_LOOPBACK) {
-        SpeechDriverFactory::GetInstance()->GetSpeechDriverByIndex(mWorkingModemIndex)->SetSpeechEnhancement(true);
+    if (mLoopbackType == MD_BT_LOOPBACK)
+    {
+        SpeechEnhancementController::GetInstance()->SetBtHeadsetNrecOnToAllModem(mBtHeadsetNrecOnCopy);
     }
 
     // recover device
@@ -271,7 +302,8 @@ status_t LoopbackManager::CheckLoopbackTypeIsValid(loopback_t loopback_type)
 {
     status_t retval;
 
-    switch (loopback_type) {
+    switch (loopback_type)
+    {
         case AP_MAIN_MIC_AFE_LOOPBACK:
         case AP_HEADSET_MIC_AFE_LOOPBACK:
         case AP_REF_MIC_AFE_LOOPBACK:
@@ -297,30 +329,36 @@ audio_devices_t LoopbackManager::GetInputDeviceByLoopbackType(loopback_t loopbac
 {
     audio_devices_t input_device = AUDIO_DEVICE_IN_BUILTIN_MIC;
 
-    switch (loopback_type) {
+    switch (loopback_type)
+    {
         case AP_MAIN_MIC_AFE_LOOPBACK:
         case MD_MAIN_MIC_ACOUSTIC_LOOPBACK:
         case MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITHOUT_DMNR:
-        case MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR: {
+        case MD_DUAL_MIC_ACOUSTIC_LOOPBACK_WITH_DMNR:
+        {
             input_device = AUDIO_DEVICE_IN_BUILTIN_MIC;
             break;
         }
         case AP_HEADSET_MIC_AFE_LOOPBACK:
-        case MD_HEADSET_MIC_ACOUSTIC_LOOPBACK: {
+        case MD_HEADSET_MIC_ACOUSTIC_LOOPBACK:
+        {
             input_device = AUDIO_DEVICE_IN_WIRED_HEADSET;
             break;
         }
         case AP_REF_MIC_AFE_LOOPBACK:
-        case MD_REF_MIC_ACOUSTIC_LOOPBACK: {
+        case MD_REF_MIC_ACOUSTIC_LOOPBACK:
+        {
             input_device = AUDIO_DEVICE_IN_BACK_MIC;
             break;
         }
         case AP_BT_LOOPBACK:
-        case MD_BT_LOOPBACK: {
+        case MD_BT_LOOPBACK:
+        {
             input_device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
             break;
         }
-        default: {
+        default:
+        {
             ALOGW("%s(): Loopback type %d not implemented!!", __FUNCTION__, loopback_type);
             ASSERT(0);
         }
@@ -332,33 +370,41 @@ audio_devices_t LoopbackManager::GetInputDeviceByLoopbackType(loopback_t loopbac
 audio_devices_t LoopbackManager::GetOutputDeviceByLoopbackType(loopback_t loopback_type, loopback_output_device_t loopback_output_device)
 {
     // BT Loopback only use BT headset
-    if (loopback_type == AP_BT_LOOPBACK || loopback_type == MD_BT_LOOPBACK) { // BT
+    if (loopback_type == AP_BT_LOOPBACK || loopback_type == MD_BT_LOOPBACK)   // BT
+    {
         return AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET;
     }
 
     // Get Output Devices By LoopbackType
     audio_devices_t output_device;
 
-    switch (loopback_output_device) {
-        case LOOPBACK_OUTPUT_RECEIVER: {
+    switch (loopback_output_device)
+    {
+        case LOOPBACK_OUTPUT_RECEIVER:
+        {
             output_device = AUDIO_DEVICE_OUT_EARPIECE;
             break;
         }
-        case LOOPBACK_OUTPUT_EARPHONE: {
+        case LOOPBACK_OUTPUT_EARPHONE:
+        {
             if (loopback_type == AP_HEADSET_MIC_AFE_LOOPBACK ||
-                loopback_type == MD_HEADSET_MIC_ACOUSTIC_LOOPBACK) {
+                loopback_type == MD_HEADSET_MIC_ACOUSTIC_LOOPBACK)
+            {
                 output_device = AUDIO_DEVICE_OUT_WIRED_HEADSET;
             }
-            else {
+            else
+            {
                 output_device = AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
             }
             break;
         }
-        case LOOPBACK_OUTPUT_SPEAKER: {
+        case LOOPBACK_OUTPUT_SPEAKER:
+        {
             output_device = AUDIO_DEVICE_OUT_SPEAKER;
             break;
         }
-        default: {
+        default:
+        {
             output_device = AUDIO_DEVICE_OUT_EARPIECE;
             break;
         }

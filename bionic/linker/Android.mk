@@ -1,36 +1,30 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES:= \
-	arch/$(TARGET_ARCH)/begin.S \
-	debugger.c \
-	dlfcn.c \
-	linker.cpp \
-	linker_environ.c \
-	linker_format.c \
-	linker_phdr.c \
-	rt.c
+ifeq ($(TARGET_ARCH),x86)
+    linker_begin_extension := c
+else
+    linker_begin_extension := S
+endif
 
-LOCAL_LDFLAGS := -shared
+LOCAL_SRC_FILES:= \
+    arch/$(TARGET_ARCH)/begin.$(linker_begin_extension) \
+    debugger.cpp \
+    dlfcn.cpp \
+    linker.cpp \
+    linker_environ.cpp \
+    linker_phdr.cpp \
+    rt.cpp
+
+LOCAL_LDFLAGS := -shared -Wl,--exclude-libs,ALL
 
 LOCAL_CFLAGS += -fno-stack-protector \
         -Wstrict-overflow=5 \
         -fvisibility=hidden \
-        -std=gnu99 \
-        -Wall -Wextra
+        -Wall -Wextra -Werror
 
-# Set LINKER_DEBUG to either 1 or 0
-#
-LOCAL_CFLAGS += -DLINKER_DEBUG=0
-
-# We need to access Bionic private headers in the linker...
+# We need to access Bionic private headers in the linker.
 LOCAL_CFLAGS += -I$(LOCAL_PATH)/../libc/
-
-# ...one of which is <private/bionic_tls.h>, for which we
-# need HAVE_ARM_TLS_REGISTER.
-ifeq ($(TARGET_ARCH)-$(ARCH_ARM_HAVE_TLS_REGISTER),arm-true)
-    LOCAL_CFLAGS += -DHAVE_ARM_TLS_REGISTER
-endif
 
 ifeq ($(TARGET_ARCH),arm)
     LOCAL_CFLAGS += -DANDROID_ARM_LINKER
@@ -50,7 +44,6 @@ LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_STATIC_LIBRARIES := libc_nomalloc
 ifeq ($(HAVE_AEE_FEATURE),yes)
 LOCAL_CFLAGS += -DHAVE_AEE_FEATURE
-LOCAL_STATIC_LIBRARIES += libaed_static
 endif
 
 #LOCAL_FORCE_STATIC_EXECUTABLE := true # not necessary when not including BUILD_EXECUTABLE
@@ -69,6 +62,9 @@ LOCAL_MODULE_SUFFIX := $(TARGET_EXECUTABLE_SUFFIX)
 # we don't want crtbegin.o (because we have begin.o), so unset it
 # just for this module
 LOCAL_NO_CRT := true
+
+# TODO: split out the asflags.
+LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 
 include $(BUILD_SYSTEM)/dynamic_binary.mk
 

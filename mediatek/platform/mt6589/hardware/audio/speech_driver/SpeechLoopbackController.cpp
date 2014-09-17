@@ -1,4 +1,5 @@
 #include "SpeechLoopbackController.h"
+#include <utils/threads.h>
 
 #define LOG_TAG "SpeechLoopbackController"
 
@@ -13,7 +14,11 @@ static const float kMaxVoiceVolume = 1.0;
 SpeechLoopbackController *SpeechLoopbackController::mSpeechLoopbackController = NULL;
 SpeechLoopbackController *SpeechLoopbackController::GetInstance()
 {
-    if (mSpeechLoopbackController == NULL) {
+    static Mutex mGetInstanceLock;
+    Mutex::Autolock _l(mGetInstanceLock);
+
+    if (mSpeechLoopbackController == NULL)
+    {
         mSpeechLoopbackController = new SpeechLoopbackController();
     }
     ASSERT(mSpeechLoopbackController != NULL);

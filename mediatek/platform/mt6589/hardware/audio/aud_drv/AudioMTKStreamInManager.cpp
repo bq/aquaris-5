@@ -9,6 +9,9 @@
 #include "AudioMTKStreamIn.h"
 
 #include <linux/rtpm_prio.h>
+#include "WCNChipController.h"
+#include "AudioFMController.h"
+#include "AudioMATVController.h"
 
 #ifdef MTK_AUDIO_HD_REC_SUPPORT
 #include "AudioCustParam.h"
@@ -20,28 +23,30 @@ extern "C" {
 
 #define LOG_TAG "AudioMTKStreamInManager"
 #ifndef ANDROID_DEFAULT_CODE
-    #include <cutils/xlog.h>
-    #ifdef ALOGE
-    #undef ALOGE
-    #endif
-    #ifdef ALOGW
-    #undef ALOGW
-    #endif ALOGI
-    #undef ALOGI
-    #ifdef ALOGD
-    #undef ALOGD
-    #endif
-    #ifdef ALOGV
-    #undef ALOGV
-    #endif
-    #define ALOGE XLOGE
-    #define ALOGW XLOGW
-    #define ALOGI XLOGI
-    #define ALOGD XLOGD
-    #define ALOGV XLOGV
-#else
-    #include <utils/Log.h>
+#include <cutils/xlog.h>
+#ifdef ALOGE
+#undef ALOGE
 #endif
+#ifdef ALOGW
+#undef ALOGW
+#endif ALOGI
+#undef ALOGI
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#ifdef ALOGV
+#undef ALOGV
+#endif
+#define ALOGE XLOGE
+#define ALOGW XLOGW
+#define ALOGI XLOGI
+#define ALOGD XLOGD
+#define ALOGV XLOGV
+#else
+#include <utils/Log.h>
+#endif
+
+#define DAIBT_SAMPLE_RATE (8000)
 
 #define RECORD_DROP_MS_MAX (200)
 #define MTK_STREAMIN_VOLUEM_MAX (0x1000)
@@ -59,73 +64,15 @@ namespace android
             aee_system_exception("libaudio.primary.default.so", NULL, DB_OPT_FTRACE, "AudioMTkRecordThread is block?"); \
         } \
     } while(0)
-    
+
 
 AudioMTKStreamInManager *AudioMTKStreamInManager::UniqueStreamInManagerInstance = NULL;
-int AudioMTKStreamInManager::AudioMTkRecordThread::DumpFileNum =0;
-
-#ifdef ENABLE_SUPPORT_FM_MIC_CONFLICT
-bool AudioMTKStreamInManager::checkFmMicConflict(AudioMTKStreamInClient *Client, bool status)
-{
-    bool FmMicConflict = false;
-    uint32 sameGroupCount = 0;
-    ALOGD("+%s(), Client->mAdcGroup = %d, mAudioInput.size() = %d\n", __FUNCTION__, Client->mAdcGroup, mAudioInput.size());
-
-    if(AudioAnalogType::ADC_GROUP_LINE_IN != Client->mAdcGroup &&
-        AudioAnalogType::ADC_GROUP_MIC_IN != Client->mAdcGroup) {
-        return FmMicConflict;
-    }
-
-    for (int i = 0 ; i < mAudioInput.size() ; i ++) {
-        AudioMTKStreamInClient *temp = mAudioInput.valueAt(i);
-        if(temp->mAdcGroup == AudioAnalogType::ADC_GROUP_NONE)
-            continue;
-        if(Client->mAdcGroup != temp->mAdcGroup) {
-            ALOGD("%s, find conflict about Mic & FM, device 0x%x - 0x%x", __FUNCTION__,
-                    Client->mAttributeClient->mdevices, temp->mAttributeClient->mdevices);
-            FmMicConflict = true;
-        }
-        else if(temp != Client){
-            sameGroupCount++; // Other then current client, other clients with the same Group
-        }
-    }
-    for (int i = 0 ; i < mAudioInput.size() ; i ++) {
-        AudioMTKStreamInClient *temp = mAudioInput.valueAt(i);
-        if(temp->mAdcGroup == AudioAnalogType::ADC_GROUP_NONE)
-            continue;
-        if(Client->mAdcGroup != temp->mAdcGroup) {
-            if(temp->mAdcGroup == AudioAnalogType::ADC_GROUP_LINE_IN){
-                if(status == false && sameGroupCount == 0){//When no other stream will conflict Line In
-                    temp->mConflict = false;
-                    ALOGD("%s, set FM stream as non-conflict device 0x%x ", __FUNCTION__,
-                    temp->mAttributeClient->mdevices);
-                }
-                else if(status == true){
-                    temp->mConflict = true;
-                    ALOGD("%s, set FM stream as conflict device 0x%x ", __FUNCTION__,
-                    temp->mAttributeClient->mdevices);
-                }
-            }
-            else{
-                Client->mConflict = status;
-                break;
-            }
-        }
-    }
-
-    if(true == FmMicConflict && true == status) {
-        ALOGD("%s, set drop count, device 0x%x", __FUNCTION__, Client->mAttributeClient->mdevices);
-        Client->mLock.lock();
-        Client->mDropCount = 3;
-        Client->mLock.unlock();
-    }
-    return FmMicConflict;
-}
-#endif
+int AudioMTKStreamInManager::AudioMTkRecordThread::DumpFileNum = 0;
 
 AudioMTKStreamInManager *AudioMTKStreamInManager::getInstance()
 {
-    if (UniqueStreamInManagerInstance == NULL) {
+    if (UniqueStreamInManagerInstance == NULL)
+    {
         ALOGD("+AudioMTKStreamInManager");
         UniqueStreamInManagerInstance = new AudioMTKStreamInManager();
         ALOGD("-AudioMTKStreamInManager");
@@ -153,11 +100,12 @@ AudioMTKStreamInManager::AudioMTKStreamInManager()
     mAudioDigital = AudioDigitalControlFactory::CreateAudioDigitalControl();
     mAudioAnalog =  AudioAnalogControlFactory::CreateAudioAnalogControl();
     mAudioResourceManager = AudioResourceManagerFactory::CreateAudioResource();
-	mDaiBt = new AudioDigitalDAIBT();
+    mDaiBt = new AudioDigitalDAIBT();
 
     memset((void *)&mIncallRingBuffer, 0, sizeof(RingBuf));
     mIncallRingBuffer.pBufBase = new char[INCALL_RINGBUFFERE_SIZE];
-    if (mIncallRingBuffer.pBufBase  == NULL) {
+    if (mIncallRingBuffer.pBufBase  == NULL)
+    {
         ALOGW("mRingBuf.pBufBase allocate fail");
     }
     mIncallRingBuffer.bufLen = INCALL_RINGBUFFERE_SIZE;
@@ -165,11 +113,16 @@ AudioMTKStreamInManager::AudioMTKStreamInManager()
     mIncallRingBuffer.pWrite = mIncallRingBuffer.pBufBase ;
     mMicMute = false;
     mMuteTransition = false;
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
     mBackUpRecordDropTime = AUDIO_RECORD_DROP_MS;
-#endif
     FysncFlag = false;
 
+#if defined(MTK_DIGITAL_MIC_SUPPORT)
+    mBliHandlerDMIC = NULL;
+    mBliOutputBufferDMIC = NULL;
+#endif
+
+    mBliHandlerDAIBT = NULL;
+    mBliOutputBufferDAIBT = NULL;
     PreLoadHDRecParams();
 }
 
@@ -196,20 +149,22 @@ void AudioMTKStreamInManager::PreLoadHDRecParams(void)
 #endif
 }
 
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
 timespec AudioMTKStreamInManager::GetSystemTime(bool print)
 {
     struct timespec systemtime;
     int rc;
     rc = clock_gettime(CLOCK_MONOTONIC, &systemtime);
-    if (rc != 0) {        
+    if (rc != 0)
+    {
         systemtime.tv_sec  = 0;
-        systemtime.tv_nsec = 0;        
+        systemtime.tv_nsec = 0;
         ALOGD("clock_gettime error");
     }
-    if(print==true)    
+    if (print == true)
+    {
         ALOGD("GetSystemTime, sec %ld nsec %ld", systemtime.tv_sec, systemtime.tv_nsec);
-    
+    }
+
     return systemtime;
 }
 
@@ -218,110 +173,100 @@ unsigned long long AudioMTKStreamInManager::ProcessTimeCheck(struct timespec Sta
     unsigned long long diffns = 0;
     int thresholdms = 40;
     struct timespec tstemp1 = StartTime;
-    struct timespec tstemp2 = EndTime;        
-                        
-    if(tstemp1.tv_sec > tstemp2.tv_sec)
+    struct timespec tstemp2 = EndTime;
+
+    if (tstemp1.tv_sec > tstemp2.tv_sec)
     {
-        if(tstemp1.tv_nsec >= tstemp2.tv_nsec)
+        if (tstemp1.tv_nsec >= tstemp2.tv_nsec)
         {
-            diffns = ((tstemp1.tv_sec - tstemp2.tv_sec)*1000000000) + tstemp1.tv_nsec-tstemp2.tv_nsec;
+            diffns = ((tstemp1.tv_sec - tstemp2.tv_sec) * 1000000000) + tstemp1.tv_nsec - tstemp2.tv_nsec;
         }
         else
         {
-            diffns = ((tstemp1.tv_sec-tstemp2.tv_sec-1)*1000000000) + tstemp1.tv_nsec + 1000000000 -tstemp2.tv_nsec;
+            diffns = ((tstemp1.tv_sec - tstemp2.tv_sec - 1) * 1000000000) + tstemp1.tv_nsec + 1000000000 - tstemp2.tv_nsec;
         }
     }
-    else if(tstemp1.tv_sec == tstemp2.tv_sec)
+    else if (tstemp1.tv_sec == tstemp2.tv_sec)
     {
-        if(tstemp1.tv_nsec >= tstemp2.tv_nsec)
+        if (tstemp1.tv_nsec >= tstemp2.tv_nsec)
         {
-            diffns = tstemp1.tv_nsec-tstemp2.tv_nsec;
+            diffns = tstemp1.tv_nsec - tstemp2.tv_nsec;
         }
         else
         {
-            diffns = tstemp2.tv_nsec-tstemp1.tv_nsec;
-        }        
+            diffns = tstemp2.tv_nsec - tstemp1.tv_nsec;
+        }
     }
     else
     {
-        if(tstemp2.tv_nsec >= tstemp1.tv_nsec)
+        if (tstemp2.tv_nsec >= tstemp1.tv_nsec)
         {
-            diffns = ((tstemp2.tv_sec - tstemp1.tv_sec)*1000000000) + tstemp2.tv_nsec-tstemp1.tv_nsec;
+            diffns = ((tstemp2.tv_sec - tstemp1.tv_sec) * 1000000000) + tstemp2.tv_nsec - tstemp1.tv_nsec;
         }
         else
         {
-            diffns = ((tstemp2.tv_sec-tstemp1.tv_sec-1)*1000000000) + tstemp2.tv_nsec + 1000000000 -tstemp1.tv_nsec;
+            diffns = ((tstemp2.tv_sec - tstemp1.tv_sec - 1) * 1000000000) + tstemp2.tv_nsec + 1000000000 - tstemp1.tv_nsec;
         }
     }
-/*    
-    if((diffns/1000000)>=thresholdms)
-    {
-        ALOGW("ProcessTimeCheck, process too long? sec %ld nsec %ld, sec %ld nsec %ld", StartTime.tv_sec, StartTime.tv_nsec, EndTime.tv_sec, EndTime.tv_nsec);
-    }*/
+    /*
+        if((diffns/1000000)>=thresholdms)
+        {
+            ALOGW("ProcessTimeCheck, process too long? sec %ld nsec %ld, sec %ld nsec %ld", StartTime.tv_sec, StartTime.tv_nsec, EndTime.tv_sec, EndTime.tv_nsec);
+        }*/
     return diffns;
 
 }
-#endif
 
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
-uint32_t AudioMTKStreamInManager::BesRecordProcess(AudioMTKStreamInClient *Client, void *buffer , uint32 copy_size)
+uint32_t AudioMTKStreamInManager::BesRecordProcess(AudioMTKStreamInClient *Client, void *buffer , uint32 copy_size, AdditionalInfo_STRUCT AddInfo)
 {
-#ifdef MTK_AUDIO_HD_REC_SUPPORT	
+#ifdef MTK_AUDIO_HD_REC_SUPPORT
     //ALOGD("BesRecordProcess mEnableBesRecord=%d, copy_size=%d",Client->mEnableBesRecord,copy_size);
-    if(Client->mEnableBesRecord==true)
+    if (Client->mEnableBesRecord == true)
     {
-        Client->mStreamIn->BesRecordPreprocess(buffer,copy_size);
-        
+        Client->mStreamIn->BesRecordPreprocess(buffer, copy_size, AddInfo);
+
     }
-#endif        
+#endif
     return copy_size;
 }
-#endif
-uint32_t AudioMTKStreamInManager::CopyBufferToClient(uint32 mMemDataType, void *buffer , uint32 copy_size)
+
+uint32_t AudioMTKStreamInManager::CopyBufferToClient(uint32 mMemDataType, void *buffer , uint32 copy_size, AdditionalInfo_STRUCT AddInfo)
 {
     /*
     ALOGD("CopyBufferToClient mMemDataType = %d buffer = %p copy_size = %d mAudioInput.size() = %d buffer = 0x%x",
          mMemDataType, buffer, copy_size, mAudioInput.size(), *(unsigned int *)buffer);*/
 
     int ret = 0;
-    ret = mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGER_LOCK, 200);
-    if (ret) {
+    ret = mAudioResourceManager->EnableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGER_LOCK, 300);
+    if (ret)
+    {
         ALOGW("EnableAudioLock AUDIO_STREAMINMANAGER_LOCK fail ret = %d", ret);
         return 0;
     }
     int FreeSpace = 0;
     char *tempBuf = new char[copy_size];
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT    
+
     struct timespec EnterTime;
     struct timespec Finishtime;
     unsigned long long timecheck = 0;
     EnterTime = GetSystemTime();
-#endif    
-    for (int i = 0 ; i < mAudioInput.size() ; i ++) {
+
+    for (int i = 0 ; i < mAudioInput.size() ; i ++)
+    {
         AudioMTKStreamInClient *temp = mAudioInput.valueAt(i) ;
-        if (temp->mMemDataType == mMemDataType && true == temp->mEnable) {
-            memcpy(tempBuf, buffer,copy_size*sizeof(char));  
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT            
-            BesRecordProcess(temp,tempBuf,copy_size);
-#endif            
+        if (temp->mMemDataType == mMemDataType && true == temp->mEnable)
+        {
+            memcpy(tempBuf, buffer, copy_size * sizeof(char));
+            BesRecordProcess(temp, tempBuf, copy_size, AddInfo);
             temp->mLock.lock();
             FreeSpace =  RingBuf_getFreeSpace(&temp->mRingBuf);
-            if (FreeSpace >= copy_size) {
-#ifdef ENABLE_SUPPORT_FM_MIC_CONFLICT
-                if(true == temp->mConflict || temp->mDropCount != 0) {
-                    RingBuf_fillZero(&temp->mRingBuf, copy_size);
-                    if(temp->mDropCount > 0) {
-                        temp->mDropCount -= 1;
-                        ALOGD("%s, drop count %d, device 0x%x", __FUNCTION__, temp->mDropCount, temp->mAttributeClient->mdevices);
-                    }
-                } else
-#endif
-                {
-                    //ALOGD("1 RingBuf_copyToLinear FreeSpace = %d temp = %p copy_size = %d mRingBuf = %p", FreeSpace, temp, copy_size, &temp->mRingBuf);
-                    RingBuf_copyFromLinear(&temp->mRingBuf, (char *)tempBuf, copy_size);
-                }
+            if (FreeSpace >= copy_size)
+            {
+                //ALOGD("1 RingBuf_copyToLinear FreeSpace = %d temp = %p copy_size = %d mRingBuf = %p", FreeSpace, temp, copy_size, &temp->mRingBuf);
+                RingBuf_copyFromLinear(&temp->mRingBuf, (char *)tempBuf, copy_size);
             }
-            else {
+            else
+            {
                 // do not copy , let buffer keep going
                 ALOGD("%s, AudioMTKStreamInManager overflow", __FUNCTION__);
                 setFsync();
@@ -333,19 +278,19 @@ uint32_t AudioMTKStreamInManager::CopyBufferToClient(uint32 mMemDataType, void *
 
     // free temp data buffer
     delete[] tempBuf;
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT    
+
     Finishtime = GetSystemTime();
-    timecheck = ProcessTimeCheck(EnterTime,Finishtime);
-    if(timecheck>mMaxProcessTime)
+    timecheck = ProcessTimeCheck(EnterTime, Finishtime);
+    if (timecheck > mMaxProcessTime)
     {
         mMaxProcessTime = timecheck;
-        ALOGD("CopyBufferToClient, mMaxProcessTime = %lld", mMaxProcessTime);    
+        ALOGD("CopyBufferToClient, mMaxProcessTime = %lld", mMaxProcessTime);
     }
-    if((timecheck/1000000)>=80)
+    if ((timecheck / 1000000) >= 80)
     {
         ALOGW("CopyBufferToClient, process too long? sec %ld nsec %ld, sec %ld nsec %ld", EnterTime.tv_sec, EnterTime.tv_nsec, Finishtime.tv_sec, Finishtime.tv_nsec);
     }
-#endif    
+
     mAudioResourceManager->DisableAudioLock(AudioResourceManagerInterface::AUDIO_STREAMINMANAGER_LOCK);
     return 0;
 }
@@ -359,23 +304,29 @@ uint32_t AudioMTKStreamInManager::CopyBufferToClientIncall(RingBuf ul_ring_buf)
     char *p_modem_data = new char[kNumModemData];
     RingBuf_copyToLinear(p_modem_data, &ul_ring_buf, kNumModemData);
 
-    for (size_t i = 0; i < mAudioInput.size(); ++i) { // copy data to all clients
+    for (size_t i = 0; i < mAudioInput.size(); ++i)   // copy data to all clients
+    {
         AudioMTKStreamInClient *pClient = mAudioInput.valueAt(i) ;
-        if (pClient->mEnable) {
+        if (pClient->mEnable)
+        {
             pClient->mLock.lock();
 
             uint32_t num_free_space = RingBuf_getFreeSpace(&pClient->mRingBuf);
 
-            if (pClient->mBliHandlerBuffer == NULL) { // No need SRC
+            if (pClient->mBliHandlerBuffer == NULL)   // No need SRC
+            {
                 //ASSERT(num_free_space >= kNumModemData);
-                if (num_free_space < kNumModemData) {
+                if (num_free_space < kNumModemData)
+                {
                     ALOGW("%s(), num_free_space(%u) < kNumModemData(%u)", __FUNCTION__, num_free_space, kNumModemData);
                 }
-                else {
+                else
+                {
                     RingBuf_copyFromLinear(&pClient->mRingBuf, p_modem_data, kNumModemData);
                 }
             }
-            else { // Need SRC
+            else   // Need SRC
+            {
                 char *p_read = p_modem_data;
                 uint32_t num_modem_left_data = kNumModemData;
                 uint32_t num_converted_data = num_free_space; // max convert num_free_space
@@ -385,7 +336,7 @@ uint32_t AudioMTKStreamInManager::CopyBufferToClientIncall(RingBuf ul_ring_buf)
                                       (int16_t *)pClient->mBliOutputLinearBuffer, &num_converted_data);
                 SLOGV("%s(), num_modem_left_data = %u, num_converted_data = %u", __FUNCTION__, num_modem_left_data, num_converted_data);
 
-                if (num_modem_left_data > 0) ALOGW("%s(), num_modem_left_data(%u) > 0", __FUNCTION__, num_modem_left_data);
+                if (num_modem_left_data > 0) { ALOGW("%s(), num_modem_left_data(%u) > 0", __FUNCTION__, num_modem_left_data); }
                 //ASSERT(num_modem_left_data == 0);
 
                 RingBuf_copyFromLinear(&pClient->mRingBuf, pClient->mBliOutputLinearBuffer, num_converted_data);
@@ -411,11 +362,13 @@ uint32_t AudioMTKStreamInManager::CopyBufferToClientIncall(RingBuf ul_ring_buf)
 status_t AudioMTKStreamInManager::StartModemRecord(AudioMTKStreamInClient *Client)
 {
     // start modem record only for the first client
-    if (mAudioInput.size() != 1) {
+    if (mAudioInput.size() != 1)
+    {
         ALOGW("%s(), mAudioInput.size() = %u != 1", __FUNCTION__, mAudioInput.size());
         return ALREADY_EXISTS;
     }
-    else {
+    else
+    {
         return SpeechDriverFactory::GetInstance()->GetSpeechDriver()->RecordOn();
     }
 }
@@ -423,11 +376,13 @@ status_t AudioMTKStreamInManager::StartModemRecord(AudioMTKStreamInClient *Clien
 status_t AudioMTKStreamInManager::StopModemRecord()
 {
     // stop modem record only for the last client
-    if (mAudioInput.size() != 1) {
+    if (mAudioInput.size() != 1)
+    {
         ALOGW("%s(), mAudioInput.size() = %u != 1", __FUNCTION__, mAudioInput.size());
         return ALREADY_EXISTS;
     }
-    else {
+    else
+    {
         return SpeechDriverFactory::GetInstance()->GetSpeechDriver()->RecordOff();
     }
 }
@@ -435,10 +390,12 @@ status_t AudioMTKStreamInManager::StopModemRecord()
 bool AudioMTKStreamInManager::checkMemInUse(AudioMTKStreamInClient *Client)
 {
     ALOGD("checkMemInUse Client = %p", Client);
-    for (int i = 0; i < mAudioInput.size(); i++) {
+    for (int i = 0; i < mAudioInput.size(); i++)
+    {
         AudioMTKStreamInClient *mTemp = mAudioInput.valueAt(i);
         // if mem is the same  and other client is enable , measn this mem is alreay on
-        if (mTemp->mMemDataType == Client->mMemDataType && mTemp->mEnable) {
+        if (mTemp->mMemDataType == Client->mMemDataType && mTemp->mEnable)
+        {
             ALOGD("vector has same memif in use Client->mem = ", Client->mMemDataType);
             return true;
         }
@@ -451,29 +408,34 @@ status_t AudioMTKStreamInManager::StartStreamInThread(uint32 mMemDataType)
 {
 
     ALOGD("StartStreamInThread mMemDataType = %d", mMemDataType);
-    switch (mMemDataType) {
+    switch (mMemDataType)
+    {
         case AudioDigitalType::MEM_VUL:
             mVULThread = new AudioMTkRecordThread(this, mMemDataType , mVULbuffer, MemVULBufferSize);
-            if (mVULThread.get()) {
+            if (mVULThread.get())
+            {
                 mVULThread->run();
             }
             break;
         case AudioDigitalType::MEM_DAI:
             mDAIThread = new AudioMTkRecordThread(this, mMemDataType , mDAIbuffer, MemDAIBufferSize);
-            if (mDAIThread.get()) {
+            if (mDAIThread.get())
+            {
                 mDAIThread->run();
             }
             break;
         case AudioDigitalType::MEM_AWB:
             mAWBThread = new AudioMTkRecordThread(this, mMemDataType , mAWBbuffer, MemAWBBufferSize);
 
-            if (mAWBThread.get()) {
+            if (mAWBThread.get())
+            {
                 mAWBThread->run();
             }
             break;
         case AudioDigitalType::MEM_MOD_DAI:
             mMODDAIThread = new AudioMTkRecordThread(this, mMemDataType , mMODDAIbuffer, MemDAIBufferSize);
-            if (mMODDAIThread.get()) {
+            if (mMODDAIThread.get())
+            {
                 mMODDAIThread->run();
             }
             break;
@@ -485,40 +447,53 @@ status_t AudioMTKStreamInManager::StartStreamInThread(uint32 mMemDataType)
 
 status_t AudioMTKStreamInManager::AcquireMemBufferLock(AudioDigitalType::Digital_Block MemBlock, bool bEnable)
 {
-    switch (MemBlock) {
-        case AudioDigitalType::MEM_VUL: {
-            if (bEnable) {
+    switch (MemBlock)
+    {
+        case AudioDigitalType::MEM_VUL:
+        {
+            if (bEnable)
+            {
                 mAULBufferLock.lock();
             }
-            else {
+            else
+            {
 
                 mAULBufferLock.unlock();
             }
             break;
         }
-        case AudioDigitalType::MEM_DAI: {
-            if (bEnable) {
+        case AudioDigitalType::MEM_DAI:
+        {
+            if (bEnable)
+            {
                 mDAIBufferLock.lock();
             }
-            else {
+            else
+            {
                 mDAIBufferLock.unlock();
             }
             break;
         }
-        case AudioDigitalType::MEM_AWB: {
-            if (bEnable) {
+        case AudioDigitalType::MEM_AWB:
+        {
+            if (bEnable)
+            {
                 mAWBBufferLock.lock();
             }
-            else {
+            else
+            {
                 mAWBBufferLock.unlock();
             }
             break;
         }
-        case AudioDigitalType::MEM_MOD_DAI: {
-            if (bEnable) {
+        case AudioDigitalType::MEM_MOD_DAI:
+        {
+            if (bEnable)
+            {
                 mMODDAIBufferLock.lock();
             }
-            else {
+            else
+            {
                 mMODDAIBufferLock.unlock();
             }
             break;
@@ -537,32 +512,27 @@ status_t  AudioMTKStreamInManager::Do_input_standby(AudioMTKStreamInClient *Clie
     int ret = 0;
     Client->mEnable = false;
 
-#ifdef ENABLE_SUPPORT_FM_MIC_CONFLICT
-    bool FmMicConflict = false;
-    FmMicConflict = checkFmMicConflict(Client, false);
-#endif
-
-    switch (mAudioResourceManager->GetAudioMode()) {
+    switch (mAudioResourceManager->GetAudioMode())
+    {
         case AUDIO_MODE_NORMAL:
         case AUDIO_MODE_RINGTONE:
-        case AUDIO_MODE_IN_COMMUNICATION: { // fix me, is that mode in communication needs to be care more??
-            switch (Client->mMemDataType) {
+        case AUDIO_MODE_IN_COMMUNICATION:   // fix me, is that mode in communication needs to be care more??
+        {
+            switch (Client->mMemDataType)
+            {
                 case AudioDigitalType::MEM_VUL:
                     AudioOut1 = AudioDigitalType::O09;
                     AudioOut2 = AudioDigitalType::O10;
-                    if (mVULThread.get() && !checkMemInUse(Client)) {
+                    if (mVULThread.get() && !checkMemInUse(Client))
+                    {
                         ret = mVULThread->requestExitAndWait();
-                        if (ret == WOULD_BLOCK) {
+                        if (ret == WOULD_BLOCK)
+                        {
                             mVULThread->requestExit();
                         }
                         mVULThread.clear();
                         mAudioResourceManager->StopInputDevice();
                     }
-#ifdef ENABLE_SUPPORT_FM_MIC_CONFLICT
-                    if(FmMicConflict && AudioAnalogType::ADC_GROUP_MIC_IN == Client->mAdcGroup) {
-                        mAudioResourceManager->SelectInputDevice(AUDIO_DEVICE_IN_FM);
-                    }
-#endif
                     break;
                 case AudioDigitalType::MEM_DAI:
                     AudioOut1 = AudioDigitalType::O11;
@@ -570,13 +540,15 @@ status_t  AudioMTKStreamInManager::Do_input_standby(AudioMTKStreamInClient *Clie
                     AudioIn1 = AudioDigitalType::I02;
                     AudioIn2 = AudioDigitalType::I02;
 
-					mAudioDigital->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I05, AudioDigitalType::O02);
-            		mAudioDigital->SetinputConnection(AudioDigitalType::DisConnect, AudioDigitalType::I06, AudioDigitalType::O02);
-            		mAudioDigital->SetDAIBTEnable(false);
-										
-                    if (mDAIThread.get() && !checkMemInUse(Client)) {
+                    mAudioDigital->SetinputConnection(AudioDigitalType::DisConnect, AudioIn1, AudioOut1);
+                    mAudioDigital->SetinputConnection(AudioDigitalType::DisConnect, AudioIn2, AudioOut2);
+                    mAudioDigital->SetDAIBTEnable(false);
+
+                    if (mDAIThread.get() && !checkMemInUse(Client))
+                    {
                         ret = mDAIThread->requestExitAndWait();
-                        if (ret == WOULD_BLOCK) {
+                        if (ret == WOULD_BLOCK)
+                        {
                             mDAIThread->requestExit();
                         }
                         mDAIThread.clear();
@@ -586,9 +558,11 @@ status_t  AudioMTKStreamInManager::Do_input_standby(AudioMTKStreamInClient *Clie
                     AudioOut1 = AudioDigitalType::O05;
                     AudioOut2 = AudioDigitalType::O06;
                     ALOGD("+Do_input_standby mAWBThread->requestExitAndWait()");
-                    if (mAWBThread.get() && !checkMemInUse(Client)) {
+                    if (mAWBThread.get() && !checkMemInUse(Client))
+                    {
                         ret = mAWBThread->requestExitAndWait();
-                        if (ret == WOULD_BLOCK) {
+                        if (ret == WOULD_BLOCK)
+                        {
                             mAWBThread->requestExit();
                         }
                         mAWBThread.clear();
@@ -599,11 +573,13 @@ status_t  AudioMTKStreamInManager::Do_input_standby(AudioMTKStreamInClient *Clie
                     break;
             }
             // disable memif
-            if (!checkMemInUse(Client)) {
+            if (!checkMemInUse(Client))
+            {
                 mAudioDigital->SetMemIfEnable(Client->mMemDataType, false);
             }
             // ih no user is used , disable irq2
-            if (mAudioInput.size() == 1) {
+            if (mAudioInput.size() == 1)
+            {
                 mAudioDigital->SetIrqMcuEnable(AudioDigitalType::IRQ2_MCU_MODE, false);
             }
 
@@ -612,13 +588,53 @@ status_t  AudioMTKStreamInManager::Do_input_standby(AudioMTKStreamInClient *Clie
             break;
         }
         case AUDIO_MODE_IN_CALL:
-        case AUDIO_MODE_IN_CALL_2: {
+        case AUDIO_MODE_IN_CALL_2:
+        {
             StopModemRecord();
             break;
         }
         default:
             break;
     }
+
+    // ih no user is used , close DMIC handler (prevent there is still has input stream from DMIC)
+    if (mAudioInput.size() == 1)
+    {
+#if defined(MTK_DIGITAL_MIC_SUPPORT)
+        if (mBliHandlerDMIC)
+        {
+            BLI_Close(mBliHandlerDMIC, NULL);
+            delete[] mBliHandlerDMIC;
+            mBliHandlerDMIC = NULL;
+            ALOGD("-Do_input_standby delete mBliHandlerDMIC");
+        }
+        if (mBliOutputBufferDMIC)
+        {
+            delete[] mBliOutputBufferDMIC;
+            mBliOutputBufferDMIC = NULL;
+            ALOGD("-Do_input_standby delete mBliOutputBufferDMIC");
+        }
+#endif
+
+        if (mBliHandlerDAIBT)
+        {
+            BLI_Close(mBliHandlerDAIBT, NULL);
+            delete[] mBliHandlerDAIBT;
+            mBliHandlerDAIBT = NULL;
+            ALOGD("-Do_input_standby delete mBliHandlerDAIBT");
+        }
+        if (mBliOutputBufferDAIBT)
+        {
+            delete[] mBliOutputBufferDAIBT;
+            mBliOutputBufferDAIBT = NULL;
+            ALOGD("-Do_input_standby delete mBliOutputBufferDAIBT");
+        }
+    }
+    else
+    {
+        ALOGD("-Do_input_standby mAudioInput.size() = %d, not 1!!!", mAudioInput.size());
+    }
+
     ALOGD("-Do_input_standby Client = %p", Client);
     return NO_ERROR;
 }
@@ -634,51 +650,40 @@ status_t AudioMTKStreamInManager::I2SAdcInSet(AudioDigtalI2S *AdcI2SIn, AudioStr
     AdcI2SIn->mI2S_FMT = AudioDigtalI2S::I2S;
     AdcI2SIn->mI2S_WLEN = AudioDigtalI2S::WLEN_16BITS;
 
-    if(AttributeClient->mIsDigitalMIC)  //for digital MIC 32K constrain
+    if (AttributeClient->mIsDigitalMIC) //for digital MIC 32K constrain
+    {
         AdcI2SIn->mI2S_SAMPLERATE = MemVULSamplerate;
+    }
     else
+    {
         AdcI2SIn->mI2S_SAMPLERATE = (AttributeClient->mSampleRate);
+    }
 
     AdcI2SIn->mI2S_EN = false;
-    return NO_ERROR;
-}
-
-status_t AudioMTKStreamInManager::Set2ndI2SIn(AudioDigtalI2S *m2ndI2SIn, unsigned int mSampleRate)
-{
-    ALOGD("+%s()\n", __FUNCTION__);
-    m2ndI2SIn->mLR_SWAP = AudioDigtalI2S::NO_SWAP;
-    m2ndI2SIn->mI2S_SLAVE = AudioDigtalI2S::MASTER_MODE;
-    m2ndI2SIn->mINV_LRCK = AudioDigtalI2S::NO_INVERSE;
-    m2ndI2SIn->mI2S_FMT = AudioDigtalI2S::I2S;
-    m2ndI2SIn->mI2S_WLEN = AudioDigtalI2S::WLEN_16BITS;
-    m2ndI2SIn->mI2S_SAMPLERATE = mSampleRate;
-    mAudioDigital->Set2ndI2SOut(m2ndI2SIn);
-    return NO_ERROR;
-}
-
-status_t AudioMTKStreamInManager::Enable2ndI2SIn(bool bEnable)
-{
-    ALOGD("+%s(), bEnable = %d\n", __FUNCTION__, bEnable);
-    mAudioDigital->Set2ndI2SEnable(bEnable);
     return NO_ERROR;
 }
 
 status_t AudioMTKStreamInManager::SetDAIBTAttribute()
 {
     // fix me , ned to base on actual situation
-#if defined(MTK_MERGE_INTERFACE_SUPPORT)
-    mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_MGRIF;
-#else
-    mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_BT;
-#endif
-    mDaiBt->mDAI_BT_MODE = AudioDigitalDAIBT::Mode8K;
+    if (WCNChipController::GetInstance()->IsBTMergeInterfaceSupported() == true)
+    {
+        mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_MGRIF;
+    }
+    else
+    {
+        mDaiBt->mUSE_MRGIF_INPUT = AudioDigitalDAIBT::FROM_BT;
+    }
+
+    mDaiBt->mDAI_BT_MODE = (WCNChipController::GetInstance()->BTChipSamplingRate()) ? (AudioDigitalDAIBT::Mode16K) : (AudioDigitalDAIBT::Mode8K);
     mDaiBt->mDAI_DEL = AudioDigitalDAIBT::HighWord;
-    mDaiBt->mBT_LEN  = 0;
+    mDaiBt->mBT_LEN  = WCNChipController::GetInstance()->BTChipSyncLength();
     mDaiBt->mDATA_RDY = true;
-    mDaiBt->mBT_SYNC = AudioDigitalDAIBT::Short_Sync;
+    mDaiBt->mBT_SYNC = WCNChipController::GetInstance()->BTChipSyncFormat();
     mDaiBt->mBT_ON = true;
     mDaiBt->mDAIBT_ON = false;
     mAudioDigital->SetDAIBBT(mDaiBt);
+
     return NO_ERROR;
 }
 
@@ -688,20 +693,16 @@ status_t  AudioMTKStreamInManager:: Do_input_start(AudioMTKStreamInClient *Clien
     ALOGD("+%s(), client = %p\n", __FUNCTION__, Client);
     uint32 AudioIn1 = 0, AudioIn2 = 0 , AudioOut1 = 0, AudioOut2 = 0;
     uint32 MemIfSamplerate = 0, MemIfChannel = 0;
+    uint32_t srcBufLen = 0;
     int ret = 0;
 
-
-#ifdef ENABLE_SUPPORT_FM_MIC_CONFLICT
-    bool FmMicConflict = false;
-    FmMicConflict = checkFmMicConflict(Client, true);
-    ALOGD("%s(), FmMicConflict = %d\n", __FUNCTION__, FmMicConflict);
-#endif
-
-    switch (mAudioResourceManager->GetAudioMode()) {
+    switch (mAudioResourceManager->GetAudioMode())
+    {
         case AUDIO_MODE_NORMAL:
         case AUDIO_MODE_RINGTONE:
         case AUDIO_MODE_IN_COMMUNICATION:
-        { // fix me, is that mode in communication needs to be care more??
+        {
+            // fix me, is that mode in communication needs to be care more??
             ALOGD("%s(), Client->mSourceType = %d, Client->mMemDataType = %d\n", __FUNCTION__, Client->mSourceType, Client->mMemDataType);
             switch (Client->mSourceType)
             {
@@ -712,37 +713,71 @@ status_t  AudioMTKStreamInManager:: Do_input_start(AudioMTKStreamInClient *Clien
                 case AudioDigitalType::I2S_IN_ADC:
                     I2SAdcInSet(&mAdcI2SIn, Client->mAttributeClient);
                     mAudioDigital->SetI2SAdcIn(&mAdcI2SIn);
-                    if(Client->mAttributeClient->mIsDigitalMIC)  //for digital MIC 32K constrain
-                        mAudioAnalog->SetFrequency(AudioAnalogType::DEVICE_IN_ADC, MemVULSamplerate);
-                    else
-                        mAudioAnalog->SetFrequency(AudioAnalogType::DEVICE_IN_ADC, Client->mAttributeClient->mSampleRate);
-                    mAudioDigital->SetI2SAdcEnable(true);
-#ifdef ENABLE_SUPPORT_FM_MIC_CONFLICT
-                    if(FmMicConflict && AUDIO_DEVICE_IN_FM == Client->mAttributeClient->mdevices) {
-                    } else
-#endif
+                    if (Client->mAttributeClient->mIsDigitalMIC) //for digital MIC 32K constrain
                     {
-                        // here open analog control
-                        mAudioResourceManager->StartInputDevice();
+                        mAudioAnalog->SetFrequency(AudioAnalogType::DEVICE_IN_ADC, MemVULSamplerate);
+#if defined(MTK_DIGITAL_MIC_SUPPORT)
+                        if (mBliHandlerDMIC == NULL)
+                        {
+                            uint32_t srcBufLen = 0;
+                            // Need SRC 32k->48k
+                            BLI_GetMemSize(MemVULSamplerate, 2, 48000, 2, &srcBufLen);
+                            mBliHandlerDMIC =
+                                BLI_Open(MemVULSamplerate, 2,
+                                         48000, 2, new char[srcBufLen], NULL);
+                            mBliOutputBufferDMIC = new char[BliOutBufferSizeDMIC]; // tmp buffer for blisrc out
+                            ASSERT(mBliOutputBufferDMIC != NULL);
+                            ALOGD("Do_input_start create mBliHandlerDMIC");
+                        }
+                        else
+                        {
+                            ALOGD("Do_input_start mBliHandlerDMIC already exist!!");
+                        }
+#endif
                     }
+                    else
+                    {
+                        mAudioAnalog->SetFrequency(AudioAnalogType::DEVICE_IN_ADC, Client->mAttributeClient->mSampleRate);
+                    }
+                    mAudioDigital->SetI2SAdcEnable(true);
+
+                    // here open analog control
+                    mAudioResourceManager->StartInputDevice();
+
                     AudioIn1 = AudioDigitalType::I03;
                     AudioIn2 = AudioDigitalType::I04;
                     break;
                 case AudioDigitalType::I2S_INOUT_2:
                     AudioIn1 = AudioDigitalType::I00;
                     AudioIn2 = AudioDigitalType::I01;
-                    if(Client->mAttributeClient->mSource == AUDIO_SOURCE_MATV)
+
+                    // Config & Enable 2nd I2S In
+                    if (AudioFMController::GetInstance()->GetFmEnable() == false &&
+                        AudioMATVController::GetInstance()->GetMatvEnable() == false) // Note: FM & mATV will enable 2nd I2S when FM/mATV enabled
                     {
-                        Set2ndI2SIn(&m2ndI2S, Client->mAttributeClient->mSampleRate);
-                        Enable2ndI2SIn(true);
+                        // Config 2nd I2S
+                        AudioDigtalI2S m2ndI2SInAttribute;
+                        memset((void *)&m2ndI2SInAttribute, 0, sizeof(m2ndI2SInAttribute));
+
+                        m2ndI2SInAttribute.mLR_SWAP = AudioDigtalI2S::NO_SWAP;
+                        m2ndI2SInAttribute.mI2S_SLAVE = AudioDigtalI2S::MASTER_MODE; // TODO: DEFAULT MASTER MODE ???
+                        m2ndI2SInAttribute.mI2S_SAMPLERATE = Client->mAttributeClient->mSampleRate;
+                        m2ndI2SInAttribute.mINV_LRCK = AudioDigtalI2S::NO_INVERSE;
+                        m2ndI2SInAttribute.mI2S_FMT = AudioDigtalI2S::I2S;
+                        m2ndI2SInAttribute.mI2S_WLEN = AudioDigtalI2S::WLEN_16BITS;
+                        mAudioDigital->Set2ndI2SOut(&m2ndI2SInAttribute);
+
+                        // Enable 2nd I2S
+                        mAudioDigital->Set2ndI2SEnable(true);
                     }
                     break;
                 case AudioDigitalType::MRG_I2S_IN:
-#if defined(MTK_MERGE_INTERFACE_SUPPORT)
-                    mAudioDigital->SetMrgI2SEnable(true, Client->mAttributeClient->mSampleRate);
-#endif
                     AudioIn1 = AudioDigitalType::I15;
                     AudioIn2 = AudioDigitalType::I16;
+                    if (AudioFMController::GetInstance()->GetFmEnable() == false) // Note: FM will enable Mrg I2S when FM enabled
+                    {
+                        mAudioDigital->SetMrgI2SEnable(true, Client->mAttributeClient->mSampleRate);
+                    }
                     break;
                 case AudioDigitalType::DAI_BT:
                     AudioIn1 = AudioDigitalType::I02;
@@ -750,8 +785,8 @@ status_t  AudioMTKStreamInManager:: Do_input_start(AudioMTKStreamInClient *Clien
                     // here for SW MIC gain calculate
                     mAudioResourceManager->StartInputDevice();
 
-					SetDAIBTAttribute();
-		            mAudioDigital->SetDAIBTEnable(true);
+                    SetDAIBTAttribute();
+                    mAudioDigital->SetDAIBTEnable(true);
                     break;
                 default:
                     break;
@@ -766,41 +801,63 @@ status_t  AudioMTKStreamInManager:: Do_input_start(AudioMTKStreamInClient *Clien
                     MemIfChannel = 2;
                     break;
                 case AudioDigitalType::MEM_DAI:
+                    // SRC 8k->48k
+                    ALOGD("Do_input_start MEM_DAI fs=%d", Client->mAttributeClient->mSampleRate);
+                    if (mBliHandlerDAIBT == NULL)
+                    {
+                        BLI_GetMemSize(DAIBT_SAMPLE_RATE, 1, Client->mAttributeClient->mSampleRate, 2, &srcBufLen);
+                        // mBliHandlerDAIBT will has the same ptr as working buf ptr, so only need to free mBliHandlerDAIBT
+                        mBliHandlerDAIBT = BLI_Open(DAIBT_SAMPLE_RATE, 1, Client->mAttributeClient->mSampleRate, 2, new char[srcBufLen], NULL);
+                        ALOGD("Do_input_start MEM_DAI mBliHandlerDAIBT=0x%x", mBliHandlerDAIBT);
+                        mBliOutputBufferDAIBT = new char[BliOutBufferSizeDAIBT]; // buffer for blisrc out
+                        ASSERT(mBliOutputBufferDAIBT != NULL);
+                        ALOGD("Do_input_start MEM_DAI create mBliHandlerDAIBT");
+                    }
+                    else
+                    {
+                        ALOGD("Do_input_start MEM_DAI mBliHandlerDAIBT existed!!!");
+                    }
                     AudioOut1 = AudioDigitalType::O11;
                     AudioOut2 = AudioDigitalType::O11;
                     AudioIn1 = AudioDigitalType::I02;
                     AudioIn2 = AudioDigitalType::I02;
-                    MemIfSamplerate = MemDAISamplerate;
+                    if (mAudioDigital->BT_SCO_GetMode() == 0)
+                    {
+                        MemIfSamplerate = MemDAISamplerate;
+                    }
+                    else
+                    {
+                        MemIfSamplerate = 16000;
+                    }
                     MemIfChannel = 1;
                     ALOGD("!!!Do_input_start MEM_DAI MemIfChannel=1");
                     break;
                 case AudioDigitalType::MEM_AWB:
                     AudioOut1 = AudioDigitalType::O05;
                     AudioOut2 = AudioDigitalType::O06;
-#ifdef FM_DIGITAL_IN_SUPPORT
-                    if(Client->mSourceType == AudioDigitalType::MRG_I2S_IN)
-                    {
-                        MemIfSamplerate = Client->mAttributeClient->mSampleRate; // Use MRGIF interface to record
-                    }
-                    else
-#endif
-                    if(Client->mAttributeClient->mSource == AUDIO_SOURCE_MATV)
-                        MemIfSamplerate = Client->mAttributeClient->mSampleRate; // mATV default sampling rate
-                    else
-                        MemIfSamplerate = MemAWBSamplerate;
+                    MemIfSamplerate = Client->mAttributeClient->mSampleRate;
                     MemIfChannel = 2;
                     break;
                 default:
                     ALOGD("NO support for memory interface");
                     break;
             }
+            bool bAfeEnabled = mAudioDigital->GetAfeEnable(true);
+            bool bStartTimeSet = false;
 
             // set digital memif attribute
-            if (!checkMemInUse(Client)) {
+            if (!checkMemInUse(Client))
+            {
                 ALOGD("checkMemInUse Start memtype = %d", Client->mMemDataType);
                 mAudioDigital->SetMemIfSampleRate(Client->mMemDataType, MemIfSamplerate);
                 mAudioDigital->SetMemIfChannelCount(Client->mMemDataType, MemIfChannel);
                 mAudioDigital->SetMemIfEnable(Client->mMemDataType, true);
+                if (bAfeEnabled)
+                {
+                    ALOGD("AFE is already opened");
+                    Client->mInputStartTime = GetSystemTime(true);
+                    bStartTimeSet = true;
+                }
                 StartStreamInThread(Client->mMemDataType);
             }
 
@@ -812,18 +869,23 @@ status_t  AudioMTKStreamInManager:: Do_input_start(AudioMTKStreamInClient *Clien
                 ALOGD("SetIrqMcuSampleRate mSampleRate = %d", Client->mAttributeClient->mSampleRate);
                 if (Client->mMemDataType == AudioDigitalType::MEM_DAI)
                 {
-                    ALOGD("Do_input_start SetIrqMcuSampleRate = 8000, SetIrqMcuCounter=256 ");
-                    mAudioDigital->SetIrqMcuSampleRate(AudioDigitalType::IRQ2_MCU_MODE, 8000);
-                    mAudioDigital->SetIrqMcuCounter(AudioDigitalType::IRQ2_MCU_MODE, 256); //ccc 1107
+                    if (mAudioDigital->BT_SCO_GetMode() == 0)
+                    {
+                        ALOGD("Do_input_start SetIrqMcuSampleRate = 8000, SetIrqMcuCounter=256 ");
+                        mAudioDigital->SetIrqMcuSampleRate(AudioDigitalType::IRQ2_MCU_MODE, 8000);
+                        mAudioDigital->SetIrqMcuCounter(AudioDigitalType::IRQ2_MCU_MODE, 256); //ccc 1107
+                    }
+                    else
+                    {
+                        ALOGD("Do_input_start SetIrqMcuSampleRate = 16000, SetIrqMcuCounter=512 ");
+                        mAudioDigital->SetIrqMcuSampleRate(AudioDigitalType::IRQ2_MCU_MODE, 16000);
+                        mAudioDigital->SetIrqMcuCounter(AudioDigitalType::IRQ2_MCU_MODE, 512);
+                    }
                 }
                 else
                 {
-                    mAudioDigital->SetIrqMcuSampleRate(AudioDigitalType::IRQ2_MCU_MODE, 16000);                    
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT                    
+                    mAudioDigital->SetIrqMcuSampleRate(AudioDigitalType::IRQ2_MCU_MODE, 16000);
                     mAudioDigital->SetIrqMcuCounter(AudioDigitalType::IRQ2_MCU_MODE, 640); // 40ms
-#else
-                    mAudioDigital->SetIrqMcuCounter(AudioDigitalType::IRQ2_MCU_MODE, 800); // 50ms
-#endif
                 }
                 mAudioDigital->SetIrqMcuEnable(AudioDigitalType::IRQ2_MCU_MODE, true);
             }
@@ -833,15 +895,21 @@ status_t  AudioMTKStreamInManager:: Do_input_start(AudioMTKStreamInClient *Clien
             }
 
             // set interconnection
-            if (!checkMemInUse(Client)) {
+            if (!checkMemInUse(Client))
+            {
                 mAudioDigital->SetinputConnection(AudioDigitalType::Connection, AudioIn1, AudioOut1);
                 mAudioDigital->SetinputConnection(AudioDigitalType::Connection, AudioIn2, AudioOut2);
                 mAudioDigital->SetAfeEnable(true);
             }
+            if (!bStartTimeSet)
+            {
+                Client->mInputStartTime = GetSystemTime(true);
+            }
             break;
         }
         case AUDIO_MODE_IN_CALL:
-        case AUDIO_MODE_IN_CALL_2: {
+        case AUDIO_MODE_IN_CALL_2:
+        {
             StartModemRecord(Client);
             break;
         }
@@ -860,7 +928,8 @@ AudioMTKStreamInClient *AudioMTKStreamInManager::RequestClient(uint32_t Buflen)
     AudioMTKStreamInClient *Client = NULL;
     Client = new AudioMTKStreamInClient(Buflen, mClientNumber);
     ALOGD("RequestClient Buflen = %d Client = %p AudioInput.size  = %d ", Buflen, Client, mAudioInput.size());
-    if (Client == NULL) {
+    if (Client == NULL)
+    {
         ALOGW("RequestClient but return NULL");
         return NULL;
     }
@@ -869,11 +938,6 @@ AudioMTKStreamInClient *AudioMTKStreamInManager::RequestClient(uint32_t Buflen)
     mAudioInput.add(mClientNumber, Client);
     Client->mClientId = mClientNumber;
     Client->mEnable = false;
-#ifdef ENABLE_SUPPORT_FM_MIC_CONFLICT
-    Client->mConflict = false;
-    Client->mDropCount = 0;
-    Client->mAdcGroup = AudioAnalogType::ADC_GROUP_NONE;
-#endif
     ALOGD("%s(), mAudioInput.size() = %d, mClientNumber = %d", __FUNCTION__, mAudioInput.size(), mClientNumber);
     return Client;
 }
@@ -884,7 +948,8 @@ status_t AudioMTKStreamInManager::ReleaseClient(AudioMTKStreamInClient *Client)
     uint32_t clientid = Client->mClientId;
     ssize_t index = mAudioInput.indexOfKey(clientid);
     ALOGD("ReleaseClient Client = %p clientid = %d mAudioInput.size  = %d", Client, clientid, mAudioInput.size());
-    if (Client != NULL) {
+    if (Client != NULL)
+    {
         ALOGD("remove  mAudioInputcloient index = %d", index);
         delete mAudioInput.valueAt(index);
         mAudioInput.removeItem(clientid);
@@ -897,13 +962,12 @@ status_t AudioMTKStreamInManager::ReleaseClient(AudioMTKStreamInClient *Client)
 
 void AudioMTKStreamInManager::SetInputMute(bool bEnable)
 {
-    if(mMicMute != bEnable)
+    if (mMicMute != bEnable)
     {
         mMicMute =  bEnable;
         mMuteTransition = false;
     }
 }
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
 void AudioMTKStreamInManager::BackupRecordDropTime(uint32 droptime)
 {
     ALOGD("BackupRecordDropTime = %d", droptime);
@@ -915,31 +979,32 @@ uint32 AudioMTKStreamInManager::GetRecordDropTime()
     ALOGD("GetRecordDropTime = %d", mBackUpRecordDropTime);
     return mBackUpRecordDropTime;
 }
-#endif
 static short clamp16(int sample)
 {
-    if ((sample>>15) ^ (sample>>31))
-        sample = 0x7FFF ^ (sample>>31);
+    if ((sample >> 15) ^ (sample >> 31))
+    {
+        sample = 0x7FFF ^ (sample >> 31);
+    }
     return sample;
 }
 
-status_t AudioMTKStreamInManager::ApplyVolume(void* Buffer , uint32 BufferSize)
+status_t AudioMTKStreamInManager::ApplyVolume(void *Buffer , uint32 BufferSize)
 {
     // cehck if need apply mute
-    if(mMicMute == true)
+    if (mMicMute == true)
     {
         // do ramp down
-        if(mMuteTransition == false)
+        if (mMuteTransition == false)
         {
             uint32 count = BufferSize >> 1;
-            float Volume_inverse =(float) (MTK_STREAMIN_VOLUEM_MAX/count)*-1;
-            short *pPcm = (short*)Buffer;
+            float Volume_inverse = (float)(MTK_STREAMIN_VOLUEM_MAX / count) * -1;
+            short *pPcm = (short *)Buffer;
             int ConsumeSample = 0;
             int value = 0;
-            while(count)
+            while (count)
             {
-                value = *pPcm * (MTK_STREAMIN_VOLUEM_MAX+(Volume_inverse*ConsumeSample));
-                *pPcm = clamp16(value>>MTK_STREAMIN_VOLUME_VALID_BIT);
+                value = *pPcm * (MTK_STREAMIN_VOLUEM_MAX + (Volume_inverse * ConsumeSample));
+                *pPcm = clamp16(value >> MTK_STREAMIN_VOLUME_VALID_BIT);
                 pPcm++;
                 count--;
                 ConsumeSample ++;
@@ -949,23 +1014,23 @@ status_t AudioMTKStreamInManager::ApplyVolume(void* Buffer , uint32 BufferSize)
         }
         else
         {
-            memset(Buffer,0,BufferSize);
+            memset(Buffer, 0, BufferSize);
         }
     }
-    else if(mMicMute== false)
+    else if (mMicMute == false)
     {
         // do ramp up
-        if(mMuteTransition == false)
+        if (mMuteTransition == false)
         {
             uint32 count = BufferSize >> 1;
-            float Volume_inverse = (float)(MTK_STREAMIN_VOLUEM_MAX/count);
-            short *pPcm = (short*)Buffer;
+            float Volume_inverse = (float)(MTK_STREAMIN_VOLUEM_MAX / count);
+            short *pPcm = (short *)Buffer;
             int ConsumeSample = 0;
             int value = 0;
-            while(count)
+            while (count)
             {
-                value = *pPcm * (Volume_inverse*ConsumeSample);
-                *pPcm = clamp16(value>>MTK_STREAMIN_VOLUME_VALID_BIT);
+                value = *pPcm * (Volume_inverse * ConsumeSample);
+                *pPcm = clamp16(value >> MTK_STREAMIN_VOLUME_VALID_BIT);
                 pPcm++;
                 count--;
                 ConsumeSample ++;
@@ -996,31 +1061,48 @@ bool AudioMTKStreamInManager::GetFSyncFlag()
 AudioMTKStreamInManager::AudioMTkRecordThread::AudioMTkRecordThread(AudioMTKStreamInManager *AudioManager, uint32 Mem_type, char *RingBuffer, uint32 BufferSize)
 {
     ALOGD("AudioMTkRecordThread constructor Mem_type = %d", Mem_type);
+
+    struct sched_param sched_p;
+    sched_getparam(0, &sched_p);
+    sched_p.sched_priority = RTPM_PRIO_AUDIO_RECORD + 1;
+    if (0 != sched_setscheduler(0, SCHED_RR, &sched_p))
+    {
+        ALOGE("[%s] failed, errno: %d", __func__, errno);
+    }
+    else
+    {
+        sched_p.sched_priority = RTPM_PRIO_AUDIO_RECORD + 1;
+        sched_getparam(0, &sched_p);
+        ALOGD("sched_setscheduler ok, priority: %d", sched_p.sched_priority);
+    }
+
+
     mFd = 0;
     mMemType = Mem_type;
     mManager = AudioManager;
     char Buf[10];
-    sprintf(Buf, "%d.pcm", DumpFileNum);
-    switch (mMemType) {
+    snprintf(Buf, sizeof(Buf), "%d.pcm", DumpFileNum);
+    switch (mMemType)
+    {
         case AudioDigitalType::MEM_VUL:
             mName = String8("AudioMTkRecordThreadVUL");
-            DumpFileName =String8(streaminmanager);
-            DumpFileName.append ((const char*)Buf);
-            ALOGD("AudioMTkRecordThread DumpFileName = %s",DumpFileName.string ());
+            DumpFileName = String8(streaminmanager);
+            DumpFileName.append((const char *)Buf);
+            ALOGD("AudioMTkRecordThread DumpFileName = %s", DumpFileName.string());
             mPAdcPCMDumpFile = NULL;
             mPAdcPCMDumpFile = AudioOpendumpPCMFile(DumpFileName, streamin_propty);
             break;
         case AudioDigitalType::MEM_DAI:
             mName = String8("AudioMTkRecordThreadDAI");
-            DumpFileName =String8(streaminmanager);
-            DumpFileName.append ((const char*)Buf);
+            DumpFileName = String8(streaminmanager);
+            DumpFileName.append((const char *)Buf);
             mPDAIInPCMDumpFile = NULL;
             mPDAIInPCMDumpFile = AudioOpendumpPCMFile(DumpFileName, streamin_propty);
             break;
         case AudioDigitalType::MEM_AWB:
             mName = String8("AudioMTkRecordThreadAWB");
-            DumpFileName =String8(streaminmanager);
-            DumpFileName.append ((const char*)Buf);
+            DumpFileName = String8(streaminmanager);
+            DumpFileName.append((const char *)Buf);
             mPI2SPCMDumpFile = NULL;
             mPI2SPCMDumpFile = AudioOpendumpPCMFile(DumpFileName, streamin_propty); //ccc
             break;
@@ -1034,30 +1116,11 @@ AudioMTKStreamInManager::AudioMTkRecordThread::AudioMTkRecordThread(AudioMTKStre
     mRingBuffer = RingBuffer;
     mBufferSize = BufferSize;
 
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
-    struct sched_param sched_p;
-    sched_getparam(0, &sched_p);
-    sched_p.sched_priority = RTPM_PRIO_AUDIO_RECORD+1;
-    if(0 != sched_setscheduler(0, SCHED_RR, &sched_p))
-    {
-        ALOGE("[%s] failed, errno: %d", __func__, errno);
-    }
-    else
-    {
-        sched_p.sched_priority = RTPM_PRIO_AUDIO_RECORD+1;
-        sched_getparam(0, &sched_p);
-        ALOGD("sched_setscheduler ok, priority: %d", sched_p.sched_priority);
-    }
-
-    mManager->mMaxProcessTime = 0;
-#endif
-
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT   
     memset(&mEnterTime, 0, sizeof(timespec));
     memset(&mFinishtime, 0, sizeof(timespec));
     mStart = false;
     readperiodtime = 0;
-#endif    
+    mManager->mMaxProcessTime = 0;
 }
 
 AudioMTKStreamInManager::AudioMTkRecordThread::~AudioMTkRecordThread()
@@ -1066,11 +1129,13 @@ AudioMTKStreamInManager::AudioMTkRecordThread::~AudioMTkRecordThread()
     ClosePcmDumpFile();
 
     // do thread exit routine
-    if (mFd) {
+    if (mFd)
+    {
         ALOGD("threadLoop exit STANDBY_MEMIF_TYPE mMemType = %d", mMemType);
         ::ioctl(mFd, STANDBY_MEMIF_TYPE, mMemType);
     }
-    if (mFd) {
+    if (mFd)
+    {
         ::close(mFd);
         mFd = 0;
     }
@@ -1081,33 +1146,31 @@ void AudioMTKStreamInManager::AudioMTkRecordThread::onFirstRef()
 {
     ALOGD("AudioMTkRecordThread onFirstRef");
     tempdata = 0;
-    if(mMemType == AudioDigitalType::MEM_VUL)
+    if (mMemType == AudioDigitalType::MEM_VUL)
     {
         mRecordDropms = AUDIO_RECORD_DROP_MS;
     }
     else
     {
-        mRecordDropms =0;
+        mRecordDropms = 0;
     }
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT    
     mManager->BackupRecordDropTime(mRecordDropms);
-#endif    
-#ifndef MTK_VOIP_ENHANCEMENT_SUPPORT
-    run(mName, ANDROID_PRIORITY_URGENT_AUDIO);
-#endif
 }
 
 // Good place to do one-time initializations
 status_t  AudioMTKStreamInManager::AudioMTkRecordThread::readyToRun()
 {
     ALOGD("AudioMTkRecordThread::readyToRun()");
-    if (mFd == 0) {
+    if (mFd == 0)
+    {
         mFd =  ::open(kAudioDeviceName, O_RDWR);
         if (mFd <= 0)
+        {
             ALOGW("open device fail");
+        }
     }
     ::ioctl(mFd, START_MEMIF_TYPE, mMemType);
-    if(mMemType == AudioDigitalType::MEM_VUL)
+    if (mMemType == AudioDigitalType::MEM_VUL)
     {
         DropRecordData();
     }
@@ -1117,41 +1180,45 @@ status_t  AudioMTKStreamInManager::AudioMTkRecordThread::readyToRun()
 void AudioMTKStreamInManager::AudioMTkRecordThread::WritePcmDumpData()
 {
     int written_data = 0;
-    switch (mMemType) {
+    switch (mMemType)
+    {
         case AudioDigitalType::MEM_VUL:
             if (mPAdcPCMDumpFile)
             {
-                long int position =0;
-                position = ftell (mPAdcPCMDumpFile);
-                if(position> MAX_FILE_LENGTH)
+                long int position = 0;
+                position = ftell(mPAdcPCMDumpFile);
+                if (position > MAX_FILE_LENGTH)
                 {
                     rewind(mPAdcPCMDumpFile);
                 }
-                written_data = fwrite((void *)mRingBuffer, 1, mBufferSize, mPAdcPCMDumpFile);
+                //written_data = fwrite((void *)mRingBuffer, 1, mBufferSize, mPAdcPCMDumpFile);
+                AudioDumpPCMData((void *)mRingBuffer , mBufferSize, mPAdcPCMDumpFile);
             }
             break;
         case AudioDigitalType::MEM_DAI:
             if (mPDAIInPCMDumpFile)
             {
-                long int position =0;
-                position = ftell (mPDAIInPCMDumpFile);
-                if(position> MAX_FILE_LENGTH)
+                long int position = 0;
+                position = ftell(mPDAIInPCMDumpFile);
+                if (position > MAX_FILE_LENGTH)
                 {
                     rewind(mPDAIInPCMDumpFile);
                 }
-                written_data = fwrite((void *)mRingBuffer, 1, mBufferSize, mPDAIInPCMDumpFile);
+                //written_data = fwrite((void *)mRingBuffer, 1, mBufferSize, mPDAIInPCMDumpFile);
+                AudioDumpPCMData((void *)mRingBuffer , mBufferSize, mPDAIInPCMDumpFile);
             }
             break;
         case AudioDigitalType::MEM_AWB:
             if (mPI2SPCMDumpFile)
             {
-                long int position =0;
-                position = ftell (mPI2SPCMDumpFile);
-                if(position> MAX_FILE_LENGTH)
+                long int position = 0;
+                position = ftell(mPI2SPCMDumpFile);
+                if (position > MAX_FILE_LENGTH)
                 {
                     rewind(mPI2SPCMDumpFile);
                 }
-                written_data = fwrite((void *)mRingBuffer, 1, mBufferSize, mPI2SPCMDumpFile); //ccc
+                //written_data = fwrite((void *)mRingBuffer, 1, mBufferSize, mPI2SPCMDumpFile); //ccc
+                AudioDumpPCMData((void *)mRingBuffer , mBufferSize, mPI2SPCMDumpFile);
             }
             break;
     }
@@ -1160,21 +1227,25 @@ void AudioMTKStreamInManager::AudioMTkRecordThread::WritePcmDumpData()
 void AudioMTKStreamInManager::AudioMTkRecordThread::ClosePcmDumpFile()
 {
     ALOGD("ClosePcmDumpFile");
-    switch (mMemType) {
+    switch (mMemType)
+    {
         case AudioDigitalType::MEM_VUL:
-            if (mPAdcPCMDumpFile) {
+            if (mPAdcPCMDumpFile)
+            {
                 AudioCloseDumpPCMFile(mPAdcPCMDumpFile);
                 ALOGD("ClosePcmDumpFile mPAdcPCMDumpFile");
             }
             break;
         case AudioDigitalType::MEM_DAI:
-            if (mPDAIInPCMDumpFile) {
+            if (mPDAIInPCMDumpFile)
+            {
                 AudioCloseDumpPCMFile(mPDAIInPCMDumpFile);
                 ALOGD("ClosePcmDumpFile mPDAIInPCMDumpFile");
             }
             break;
         case AudioDigitalType::MEM_AWB:
-            if (mPI2SPCMDumpFile) {
+            if (mPI2SPCMDumpFile)
+            {
                 AudioCloseDumpPCMFile(mPI2SPCMDumpFile);
                 ALOGD("ClosePcmDumpFile mPI2SPCMDumpFile");
             }
@@ -1187,17 +1258,19 @@ void AudioMTKStreamInManager::AudioMTkRecordThread::DropRecordData()
     int Read_Size = 0;
     int Read_Buffer_Size = 0;
     // drop data for pop
-    if(mRecordDropms != 0)
+    if (mRecordDropms != 0)
     {
-          if(mRecordDropms > RECORD_DROP_MS_MAX){
-              mRecordDropms = RECORD_DROP_MS_MAX;
-          }
-          Read_Buffer_Size = ((AudioMTKStreamInManager::MemVULSamplerate * mRecordDropms << 2) / 1000);
-          ALOGD("1. DropRecordData Read_Buffer_Size = %d Read_Size = %d",Read_Buffer_Size,Read_Size);
+        if (mRecordDropms > RECORD_DROP_MS_MAX)
+        {
+            mRecordDropms = RECORD_DROP_MS_MAX;
+        }
+        Read_Buffer_Size = ((AudioMTKStreamInManager::MemVULSamplerate * mRecordDropms << 2) / 1000);
+        ALOGD("1. DropRecordData Read_Buffer_Size = %d Read_Size = %d", Read_Buffer_Size, Read_Size);
     }
-    while(Read_Buffer_Size > 0)
+    while (Read_Buffer_Size > 0)
     {
-        if(Read_Buffer_Size > mBufferSize){
+        if (Read_Buffer_Size > mBufferSize)
+        {
             Read_Size = ::read(mFd, mRingBuffer, mBufferSize);
         }
         else
@@ -1205,58 +1278,109 @@ void AudioMTKStreamInManager::AudioMTkRecordThread::DropRecordData()
             Read_Size = ::read(mFd, mRingBuffer, Read_Buffer_Size);
         }
         Read_Buffer_Size -= mBufferSize;
-        ALOGD("DropRecordData Read_Buffer_Size = %d Read_Size = %d",Read_Buffer_Size,Read_Size);
+        ALOGD("DropRecordData Read_Buffer_Size = %d Read_Size = %d", Read_Buffer_Size, Read_Size);
     }
 }
 
 bool AudioMTKStreamInManager::AudioMTkRecordThread::threadLoop()
 {
     uint32 Read_Size = 0;
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT
     unsigned long long timecheck = 0;
-#endif
 
-    while (!(exitPending() == true)) {
+    while (!(exitPending() == true))
+    {
         //ALOGD("AudioMTkRecordThread threadLoop() read mBufferSize = %d mRingBuffer = %p ", mBufferSize, mRingBuffer);
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT        
         mEnterTime = mManager->GetSystemTime(false);
-        if(mStart==true)
+        if (mStart == true)
         {
-            timecheck = mManager->ProcessTimeCheck(mEnterTime,mFinishtime);
-            if(timecheck>readperiodtime)
+            timecheck = mManager->ProcessTimeCheck(mEnterTime, mFinishtime);
+            if (timecheck > readperiodtime)
             {
                 readperiodtime = timecheck;
-                ALOGD("AudioMTkRecordThread readperiodtime=%lld",readperiodtime);
-                if((timecheck/1000000)>60)
+                ALOGD("AudioMTkRecordThread readperiodtime=%lld", readperiodtime);
+                if ((timecheck / 1000000) > 60)
                 {
                     ALOGW("AudioMTkRecordThread, readperiodtime too long? sec %ld nsec %ld, sec %ld nsec %ld", mEnterTime.tv_sec, mEnterTime.tv_nsec, mFinishtime.tv_sec, mFinishtime.tv_nsec);
                 }
-                if((timecheck/1000000)>120)
+                if ((timecheck / 1000000) > 90) //one hardware buffer time
                 {
                     //ASSERT_FTRACE(0);
                     ALOGW("AudioMTkRecordThread something wrong?");
                 }
             }
         }
-#endif        
+        int ret_ms = ::ioctl(mFd, AUDDRV_GET_UL_REMAINDATA_TIME, NULL);
+        //int ret_ms = 0;
+
         Read_Size = ::read(mFd, mRingBuffer, mBufferSize);
-#ifdef MTK_VOIP_ENHANCEMENT_SUPPORT        
-        mFinishtime = mManager->GetSystemTime(false);
-        timecheck = mManager->ProcessTimeCheck(mFinishtime,mEnterTime);
-        mStart = true;
-        if((timecheck/1000000)>70)
+        struct timespec tempTime = mEnterTime;
+
+        if (ret_ms != 0)
         {
-            ALOGW("AudioMTkRecordThread, process too long? sec %ld nsec %ld, sec %ld nsec %ld", mEnterTime.tv_sec, mEnterTime.tv_nsec, mFinishtime.tv_sec, mFinishtime.tv_nsec);
+            if ((tempTime.tv_nsec - ret_ms * 1000000) >= 0)
+            {
+                tempTime.tv_nsec = tempTime.tv_nsec - ret_ms * 1000000;
+            }
+            else
+            {
+                tempTime.tv_sec = tempTime.tv_sec - 1;
+                tempTime.tv_nsec = 1000000000 + tempTime.tv_nsec - ret_ms * 1000000;
+            }
         }
+        //ALOGD("input tempTime sec= %ld, nsec=%ld, ret_ms=%d" , tempTime.tv_sec, tempTime.tv_nsec, ret_ms);
+
+        struct AdditionalInfo_STRUCT tempAddInfo;
+        tempAddInfo.bHasAdditionalInfo = true;//false;
+        tempAddInfo.timestamp_info = tempTime;
+
+        //MTK_VOIP_ENHANCEMENT_SUPPORT debug purpose+++
+        mFinishtime = mManager->GetSystemTime(false);
+        //timecheck = mManager->ProcessTimeCheck(mFinishtime, mEnterTime);
+        mStart = true;
+        //if((timecheck/1000000)>70)
+        //{
+        //ALOGW("AudioMTkRecordThread, process too long? sec %ld nsec %ld, sec %ld nsec %ld", mEnterTime.tv_sec, mEnterTime.tv_nsec, mFinishtime.tv_sec, mFinishtime.tv_nsec);
+        //}
         //ALOGD("AudioMTkRecordThread read finish");
-#endif        
+        //---
         WritePcmDumpData();
-        mManager->ApplyVolume(mRingBuffer,mBufferSize);
-        
-        mManager->CopyBufferToClient(mMemType, (void *)mRingBuffer, mBufferSize);
+        mManager->ApplyVolume(mRingBuffer, mBufferSize);
+
+        if ((mManager->mBliHandlerDAIBT) && (mMemType == AudioDigitalType::MEM_DAI))
+        {
+            uint32 consume = 0;
+            size_t inputLength = mBufferSize;
+            size_t outputLength = BliOutBufferSizeDAIBT;
+            //ALOGD("BTRX: mBufferSize=%d, outputLength=%d",mBufferSize,outputLength);
+            consume = BLI_Convert(mManager->mBliHandlerDAIBT, (int16_t *)mRingBuffer, &inputLength, (int16_t *)mManager->mBliOutputBufferDAIBT, &outputLength);
+            //ALOGD("BTRX: consume=%d, inputLength=%d, outputLength=%d",consume,inputLength,outputLength);
+            mManager->CopyBufferToClient(mMemType, (void *)mManager->mBliOutputBufferDAIBT, outputLength, tempAddInfo);
+        }
+        else
+        {
+#if defined(MTK_DIGITAL_MIC_SUPPORT)
+            uint32 consume = 0;
+            size_t inputLength = mBufferSize;
+            size_t outputLength = BliOutBufferSizeDMIC;
+            if (mManager->mBliHandlerDMIC)
+            {
+                //ALOGD("mBufferSize=%d, outputLength=%d",mBufferSize,outputLength);
+                consume = BLI_Convert(mManager->mBliHandlerDMIC, (int16_t *)mRingBuffer, &inputLength, (int16_t *)mManager->mBliOutputBufferDMIC, &outputLength);
+                //ALOGD("consume=%d, inputLength=%d, outputLength=%d",consume,inputLength,outputLength);
+                mManager->CopyBufferToClient(mMemType, (void *)mManager->mBliOutputBufferDMIC, outputLength, tempAddInfo);
+            }
+            else
+            {
+                mManager->CopyBufferToClient(mMemType, (void *)mRingBuffer, mBufferSize, tempAddInfo);
+            }
+
+#else
+            mManager->CopyBufferToClient(mMemType, (void *)mRingBuffer, mBufferSize, tempAddInfo);
+#endif
+        }
         return true;
     }
-    ALOGD("threadLoop exit");    
+    ALOGD("threadLoop exit");
     return false;
 }
 

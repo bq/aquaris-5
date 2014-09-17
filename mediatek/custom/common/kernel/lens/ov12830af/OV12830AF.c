@@ -15,7 +15,7 @@
 #include "../camera/kd_camera_hw.h"
 
 #define LENS_I2C_BUSNUM 1
-//static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("OV12830AF", 0x18)};
+static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("OV12830AF", 0x19)};
 
 
 #define OV12830AF_DRVNAME "OV12830AF"
@@ -46,9 +46,9 @@ static unsigned long g_u4CurrPosition   = 0;
 
 static int g_sr = 3;
 
-extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
-extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
-extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
+//extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
+//extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
+//extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
 
 
 static int s4OV12830AF_ReadReg(unsigned short * a_pu2Result)
@@ -459,7 +459,7 @@ static struct platform_driver g_stOV12830AF_Driver = {
 
 static int __init OV12830AF_i2C_init(void)
 {
-//    i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
+    i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
 	
     if(platform_driver_register(&g_stOV12830AF_Driver)){
         OV12830AFDB("failed to register OV12830AF driver\n");

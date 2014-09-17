@@ -42,6 +42,8 @@
 #include "mtk_pll.h"
 #include "mtk_timer.h"
 
+extern u32 seclib_get_devinfo_with_index(u32 index);
+
 unsigned int mt_get_bus_freq(void)
 {
     kal_uint32 bus_clk = 26000;
@@ -847,9 +849,17 @@ int mt_pll_init(void)
 
     temp = DRV_Reg32(ARMPLL_PWR_CON0);
     DRV_WriteReg32(ARMPLL_PWR_CON0, temp & ~0x2);
-
-    DRV_WriteReg32(ARMPLL_CON1, 0x8009A000);
-
+    
+    temp = seclib_get_devinfo_with_index(3) & 0x7;
+    if(temp == 6 || temp==7)
+    {	
+        DRV_WriteReg32(ARMPLL_CON1, 0x810F8000);//806MHz
+    }
+    else
+    {	
+        DRV_WriteReg32(ARMPLL_CON1, 0x8009A000); //1001MHz
+    }
+    
     temp = DRV_Reg32(ARMPLL_CON0);
     DRV_WriteReg32(ARMPLL_CON0, temp | 0x1);
 

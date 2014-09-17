@@ -32,10 +32,13 @@
 
 #include "AudioParamTuning.h"
 
+#include "AudioFMController.h"
+#include "AudioMTKHardwareCommand.h"
 namespace android
 {
 
-enum AudioCommand {
+enum AudioCommand
+{
     AUDIOCOMMAND_NONE = 0,
     SETOUTPUTFIRINDEX = 1,
     GETOUTPUTFIRINDEX = 2,
@@ -97,9 +100,6 @@ enum AudioCommand {
     GET_VOICE_GAIN = 0x202
 };
 
-typedef struct _AUDIO_DEVICE_CHANGE_CALLBACK_STRUCT {
-    void (*callback)(void *data);
-} AUDIO_DEVICE_CHANGE_CALLBACK_STRUCT;
 
 class AudioMTKHardware : public android_audio_legacy::AudioHardwareBase
 {
@@ -130,7 +130,6 @@ class AudioMTKHardware : public android_audio_legacy::AudioHardwareBase
          * when a call is in progress.
          */
         virtual status_t    setMode(int mode);
-        virtual status_t    doSetMode();
 
         // mic mute
         virtual status_t    setMicMute(bool state);
@@ -187,8 +186,8 @@ class AudioMTKHardware : public android_audio_legacy::AudioHardwareBase
         virtual int xWayRec_Stop(void);
         virtual int xWayRec_Read(void *buffer, int size_bytes);
         //added by wendy
-        int ReadRefFromRing(void*buf, uint32_t datasz,void* DLtime);
-        int GetVoiceUnlockULTime(void* DLtime);
+        int ReadRefFromRing(void *buf, uint32_t datasz, void *DLtime);
+        int GetVoiceUnlockULTime(void *DLtime);
         int SetVoiceUnlockSRC(uint outSR, uint outChannel);
         bool startVoiceUnlockDL();
         bool stopVoiceUnlockDL();
@@ -214,16 +213,21 @@ class AudioMTKHardware : public android_audio_legacy::AudioHardwareBase
 
         bool IsOutPutStreamActive();
         bool IsInPutStreamActive();
-        status_t DoDeviceChangeCallback(uint32_t device);
-        status_t SetFmDigitalFmHw(uint32_t pre_device, uint32_t new_device);
 
         status_t HardwareInit(bool BenableSpeech);
 
         bool UpdateOutputFIR(int mode , int index);
 
+        //        virtual status_t SetVibSpkCalibrationParam(AUDIO_ACF_CUSTOM_PARAM_STRUCT *cali_param);
+        //        virtual uint32_t GetVibSpkCalibrationStatus();
+        //        virtual void     SetVibSpkEnable(bool enable, uint32_t freq);
+        //        virtual void     SetVibSpkRampControl(uint8_t rampcontrol);
+        //#endif
+        bool ReadAuxadcData(int channel, int *value);
     protected:
         /** returns true if the given mode maps to a telephony or VoIP call is in progress */
-        virtual bool     isModeInCall(int mode) {
+        virtual bool     isModeInCall(int mode)
+        {
             return ((mode == AUDIO_MODE_IN_CALL)
                     || (mode == AUDIO_MODE_IN_CALL_2)
                     || (mode == AUDIO_MODE_IN_COMMUNICATION));
@@ -232,30 +236,13 @@ class AudioMTKHardware : public android_audio_legacy::AudioHardwareBase
         virtual bool     isInCall() { return isModeInCall(mMode); }
 
         virtual status_t dump(int fd, const Vector<String16> &args);
-        virtual status_t SetFmEnable(bool enable);
-        virtual bool     GetFmRxStatus(void);
-        virtual bool     GetFmPowerInfo(void);
-        virtual status_t SetFmPinmux(bool enable);
-        virtual status_t SetFmDigitalEnable(bool enable);
-        virtual status_t SetFmDirectConnection(bool enable,bool bforce);
-
-		virtual status_t SetMatvAnalogEnable(bool enable);
-        virtual status_t SetMatvDigitalEnable(bool enable);
-        //virtual status_t SetMatvPinmux(bool enable);
 
         void             UpdateKernelState();
-        void (*mFmDeviceCallback)(void *data);
 
         audio_mode_t     mMode;
-        audio_mode_t     mNextMode;
 
         int              mFd;
-        bool             mFmStatus;
-        bool             mFmDigitalStatus;
         bool             mHardwareInit;
-
-		bool             mMatvAnalogStatus;
-		bool             mMatvDigitalStatus;
 
         bool             mMicMute;
 
@@ -272,14 +259,11 @@ class AudioMTKHardware : public android_audio_legacy::AudioHardwareBase
         AudioAnalogReg *mAudioAnaRegInstance;;
         AudioSpeechEnhanceInfo *mAudioSpeechEnhanceInfoInstance;
 
-         SPH_Control     mAudio_Control_State;
+        SPH_Control     mAudio_Control_State;
 
         AudioParamTuning *mAudioTuningInstance;
 
         pthread_mutex_t setParametersMutex;  // use for setParameters
-        int mIsFmDirectConnectionMode;
-
-        AudioLock mSetModeLock; // Add mutex for setMode() to avoid CallManager call setMode() frequently.
 };
 
 }

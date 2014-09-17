@@ -33,7 +33,7 @@ class Play2Way
         int                 Stop();
         int                 Write(void *buffer, int size_bytes);
         int                 GetFreeBufferCount(void);
-        uint32_t            PutDataToSpeaker(char *target_ptr, uint16_t num_data_request);
+        uint16_t            PutDataToSpeaker(char *target_ptr, uint16_t num_data_request);
 
     private:
         Play2Way();

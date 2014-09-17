@@ -18,7 +18,7 @@ typedef unsigned long long  u64;
 #define Set_PMIC_Volt 1
 #define En_ISR_log 0
 
-#define ENHANCE_TURBO_OPP 0
+#define ENHANCE_TURBO_OPP 1
 
 #define ptp_fsm_int_b_IRQ_ID 32
 

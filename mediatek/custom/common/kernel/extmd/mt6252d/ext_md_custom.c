@@ -1,37 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
 #include "extmd_mt6252d.h"
 #include <linux/delay.h>
 #include <linux/sched.h>
@@ -39,13 +5,13 @@
 //#include <mach/mt6575_gpio.h>
 #include <cust_eint.h>
 
-extern unsigned int mt65xx_eint_set_sens(unsigned int, unsigned int);
-extern void mt65xx_eint_set_polarity(unsigned char, unsigned char);
-extern void mt65xx_eint_set_hw_debounce(unsigned char, unsigned int);
-extern void mt65xx_eint_registration(unsigned char, unsigned char, unsigned char, void(*func)(void),
-					unsigned char);
-extern void mt65xx_eint_unmask(unsigned int);
-extern void mt65xx_eint_mask(unsigned int);
+extern void mt_eint_mask(unsigned int eint_num);
+extern void mt_eint_unmask(unsigned int eint_num);
+extern void mt_eint_set_hw_debounce(unsigned int eint_num, unsigned int ms);
+extern void mt_eint_set_polarity(unsigned int eint_num, unsigned int pol);
+extern unsigned int mt_eint_set_sens(unsigned int eint_num, unsigned int sens);
+extern void mt_eint_registration(unsigned int eint_num, unsigned int flow, void (EINT_FUNC_PTR)(void), unsigned int is_auto_umask);
+
 
 int cm_do_md_power_on(void)
 {
@@ -164,22 +130,22 @@ void cm_ext_md_rst(void)
 
 void cm_enable_ext_md_wdt_irq(void)
 {
-	mt65xx_eint_unmask(CUST_EINT_DT_EXT_MD_WDT_NUM);
+	mt_eint_unmask(CUST_EINT_DT_EXT_MD_WDT_NUM);
 }
 
 void cm_disable_ext_md_wdt_irq(void)
 {
-	mt65xx_eint_mask(CUST_EINT_DT_EXT_MD_WDT_NUM);
+	mt_eint_mask(CUST_EINT_DT_EXT_MD_WDT_NUM);
 }
 
 void cm_enable_ext_md_wakeup_irq(void)
 {
-	mt65xx_eint_unmask(CUST_EINT_DT_EXT_MD_WK_UP_NUM);
+	mt_eint_unmask(CUST_EINT_DT_EXT_MD_WK_UP_NUM);
 }
 
 void cm_disable_ext_md_wakeup_irq(void)
 {
-	mt65xx_eint_mask(CUST_EINT_DT_EXT_MD_WK_UP_NUM);
+	mt_eint_mask(CUST_EINT_DT_EXT_MD_WK_UP_NUM);
 }
 
 

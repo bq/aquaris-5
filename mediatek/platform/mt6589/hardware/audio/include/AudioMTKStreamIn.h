@@ -113,11 +113,21 @@ class AudioMTKStreamIn : public android_audio_legacy::AudioStreamIn
 
         uint32_t StreamInPreprocess(void *buffer , uint32_t bytes);
         status_t SetStreamInPreprocessStatus(bool Enable);
+
+        void NeedUpdateVoIPParams(void);
+        bool CheckVoIPNeeded(void);
+        bool GetVoIPRunningState(void);
+        uint32_t BesRecordPreprocess(void *buffer , uint32_t bytes, AdditionalInfo_STRUCT AddInfo);
+
+        void SetDMNREnable(DMNR_TYPE type, bool enable);
+        void UpdateDynamicFunction();
+
+
 #ifdef MTK_VOICEUNLOCK_DEBUG_ENABLE
-		bool CheckRecordNoData(short *buffer , uint32_t bytes);
-		uint32_t mNoDataCount;
-		int              mFd;
-#endif		
+        bool CheckRecordNoData(short *buffer , uint32_t bytes);
+        uint32_t mNoDataCount;
+        int              mFd;
+#endif
         status_t RequesetRecordclock();
         status_t ReleaseRecordclock();
 
@@ -127,11 +137,11 @@ class AudioMTKStreamIn : public android_audio_legacy::AudioStreamIn
         // defualt setting for Streamin
         static const int mStream_Default_Format = AUDIO_FORMAT_PCM_16_BIT;
         static const int mStream_Default_Channels = AUDIO_CHANNEL_IN_STEREO;
-		static const uint32_t mStream_Default_SampleRate = 48000;	//DMIC upper bound is 32K
+        static const uint32_t mStream_Default_SampleRate = 48000;   //DMIC upper bound is 32K
 
         // defualt setting for Streamin
-        static const uint32_t Default_Mic_Buffer = 0x1000;
-        static const uint32_t Default_BT_Buffer = 0x1000;
+        static const uint32_t Default_Mic_Buffer = 0x800;
+        static const uint32_t Default_BT_Buffer = 0x800;
 
     private:
         Mutex     mLock;
@@ -145,6 +155,7 @@ class AudioMTKStreamIn : public android_audio_legacy::AudioStreamIn
         AudioMTKStreamInManager *mStreamInManager;
         AudioResourceManagerInterface *mAudioResourceManager;
         AudioSpeechEnhanceInfo *mAudioSpeechEnhanceInfoInstance;
+        AudioDigitalControlInterface *mAudioDigitalControl;
 
         static int DumpFileNum;
         String8 DumpFileName;
@@ -152,18 +163,25 @@ class AudioMTKStreamIn : public android_audio_legacy::AudioStreamIn
         FILE *mPAdcPCMInDumpFile;
 
         bool mEnablePreprocess;
+        bool mUsingMagiASR;
 
         bool MutexLock(void);
         bool MutexUnlock(void);
-        void CheckNeedDataConvert(short * buffer, ssize_t bytes);
+        void CheckNeedDataConvert(short *buffer, ssize_t bytes);
         void StereoToMono(short *buffer , int length);
+        timespec GetSystemTime(bool print = 0);
+
 #ifdef MTK_AUDIO_HD_REC_SUPPORT
         SPELayer    *mpSPELayer;
         int mHDRecordModeIndex;
-		int mHDRecordSceneIndex;
+        int mHDRecordSceneIndex;
         AUDIO_HD_RECORD_SCENE_TABLE_STRUCT mhdRecordSceneTable;
         AUDIO_HD_RECORD_PARAM_STRUCT mhdRecordParam;
-//        AUDIO_HD_RECORD_48K_PARAM_STRUCT mhdRecord48kParam;
+        AUDIO_VOIP_PARAM_STRUCT mVOIPParam;
+
+#ifdef MTK_HANDSFREE_DMNR_SUPPORT
+        AUDIO_CUSTOM_EXTRA_PARAM_STRUCT mDMNRParam;
+#endif
         bool mStereoMode;
         int CheckHDRecordMode(void);
         bool GetHdRecordModeInfo(uint8_t *modeIndex);
@@ -171,60 +189,66 @@ class AudioMTKStreamIn : public android_audio_legacy::AudioStreamIn
         void ConfigHDRecordParams(SPE_MODE mode);
         void StartHDRecord(SPE_MODE mode);
         void StopHDRecord(void);
-        uint32_t HDRecordPreprocess(void *buffer , uint32_t bytes);
+        uint32_t HDRecordPreprocess(void *buffer , uint32_t bytes, AdditionalInfo_STRUCT AddInfo);
+
         bool IsHDRecordRunning(void);
+
+        void CheckHDRecordVoIPSwitch(void);
+        bool IsVoIPRouteChange(void);
+        int GetVoIPRoutePath(void);
+        bool mVoIPRunning;
+        bool mHDRecordParamUpdate;
 #endif
 
-#ifdef NATIVE_AUDIO_PREPROCESS_ENABLE
         AudioPreProcess *mAPPS;
         struct echo_reference_itfe *mEcho_Reference;
-        ssize_t	NativeRecordPreprocess(void * buffer, ssize_t bytes);
-#endif
+        ssize_t NativeRecordPreprocess(void *buffer, ssize_t bytes);
 
 #ifdef MTK_DUAL_MIC_SUPPORT
-		bool	mLRChannelSwitch;
-		int mSpecificMicChoose;
+        bool    mLRChannelSwitch;
+        int mSpecificMicChoose;
 #endif
-		ssize_t     Refilldata(char *buffer, ssize_t bytes);
-		bool StreamIn_NeedToSRC(void);
-		bool IsNeedDMICSRC(void);
-		void StreamInSRC_Init(void);
-		void StreamInSRC_Process(void *buffer, size_t bytes);
-		uint32 GetSrcbufvalidSize(RingBuf *SrcInputBuf);
-		uint32 GetSrcbufFreeSize(RingBuf *SrcInputBuf);
-		uint32 CopySrcBuf(char *buffer,uint32 *bytes, RingBuf *SrcInputBuf, uint32 *length);
+        ssize_t     Refilldata(char *buffer, ssize_t bytes);
+        bool StreamIn_NeedToSRC(void);
+        bool IsNeedDMICSRC(void);
+        void StreamInSRC_Init(void);
+        void StreamInSRC_Process(void *buffer, size_t bytes);
+        uint32 GetSrcbufvalidSize(RingBuf *SrcInputBuf);
+        uint32 GetSrcbufFreeSize(RingBuf *SrcInputBuf);
+        uint32 CopySrcBuf(char *buffer, uint32 *bytes, RingBuf *SrcInputBuf, uint32 *length);
 
-		// BLI_SRC
+        // BLI_SRC
         BLI_HANDLE *mBliHandler1;
         char       *mBliHandler1Buffer;
         BLI_HANDLE *mBliHandler2;
         char       *mBliHandler2Buffer;
 
-		  class BliSrc
-		  {
-		  public:
-				BliSrc();
-				~BliSrc();
-				status_t initStatus();
-				status_t init(uint32 inSamplerate,uint32 inChannel, uint32 OutSamplerate,uint32 OutChannel);
-				size_t process(const void *inbuffer, size_t *inBytes, void *outbuffer, size_t *outBytes);
+        class BliSrc
+        {
+            public:
+                BliSrc();
+                ~BliSrc();
+                status_t initStatus();
+                status_t init(uint32 inSamplerate, uint32 inChannel, uint32 OutSamplerate, uint32 OutChannel);
+                size_t process(const void *inbuffer, size_t *inBytes, void *outbuffer, size_t *outBytes);
 
-				status_t close();
-		  private:
-			  BLI_HANDLE *mHandle;
-			  uint8_t *mBuffer;
-			  status_t mInitCheck;
-			  BliSrc(const BliSrc&);
-			  BliSrc & operator=(const BliSrc&);
-		  };
+                status_t close();
+            private:
+                BLI_HANDLE *mHandle;
+                uint8_t *mBuffer;
+                status_t mInitCheck;
+                BliSrc(const BliSrc &);
+                BliSrc &operator=(const BliSrc &);
+        };
 
-		  BliSrc * mBliSrc;
-		  uint8_t *mSwapBufferTwo;
+        BliSrc *mBliSrc;
+        uint8_t *mSwapBufferTwo;
 
-		//HDRec tunning tool
-		bool mIsHDRecTunningEnable;
-		bool mHDRecTunning16K;
-		char m_strTunningFileName[128];
+        //HDRec tunning tool
+        bool mIsHDRecTunningEnable;
+        bool mHDRecTunning16K;
+        bool mIsAPDMNRTuningEnable;
+        char m_strTunningFileName[128];
 };
 
 }

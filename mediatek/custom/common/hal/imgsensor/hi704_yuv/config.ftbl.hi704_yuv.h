@@ -78,6 +78,7 @@ FTABLE_SCENE_INDEP()
         ), 
     )
 #endif
+    //==========================================================================
 #if 1
 		FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_VALUES(
 			KEY_AS_(MtkCameraParameters::KEY_PICTURE_SIZE), 
@@ -95,9 +96,9 @@ FTABLE_SCENE_INDEP()
     FTABLE_CONFIG_AS_TYPE_OF_DEFAULT_VALUES(
         KEY_AS_(MtkCameraParameters::KEY_PICTURE_SIZE), 
         SCENE_AS_DEFAULT_SCENE(
-            ITEM_AS_DEFAULT_("640x480"), 
+            ITEM_AS_DEFAULT_("640x360"), 
             ITEM_AS_VALUES_(
-		"320x240",	  "640x480",			
+			"320x180", "320x240",	 "640x360",   "640x480",
 
             )
         ), 
@@ -169,6 +170,7 @@ FTABLE_SCENE_INDEP()
         SCENE_AS_DEFAULT_SCENE(
             ITEM_AS_DEFAULT_(MtkCameraParameters::ANTIBANDING_50HZ), 
             ITEM_AS_VALUES_(
+                //MtkCameraParameters::ANTIBANDING_OFF, 
                 MtkCameraParameters::ANTIBANDING_50HZ, 
                 MtkCameraParameters::ANTIBANDING_60HZ, 
 //                MtkCameraParameters::ANTIBANDING_AUTO, 

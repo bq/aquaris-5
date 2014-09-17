@@ -11,14 +11,21 @@
 #include <platform/mtk_key.h>
 
 #include <target/cust_key.h>
-
+#include <video.h>
+#include <platform/mt_disp_drv.h>
+#include <platform/mt_gpt.h>
+#include <platform/mt_leds.h>
 #define MODULE_NAME "[BOOT_MENU]"
+extern int unshield_recovery_detection(void);
+extern void mtk_wdt_disable(void);
+extern void mtk_wdt_init(void);
 extern char g_CMDLINE [];
+extern BOOL recovery_check_command_trigger(void);
 bool g_boot_menu = false;
 
 void boot_mode_menu_select()
 {
-          int select = 0;  // 0=recovery mode, 1=fastboot.  2=normal boot 3=normal boot + ftrace
+          int select = 0;  // 0=recovery mode, 1=fastboot.  2=normal boot 3=normal boot + ftrace.4=slub debug off
           const char* title_msg = "Select Boot Mode:\n[VOLUME_UP to select.  VOLUME_DOWN is OK.]\n\n";
           video_clean_screen();
           video_set_cursor(video_get_rows()/2, 0);
@@ -30,6 +37,7 @@ void boot_mode_menu_select()
           video_printf("[Normal      Boot]             \n");
 #ifndef USER_BUILD
           video_printf("[Normal      Boot +ftrace]    \n");
+          video_printf("[Normal      slub debug off]     \n");
 #endif
 
 #if (defined(MTK_NCP1851_SUPPORT) || defined(MTK_BQ24196_SUPPORT))    
@@ -56,6 +64,7 @@ void boot_mode_menu_select()
                             video_printf("[Normal      Boot]             \n");
 #ifndef USER_BUILD
                             video_printf("[Normal      Boot +ftrace]     \n");
+                            video_printf("[Normal      slub debug off]     \n");
 #endif
                         break;
 #endif
@@ -71,6 +80,7 @@ void boot_mode_menu_select()
                             video_printf("[Normal      Boot]         <<==\n");
 #ifndef USER_BUILD
                             video_printf("[Normal      Boot +ftrace]     \n");
+                            video_printf("[Normal      slub debug off]     \n");
 #endif
                         break;
 
@@ -96,10 +106,29 @@ void boot_mode_menu_select()
 #endif
                             video_printf("[Normal      Boot]             \n");
                             video_printf("[Normal      Boot +ftrace] <<==\n");
+                            video_printf("[Normal      slub debug off]     \n");
 #endif
                         break;
+
 #ifndef USER_BUILD
                         case 3:
+                            select = 4;
+                            video_set_cursor(video_get_rows()/2, 0);
+                            video_printf(title_msg);
+                            video_printf("[Recovery    Mode]             \n");
+#ifdef MTK_FASTBOOT_SUPPORT
+                            video_printf("[Fastboot    Mode]             \n");
+#endif
+                            video_printf("[Normal      Boot]             \n");
+                            video_printf("[Normal      Boot +ftrace]     \n");
+                            video_printf("[Normal      slub debug off] <<==\n");
+                            
+                        break;
+#endif
+
+
+#ifndef USER_BUILD
+                        case 4:
                             select = 0;
                             video_set_cursor(video_get_rows()/2, 0);
                             video_printf(title_msg);
@@ -109,7 +138,7 @@ void boot_mode_menu_select()
 #endif
                             video_printf("[Normal      Boot]             \n");
                             video_printf("[Normal      Boot +ftrace]     \n");
-                            
+                            video_printf("[Normal      slub debug off]     \n");                                                        
                         break;
 #endif
 
@@ -145,7 +174,13 @@ void boot_mode_menu_select()
           {
                 sprintf(g_CMDLINE, "%s trace_buf_size=11m boot_time_ftrace", g_CMDLINE);
                 g_boot_mode = NORMAL_BOOT;
-          }else{
+          }
+          else if (select == 4)
+          {
+                sprintf(g_CMDLINE, "%s slub_debug=-", g_CMDLINE);
+                g_boot_mode = NORMAL_BOOT;
+          }
+          else{
                 //pass
           }
 

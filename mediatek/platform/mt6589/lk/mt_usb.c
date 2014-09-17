@@ -35,12 +35,15 @@
 #include <platform/mt_reg_base.h>
 #include <platform/mt_usb.h>
 #include <platform/mt_typedefs.h>
+#include <platform/timer.h>
 #include <kernel/thread.h>
 
 #include <dev/udc.h>
 
 #if MACH_FPGA
 #define CFG_FPGA_PLATFORM		(1)
+#else
+#define DBG_PHY_CALIBRATION 1
 #endif
 
 #define USB_DOUBLE_BUF
@@ -50,23 +53,26 @@
 #ifdef USB_DEBUG
 /* DEBUG INFO Sections */
 #define DBG_USB_DUMP_DESC 0
-#define DBG_USB_DUMP_DATA 1
-#define DBG_USB_DUMP_SETUP 0
-#define DBG_USB_FIFO 1
+#define DBG_USB_DUMP_DATA 0
+#define DBG_USB_DUMP_SETUP 1
+#define DBG_USB_FIFO 0
+#define DBG_USB_GENERAL 1
+#define DBG_PHY_CALIBRATION 0
+#endif
 
-#define DBG(x...) dprintf(ALWAYS, x)
-//#define DBG(x...) dprintf(INFO, x)
-//#define DBG(x...) dprintf(CRITICAL, x)
+#define DBG_C(x...) dprintf(CRITICAL, x)
+#define DBG_I(x...) dprintf(INFO, x)
+#define DBG_S(x...) dprintf(SPEW, x)
+
+#if DBG_USB_GENERAL
+#define DBG_IRQ(x...) dprintf(INFO, x)
 #else
-#define DBG(x...) do {} while(0)
+#define DBG_IRQ(x...) do{} while(0)
 #endif
 
 /* bits used in all the endpoint status registers */
 #define EPT_TX(n) (1 << ((n) + 16))
 #define EPT_RX(n) (1 << (n))
-
-#define EPMASK(x) (1 << (x))
-#define CHANMASK(x) (1 << (x))
 
 /* udc.h wrapper for usbdcore */
 
@@ -76,8 +82,6 @@ int set_address = 0;
 u32 fifo_addr = FIFO_ADDR_START;
 
 #define EP0	0
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 /* USB transfer directions */
 #define USB_DIR_IN	DEVICE_WRITE	/* val: 0x80 */
@@ -112,8 +116,6 @@ u32 fifo_addr = FIFO_ADDR_START;
 #include <platform/mt_i2c.h>
 #endif
 
-#define usb_status(a,b)
-
 #define URB_BUF_SIZE 512
 
 struct urb {
@@ -145,14 +147,14 @@ struct udc_endpoint {
 
 	/* info from hsusb */
 	struct udc_request *req;
-	unsigned long bit;	/* EPT_TX/EPT_RX */
+	unsigned int bit;	/* EPT_TX/EPT_RX */
 	unsigned char num;
 	unsigned char in;
 	unsigned short maxpkt;
 	int status;	/* status for error handling */
 
-	int sent;		/* data already sent */
-	int last;		/* data sent in last packet XXX do we need this */
+	unsigned int sent;		/* data already sent */
+	unsigned int last;		/* data sent in last packet XXX do we need this */
 	unsigned char mode;	/* double buffer */
 };
 
@@ -163,13 +165,11 @@ struct udc_endpoint {
 struct udc_endpoint ep_list[NUM_ENDPOINTS + 1];	/* one extra for control endpoint */
 
 static int usb_online = 0;
-static int usb_highspeed = 0;
 
 static u8 dev_address = 0;
 
 static struct udc_device *the_device;
 static struct udc_gadget *the_gadget;
-static unsigned test_mode = 0;
 /* end from hsusb.c */
 
 /* declare ept_complete handle */
@@ -217,21 +217,23 @@ U32 usb_i2c_write8(U8 addr, U8 value)
 /* use mt_typedefs.h */
 #define USBPHY_READ8(offset)		readb(USB20_PHY_BASE+offset)
 #define USBPHY_WRITE8(offset, value)	writeb(value, USB20_PHY_BASE+offset)
-#define USBPHY_SET8(offset, mask)	USBPHY_WRITE8(offset, USBPHY_READ8(offset) | mask)
-#define USBPHY_CLR8(offset, mask)	USBPHY_WRITE8(offset, USBPHY_READ8(offset) & ~mask)
+#define USBPHY_SET8(offset, mask)	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) | (mask))
+#define USBPHY_CLR8(offset, mask)	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) & (~mask))
 
 #define USB11PHY_READ8(offset)		readb(USB11_PHY_BASE+offset)
 #define USB11PHY_WRITE8(offset, value)  writeb(value, USB11_PHY_BASE+offset)
-#define USB11PHY_SET8(offset, mask)	USB11PHY_WRITE8(offset, USB11PHY_READ8(offset) | mask)
-#define USB11PHY_CLR8(offset, mask)	USB11PHY_WRITE8(offset, USB11PHY_READ8(offset) & ~mask)
+#define USB11PHY_SET8(offset, mask)	USB11PHY_WRITE8(offset, (USB11PHY_READ8(offset)) | (mask))
+#define USB11PHY_CLR8(offset, mask)	USB11PHY_WRITE8(offset, (USB11PHY_READ8(offset)) & (~mask))
 
 #if CFG_FPGA_PLATFORM
 void mt_usb_phy_poweron(void)
 {
 	#define PHY_DRIVING   0x3
 
+#if defined(USB_PHY_DRIVING_TUNING)
 	UINT8 usbreg8;
 	unsigned int i;
+#endif
 
 	/* force_suspendm = 0 */
 	USBPHY_CLR8(0x6a, 0x04);
@@ -252,7 +254,7 @@ void mt_usb_phy_poweron(void)
 	usbreg8 &= ~0x3;
 	usbreg8 |= PHY_DRIVING;
 	USBPHY_I2C_WRITE8(0xab, usbreg8);
-		
+
 	for(i = 0; i < 16; i++)
 	{
 		USBPHY_I2C_READ8((0x92+i), &usbreg8);
@@ -265,7 +267,7 @@ void mt_usb_phy_poweron(void)
 	usbreg8 &= ~0x3;
 	usbreg8 |= PHY_DRIVING;
 	USBPHY_I2C_WRITE8(0xbc, usbreg8);
-	
+
 	USBPHY_I2C_READ8(0xbe, &usbreg8);
 	usbreg8 &= ~0x3;
 	usbreg8 |= PHY_DRIVING;
@@ -279,7 +281,7 @@ void mt_usb_phy_poweron(void)
 	USBPHY_I2C_READ8(0xcd, &usbreg8);
 	usbreg8 &= ~0x3;
 	usbreg8 |= PHY_DRIVING;
-	USBPHY_I2C_WRITE8(0xcd, usbreg8);	   
+	USBPHY_I2C_WRITE8(0xcd, usbreg8);
 
 	USBPHY_I2C_READ8(0xf1, &usbreg8);
 	usbreg8 &= ~0x3;
@@ -290,12 +292,12 @@ void mt_usb_phy_poweron(void)
 	usbreg8 &= ~0x3;
 	usbreg8 |= PHY_DRIVING;
 	USBPHY_I2C_WRITE8(0xa7, usbreg8);
-	   
+
 	USBPHY_I2C_READ8(0xa8, &usbreg8);
 	usbreg8 &= ~0x3;
 	usbreg8 |= PHY_DRIVING;
 	USBPHY_I2C_WRITE8(0xa8, usbreg8);
-	#endif  
+	#endif
 
 	udelay(800);
 
@@ -371,7 +373,7 @@ void mt_usb_phy_savecurrent(void)
 	USBPHY_CLR8(0x69, 0x3c);
 
 	/*
-	 * force_dp_pulldown, force_dm_pulldown, 
+	 * force_dp_pulldown, force_dm_pulldown,
 	 * force_xcversel, force_termsel.
 	 */
 	USBPHY_SET8(0x6a, 0xba);
@@ -441,8 +443,6 @@ void mt_usb_phy_recover(void)
 #endif
 
 	udelay(800);
-
-	return;
 }
 
 void mt_usb11_phy_savecurrent(void)
@@ -452,8 +452,6 @@ void mt_usb11_phy_savecurrent(void)
 	USB11PHY_CLR8(0xc1, 0x08);
 	USB11PHY_CLR8(0xc7, 0x06);
 	USB11PHY_SET8(0xc6, 0x06);
-
-	return;
 }
 #endif
 /* usb phy bring up end */
@@ -461,75 +459,101 @@ void mt_usb11_phy_savecurrent(void)
 //ALPS00427972, implement the analog register formula
 void mt_usb_phy_calibraion (int case_set, int input_reg)
 {
-    int temp_added=0;
-    int temp_test=0;
-    int temp_mask;
+	int temp_added=0;
+	int temp_test=0;
+	int temp_mask;
 
-	printf("%s: case_set %d, input_reg = 0x%x \n", __func__, case_set, input_reg);
+#if DBG_PHY_CALIBRATION
+	DBG_I("%s: case_set %d, input_reg = 0x%x \n", __func__, case_set, input_reg);
+#endif
 
-    switch(case_set)
-    {
-    case 1:
-        //case  1
-        //If M_HW_RES3[15:13] !=0
-            //RG_USB20_TERM_VREF_SEL[2:0] <= RG_USB20_TERM_VREF_SEL[2:0] + M_HW_RES3[15:13]
-        temp_mask = 0x07;
-        temp_test = USBPHY_READ8(0x05);
-		printf("%s: temp_test = 0x%x \n", __func__, temp_test);
-        temp_added = (USBPHY_READ8(0x05)& temp_mask) + input_reg;
-		printf("%s: temp_added = 0x%x \n", __func__, temp_added);
-        temp_added &= 0x07;
-		printf("%s: temp_added = 0x%x \n", __func__, temp_added);
+	switch(case_set)
+	{
+	case 1:
+		//case  1
+		//If M_HW_RES3[15:13] !=0
+		//RG_USB20_TERM_VREF_SEL[2:0] <= RG_USB20_TERM_VREF_SEL[2:0] + M_HW_RES3[15:13]
+		temp_mask = 0x07;
+		temp_test = USBPHY_READ8(0x05);
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_test = 0x%x \n", __func__, temp_test);
+#endif
+		temp_added = (USBPHY_READ8(0x05)& temp_mask) + input_reg;
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_added = 0x%x \n", __func__, temp_added);
+#endif
+		temp_added &= 0x07;
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_added = 0x%x \n", __func__, temp_added);
+#endif
 
-        USBPHY_CLR8(0x05, temp_mask);
-        USBPHY_SET8(0x05, temp_added);
+		USBPHY_CLR8(0x05, temp_mask);
+		USBPHY_SET8(0x05, temp_added);
 
-        temp_test = USBPHY_READ8(0x05);
-        printf("%s: final temp_test = 0x%x \n", __func__, temp_test);
-        break;
-    case 2:
-        //case 2
-        //If M_HW_RES3[12:10] !=0
-            //RG_USB20_CLKREF_REF[2:0]<= RG_USB20_CLKREF_REF[2:0]+ M_HW_RES3[12:10]
-        temp_mask = 0x07;
+		temp_test = USBPHY_READ8(0x05);
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: final temp_test = 0x%x \n", __func__, temp_test);
+#endif
+		break;
+	case 2:
+		//case 2
+		//If M_HW_RES3[12:10] !=0
+		//RG_USB20_CLKREF_REF[2:0]<= RG_USB20_CLKREF_REF[2:0]+ M_HW_RES3[12:10]
+		temp_mask = 0x07;
 
-        temp_test = USBPHY_READ8(0x07);
-		printf("%s: temp_test = 0x%x \n", __func__, temp_test);
-        temp_added = (USBPHY_READ8(0x07)& temp_mask) + input_reg;
-		printf("%s: temp_added = 0x%x \n", __func__, temp_added);
-        temp_added &= 0x07;
-		printf("%s: temp_added = 0x%x \n", __func__, temp_added);
+		temp_test = USBPHY_READ8(0x07);
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_test = 0x%x \n", __func__, temp_test);
+#endif
+		temp_added = (USBPHY_READ8(0x07)& temp_mask) + input_reg;
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_added = 0x%x \n", __func__, temp_added);
+#endif
+		temp_added &= 0x07;
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_added = 0x%x \n", __func__, temp_added);
+#endif
 
-        USBPHY_CLR8(0x07, temp_mask);
-        USBPHY_SET8(0x07, temp_added);
+		USBPHY_CLR8(0x07, temp_mask);
+		USBPHY_SET8(0x07, temp_added);
 
-        temp_test = USBPHY_READ8(0x07);
-        printf("%s: final temp_test = 0x%x \n", __func__, temp_test);
-        break;
-    case 3:
-        //case 3
-        //If M_HW_RES3[9:7] !=0
-            //RG_USB20_VRT_VREF_SEL[2:0]<=RG_USB20_VRT_VREF_SEL[2:0]+ M_HW_RES3[9:7]
-        temp_mask = 0x70;
+		temp_test = USBPHY_READ8(0x07);
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: final temp_test = 0x%x \n", __func__, temp_test);
+#endif
+		break;
+	case 3:
+		//case 3
+		//If M_HW_RES3[9:7] !=0
+			//RG_USB20_VRT_VREF_SEL[2:0]<=RG_USB20_VRT_VREF_SEL[2:0]+ M_HW_RES3[9:7]
+		temp_mask = 0x70;
 
-        temp_test = USBPHY_READ8(0x05);
-		printf("%s: temp_test = 0x%x \n", __func__, temp_test);
-        temp_added = (USBPHY_READ8(0x05)& temp_mask) >> 4;
-		printf("%s: temp_added = 0x%x \n", __func__, temp_added);
-        temp_added += input_reg;
-		printf("%s: temp_added = 0x%x \n", __func__, temp_added);
-        temp_added &= 0x07;
-		printf("%s: temp_added = 0x%x \n", __func__, temp_added);
+		temp_test = USBPHY_READ8(0x05);
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_test = 0x%x \n", __func__, temp_test);
+#endif
+		temp_added = (USBPHY_READ8(0x05)& temp_mask) >> 4;
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_added = 0x%x \n", __func__, temp_added);
+#endif
+		temp_added += input_reg;
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_added = 0x%x \n", __func__, temp_added);
+#endif
+		temp_added &= 0x07;
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: temp_added = 0x%x \n", __func__, temp_added);
+#endif
 
-        USBPHY_CLR8(0x05, temp_mask);
-        USBPHY_SET8(0x05, temp_added<<4);
+		USBPHY_CLR8(0x05, temp_mask);
+		USBPHY_SET8(0x05, temp_added<<4);
 
-        temp_test = USBPHY_READ8(0x05);
-        printf("%s: final temp_test = 0x%x \n", __func__, temp_test);
-        break;
-    }
-
-	return;
+		temp_test = USBPHY_READ8(0x05);
+#if DBG_PHY_CALIBRATION
+		DBG_I("%s: final temp_test = 0x%x \n", __func__, temp_test);
+#endif
+		break;
+	}
 }
 
 //ALPS00427972, implement the analog register formula
@@ -546,18 +570,35 @@ struct udc_descriptor {
 	unsigned char data[0];
 };
 
-static void copy_desc(struct urb *urb, void *data, int length) { 
+#if DBG_USB_DUMP_SETUP
+static void dump_setup_packet(char *str, struct setup_packet *sp) {
+	DBG_I("\n");
+	DBG_I(str);
+	DBG_I("	   bmRequestType = %x\n", sp->type);
+	DBG_I("	   bRequest = %x\n", sp->request);
+	DBG_I("	   wValue = %x\n", sp->value);
+	DBG_I("	   wIndex = %x\n", sp->index);
+	DBG_I("	   wLength = %x\n", sp->length);
+}
+#else
+static void dump_setup_packet(char *str, struct setup_packet *sp) {}
+#endif
 
-	DBG("%s: urb: %x, data %x, length: %d, actual_length: %d\n",
+static void copy_desc(struct urb *urb, void *data, int length) {
+
+#if DBG_USB_FIFO
+	DBG_I("%s: urb: %x, data %x, length: %d, actual_length: %d\n",
 		__func__, urb->buffer, data, length, urb->actual_length);
+#endif
 
 	//memcpy(urb->buffer + urb->actual_length, data, length);
 	memcpy(urb->buffer, data, length);
 	//urb->actual_length += length;
 	urb->actual_length = length;
-	DBG("%s: urb: %x, data %x, length: %d, actual_length: %d\n",
+#if DBG_USB_FIFO
+	DBG_I("%s: urb: %x, data %x, length: %d, actual_length: %d\n",
 		__func__, urb, data, length, urb->actual_length);
-
+#endif
 }
 
 
@@ -624,7 +665,6 @@ static int mt_read_fifo(struct udc_endpoint *endpoint) {
 	int ep_num = endpoint->num;
 	int index;
 	unsigned char *cp;
-	unsigned char c;
 	u32 *wp;
 	u16 dma_cntl = 0;
 
@@ -637,13 +677,17 @@ static int mt_read_fifo(struct udc_endpoint *endpoint) {
 
 		cp = (u8 *) (urb->buffer + urb->actual_length);
 		wp = (u32 *) cp;
-		DBG("%s: ep_num: %d, urb: %x, urb->buffer: %x, urb->actual_length = %d\n",
+#if DBG_USB_FIFO
+		DBG_I("%s: ep_num: %d, urb: %x, urb->buffer: %x, urb->actual_length = %d\n",
 			__func__, ep_num, urb, urb->buffer, urb->actual_length);
+#endif
 
 		count = len = readw(IECSR + RXCOUNT);
 		if (ep_num != 0) {
-			DBG("%s: ep_num: %d count = %d\n",
+#if DBG_USB_FIFO
+			DBG_I("%s: ep_num: %d count = %d\n",
 			__func__, ep_num, count);
+#endif
 		}
 
 		/* FIX: DMA has problem write now */
@@ -652,7 +696,7 @@ static int mt_read_fifo(struct udc_endpoint *endpoint) {
 		arch_clean_invalidate_cache_range((addr_t) cp, count);
 
 		if (ep_num != 0) {
-			writel(wp, USB_DMA_ADDR (ep_num));
+			writel((u32)wp, USB_DMA_ADDR (ep_num));
 			writel(count, USB_DMA_COUNT (ep_num));
 			dma_cntl =
 				USB_DMA_BURST_MODE_3 | (ep_num << USB_DMA_ENDPNT_OFFSET) |
@@ -668,11 +712,11 @@ static int mt_read_fifo(struct udc_endpoint *endpoint) {
 				if (len >= 4) {
 					*wp++ = readl(FIFO(ep_num));
 					cp = (unsigned char *) wp;
-					//DBG("USB READ FIFO: wp = %lu, cp = %lu\n", wp, cp);
+					//DBG_I("USB READ FIFO: wp = %lu, cp = %lu\n", wp, cp);
 					len -= 4;
 				} else {
 					*cp++ = readb(FIFO(ep_num));
-					//DBG("USB READ FIFO: wp = %lu, cp = %lu\n", wp, cp);
+					//DBG_I("USB READ FIFO: wp = %lu, cp = %lu\n", wp, cp);
 					len--;
 				}
 			}
@@ -680,10 +724,9 @@ static int mt_read_fifo(struct udc_endpoint *endpoint) {
 
 #if DBG_USB_DUMP_DATA
 		if (ep_num != 0) {
-			int i;
-			DBG("%s: &urb->buffer: %x\n", __func__, urb->buffer);
-			for (i = 0; i < count; i++)
-				printf("%x ", *(u8 *)(urb->buffer + i));
+			DBG_I("%s: &urb->buffer: %x\n", __func__, urb->buffer);
+			DBG_I("[USB] dump data:\n");
+			hexdump8(urb->buffer, count);
 		}
 #endif
 
@@ -702,8 +745,10 @@ static int mt_write_fifo(struct udc_endpoint *endpoint)
 	int ep_num = endpoint->num;
 	int index;
 	unsigned char *cp = NULL;
+#ifdef USB_TX_DMA_MODE_0
 	u32 *wp;
 	u16 dma_cntl = 0;
+#endif
 
 	if (ep_num == EP0)
 		urb = ep0_urb;
@@ -713,39 +758,35 @@ static int mt_write_fifo(struct udc_endpoint *endpoint)
 		writeb(ep_num, INDEX);
 
 #if DBG_USB_DUMP_DESC
-	DBG("%s: DUMP DESC\n", __func__);
-	unsigned int i;
-	for (i = 0; i < urb->actual_length; i++) {
-		printf("%02x ", urb->buffer[i]);
-	}
-	printf("\n");
+	DBG_I("%s: dump desc\n", __func__);
+	hexdump8(urb->buffer, urb->actual_length);
 #endif
 
 
 #if DBG_USB_FIFO
-	DBG("%s: ep_num: %d urb: %x, actual_length: %d\n",
+	DBG_I("%s: ep_num: %d urb: %x, actual_length: %d\n",
 		__func__, ep_num, urb, urb->actual_length);
-	DBG("%s: sent: %d, tx_pkt_size: %d\n", __func__, endpoint->sent, endpoint->maxpkt);
+	DBG_I("%s: sent: %d, tx_pkt_size: %d\n", __func__, endpoint->sent, endpoint->maxpkt);
 #endif
 
 		count = last = MIN (urb->actual_length - endpoint->sent,  endpoint->maxpkt);
 		//count = last = urb->actual_length;
 
 #if DBG_USB_FIFO
-		DBG("%s: count: %d\n", __func__, count);
-		DBG("[mt_write_fifo] urb->actual_length = %d\n", urb->actual_length);
-		DBG("[mt_write_fifo] endpoint->sent = %d\n", endpoint->sent);
+		DBG_I("%s: count: %d\n", __func__, count);
+		DBG_I("%s: urb->actual_length = %d\n", __func__, urb->actual_length);
+		DBG_I("%s: endpoint->sent = %d\n", __func__, endpoint->sent);
 #endif
 
 		if (count < 0) {
-			DBG("something is wrong");
+			DBG_C("%s: something is wrong, count < 0", __func__);
 		}
 
 		if (count) {
 			cp = urb->buffer + endpoint->sent;
+#ifdef USB_TX_DMA_MODE_0
 			wp = (u32 *)cp;
 
-#ifdef USB_TX_DMA_MODE_0
 			arch_clean_invalidate_cache_range((addr_t) cp, count);
 
 			if (ep_num != 0) {
@@ -761,8 +802,7 @@ static int mt_write_fifo(struct udc_endpoint *endpoint)
 			{
 			//DBG("---------write USB fifo---------\n");
 				while (count > 0) {
-					//DBG("%c",*cp);
-					//dprintf("%c",*cp);
+					//hexdump8(cp, 1);
 					writeb(*cp, FIFO (ep_num));
 					cp++;
 					count--;
@@ -789,9 +829,11 @@ static struct udc_endpoint * mt_find_ep(int ep_num, u8 dir) {
 
 	/* for (i = 0; i < udc_device->max_endpoints; i++) */
 	/* for (i = 0; i < the_gadget->ifc_endpoints; i++) */
-	for (i = 0; i < MT_EP_NUM; i++) {   
+	for (i = 0; i < MT_EP_NUM; i++) {
 		if ((ep_list[i].num == ep_num) && (ep_list[i].in == in)) {
-			DBG("%s: find ep!\n", __func__);
+#if DBG_USB_GENERAL
+			DBG_I("%s: find ep!\n", __func__);
+#endif
 			return &ep_list[i];
 		}
 	}
@@ -837,7 +879,7 @@ static void udc_stall_ep(unsigned int ep_num, u8 dir) {
 	u8 index;
 	u16 csr;
 
-	dprintf(ALWAYS, "USB: udc_stall_ep\n");
+	DBG_C("[USB] %s\n", __func__);
 
 	index = readb(INDEX);
 	writeb(ep_num, INDEX);
@@ -876,9 +918,8 @@ static void udc_stall_ep(unsigned int ep_num, u8 dir) {
  * Because sometimes there will come reset twice.
  */
 static void mt_udc_suspend(void) {
-	/* handle abnormal DATA transfer if we had any */ 
+	/* handle abnormal DATA transfer if we had any */
 	struct udc_endpoint *endpoint;
-	struct udc_request *req;
 	int i;
 
 	/* deal with flags */
@@ -891,9 +932,12 @@ static void mt_udc_suspend(void) {
 		/* ensure that ept_complete considers
 		 * this to be an error state
 		 */
-		DBG("%s: ep: %i, in: %s, req: %x\n",
+#if DBG_USB_GENERAL
+		DBG_I("%s: ep: %i, in: %s, req: %x\n",
 			__func__, ep_list[i].num, ep_list[i].in ? "IN" : "OUT", ep_list[i].req);
-		if (ep_list[i].req && (ep_list[i].in == 0)) { /* USB_DIROUT */
+#endif
+		if ((ep_list[i].req && (ep_list[i].in == 0)) || /* USB_DIR_OUT */
+			(ep_list[i].req && (ep_list[i].in == 1))) { /* USB_DIR_IN */
 			ep_list[i].status = -1;	/* HALT */
 			endpoint = &ep_list[i];
 			handle_ept_complete(endpoint);
@@ -903,18 +947,15 @@ static void mt_udc_suspend(void) {
 
 static void mt_udc_rxtxmap_recover(void) {
 	int i;
-	u8 index;
-	u16 rxmap, txmap;
 
 	for (i = 1; i < MT_EP_NUM; i++) {
 		if (ep_list[i].num != 0) { /* allocated */
 
-			index = readb(INDEX);
 			writeb(ep_list[i].num, INDEX);
 
-			if (ep_list[i].in == 0) /* USB_DIR_OUT */ 
+			if (ep_list[i].in == 0) /* USB_DIR_OUT */
 				writel(ep_list[i].maxpkt, (IECSR + RXMAP));
-			else 
+			else
 				writel(ep_list[i].maxpkt, (IECSR + TXMAP));
 		}
 	}
@@ -931,7 +972,7 @@ static void mt_udc_reset(void) {
 	 * 6. Generates a Rest interrupt
 	 */
 
-	DBG("USB: mt_udc_reset\n");
+	DBG_I("[USB] %s\n", __func__);
 
 	/* disable all endpoint interrupts */
 	writeb(0, INTRTXE);
@@ -950,10 +991,10 @@ static void mt_udc_reset(void) {
 
 	/* detect USB speed */
 	if (readb(POWER) & PWR_HS_MODE) {
-		DBG("[USBD] USB High Speed\n");
+		DBG_I("[USB] USB High Speed\n");
 //		enable_highspeed();
 	} else {
-		DBG("[USBD] USB Full Speed\n");
+		DBG_I("[USB] USB Full Speed\n");
 	}
 
 	/* restore RXMAP and TXMAP if the endpoint has been configured */
@@ -976,13 +1017,15 @@ static void mt_udc_ep0_write(void) {
 
 	csr0 = readw(IECSR + CSR0);
 	if (csr0 & EP0_TXPKTRDY) {
-		DBG("mt_udc_ep0_write: ep0 is not ready to be written\n");
+		DBG_I("mt_udc_ep0_write: ep0 is not ready to be written\n");
 		return;
 	}
 
 	count = mt_write_fifo(endpoint);
 
-	DBG("ep0 write fifo, count = %d\n", count);
+#if DBG_USB_GENERAL
+	DBG_I("%s: count = %d\n", __func__, count);
+#endif
 
 	if (count < EP0_MAX_PACKET_SIZE) {
 		/* last packet */
@@ -1038,8 +1081,9 @@ static void mt_udc_ep0_read(void) {
 
 static int ep0_standard_setup(struct urb *urb) {
 	struct setup_packet *request;
-	struct udc_device *device;
-	char *cp = urb->buffer;
+	struct udc_descriptor *desc;
+	//struct udc_device *device;
+	u8 *cp = urb->buffer;
 #if 0
 	if (!urb || !urb->device) {
 		DBG ("\n!urb || !urb->device\n");
@@ -1048,16 +1092,9 @@ static int ep0_standard_setup(struct urb *urb) {
 #endif
 
 	request = &urb->device_request;
-	device = urb->device;
+	//device = urb->device;
 
-#if DBG_USB_DUMP_SETUP
-	DBG("USB: Device Request\n");
-	DBG("	   bmRequestType = %x\n", request->type);
-	DBG("	   bRequest = %x\n", request->request);
-	DBG("	   wValue = %x\n", request->value);
-	DBG("	   wIndex = %x\n", request->index);
-	DBG("	   wLength = %x\n\n", request->length);
-#endif
+	dump_setup_packet("[USB] Device Request\n", request);
 
 	if ((request->type & USB_TYPE_MASK) != 0) {
 		return -1;			/* Class-specific requests are handled elsewhere */
@@ -1065,14 +1102,15 @@ static int ep0_standard_setup(struct urb *urb) {
 
 	/* handle all requests that return data (direction bit set on bm RequestType) */
 	if ((request->type & USB_EP_DIR_MASK)) {
-
+		/* send the descriptor */
 		ep0_state = EP0_TX;
 
 		switch (request->request) {
 		/* data stage: from device to host */
 		case GET_STATUS:
-			DBG("GET_STATUS\n");
-
+#if DBG_USB_GENERAL
+			DBG_I("GET_STATUS\n");
+#endif
 			urb->actual_length = 2;
 			cp[0] = cp[1] = 0;
 			switch (request->type & USB_RECIP_MASK) {
@@ -1089,24 +1127,27 @@ static int ep0_standard_setup(struct urb *urb) {
 			return 0;
 
 		case GET_DESCRIPTOR:
-			DBG("GET_DESCRIPTOR\n");
-
-			struct udc_descriptor *desc;
+#if DBG_USB_GENERAL
+			DBG_I("GET_DESCRIPTOR\n");
+#endif
 			/* usb_highspeed? */
 
 			for (desc = desc_list; desc; desc = desc->next) {
 #if DBG_USB_DUMP_DESC
-				DBG("desc->tag: %x: request->value: %x\n", desc->tag, request->value);
+				DBG_I("desc->tag: %x: request->value: %x\n", desc->tag, request->value);
 #endif
 				if (desc->tag == request->value) {
 
 #if DBG_USB_DUMP_DESC
-					DBG("Find packet!\n");
+					DBG_I("Find packet!\n");
 #endif
 					unsigned len = desc->len;
 					if (len > request->length)
 						len = request->length;
-					DBG("%s: urb: %x, cp: %d\n", __func__, urb, cp);
+
+#if DBG_USB_GENERAL
+					DBG_I("%s: urb: %x, cp: %p\n", __func__, urb, cp);
+#endif
 					copy_desc(urb, desc->data, len);
 					return 0;
 				}
@@ -1115,8 +1156,10 @@ static int ep0_standard_setup(struct urb *urb) {
 			return -1;
 
 		case GET_CONFIGURATION:
-			DBG("GET_CONFIGURATION\n");
-			DBG("USB_EP_DIR_MASK\n");
+#if DBG_USB_GENERAL
+			DBG_I("GET_CONFIGURATION\n");
+			DBG_I("USB_EP_DIR_MASK\n");
+#endif
 #if 0
 			urb->actual_length = 1;
 			((char *) urb->buffer)[0] = device->configuration;
@@ -1125,7 +1168,9 @@ static int ep0_standard_setup(struct urb *urb) {
 			break;
 
 		case GET_INTERFACE:
-			DBG("GET_INTERFACE\n");
+#if DBG_USB_GENERAL
+			DBG_I("GET_INTERFACE\n");
+#endif
 
 #if 0
 			urb->actual_length = 1;
@@ -1133,7 +1178,7 @@ static int ep0_standard_setup(struct urb *urb) {
 			return 0;
 #endif
 		default:
-			DBG ("Unsupported command with TX data stage\n");
+			DBG_C("Unsupported command with TX data stage\n");
 			break;
 		}
 	} else {
@@ -1141,28 +1186,23 @@ static int ep0_standard_setup(struct urb *urb) {
 		switch (request->request) {
 
 		case SET_ADDRESS:
-			DBG("SET_ADDRESS\n");
+#if DBG_USB_GENERAL
+			DBG_I("SET_ADDRESS\n");
+#endif
 
 			dev_address = (request->value);
 			set_address = 1;
 			return 0;
 
 		case SET_CONFIGURATION:
-			DBG("SET_CONFIGURATION\n");
+#if DBG_USB_GENERAL
+			DBG_I("SET_CONFIGURATION\n");
+#endif
 #if 0
 			device->configuration = (request->value) & 0x7f;
 			device->interface = device->alternate = 0;
 #endif
 			if (request->value == 1) {
-				struct udc_endpoint *ept;
-				/* enable endpoints */
-#if 0
-				for (ept = ep_list; ept; ept = ept->next) {
-					if (ept->num == 0)
-						continue;
-//				endpoint_enable(ept, s.value);
-				}
-#endif
 				usb_config_value = 1;
 				the_gadget->notify(the_gadget, UDC_EVENT_ONLINE);
 			} else {
@@ -1176,7 +1216,7 @@ static int ep0_standard_setup(struct urb *urb) {
 			return 0;
 
 		default:
-			DBG ("Unsupported command with RX data stage\n");
+			DBG_C("Unsupported command with RX data stage\n");
 			break;
 
 		}
@@ -1189,8 +1229,11 @@ static void mt_udc_ep0_setup(void) {
 	u8 index;
 	u8 stall = 0;
 	u16 csr0;
-	u16 count;
 	struct setup_packet *request;
+
+#ifdef USB_DEBUG
+	u16 count;
+#endif
 
 	index = readb(INDEX);
 	writeb(0, INDEX);
@@ -1203,46 +1246,42 @@ static void mt_udc_ep0_setup(void) {
 
 	/* unload fifo */
 	ep0_urb->actual_length = 0;
+
+#ifndef USB_DEBUG
+	mt_read_fifo(endpoint);
+#else
 	count = mt_read_fifo(endpoint);
 
-	DBG("%s: mt_read_fifo count = %d\n", __func__, count);
+#if DBG_USB_FIFO
+	DBG_I("%s: mt_read_fifo count = %d\n", __func__, count);
+#endif
+#endif
 	/* decode command */
 	request = &ep0_urb->device_request;
 	memcpy(request, ep0_urb->buffer, sizeof(struct setup_packet));
 
 	if (((request->type) & USB_TYPE_MASK) == USB_TYPE_STANDARD) {
-		DBG("USB: Standard Request\n");
+#if DBG_USB_GENERAL
+		DBG_I("[USB] Standard Request\n");
+#endif
 		stall = ep0_standard_setup(ep0_urb);
 		if (stall) {
-
-#if DBG_USB_DUMP_SETUP
-			DBG("[USB] STANDARD REQUEST NOT SUPPORTED\n");
-			DBG("	   bmRequestType = %02x\n",
-				   request->type);
-			DBG("	   bRequest = %02x\n", request->request);
-			DBG("	   wValue = %02x\n", request->value);
-			DBG("	   wIndex = %02x\n", request->index);
-			DBG("	   wLength = %02x\n\n", request->length);
-#endif
+			dump_setup_packet("[USB] STANDARD REQUEST NOT SUPPORTED\n", request);
 		}
 	} else if (((request->type) & USB_TYPE_MASK) == USB_TYPE_CLASS) {
-		DBG("USB: Class-Specific Request\n");
+#if DBG_USB_GENERAL
+		DBG_I("[USB] Class-Specific Request\n");
+#endif
 //		stall = ep0_class_setup(ep0_urb);
 		if (stall) {
-#if DBG_USB_DUMP_SETUP
-			print("[USB] CLASS REQUEST NOT SUPPORTED\n");
-			DBG("	   bmRequestType = %02x\n",
-				   request->type);
-			DBG("	   bRequest = %02x\n", request->request);
-			DBG("	   wValue = %02x\n", request->value);
-			DBG("	   wIndex = %02x\n", request->index);
-			DBG("	   wLength = %02x\n\n", request->length);
-#endif
+			dump_setup_packet("[USB] CLASS REQUEST NOT SUPPORTED\n", request);
 		}
 	} else if (((request->type) & USB_TYPE_MASK) == USB_TYPE_VENDOR) {
-		DBG("USB: Vendor-Specific Request\n");
+#if DBG_USB_GENERAL
+		DBG_I("[USB] Vendor-Specific Request\n");
 		/* do nothing now */
-		DBG("[USB] ALL VENDOR-SPECIFIC REQUESTS ARE NOT SUPPORTED!!\n");
+		DBG_I("[USB] ALL VENDOR-SPECIFIC REQUESTS ARE NOT SUPPORTED!!\n");
+#endif
 	}
 
 	if (stall) {
@@ -1254,8 +1293,9 @@ static void mt_udc_ep0_setup(void) {
 	switch (ep0_state) {
 	case EP0_TX:
 		/* data stage: from device to host */
-		DBG("%s: EP0_TX\n", __func__);
-
+#if DBG_USB_GENERAL
+		DBG_I("%s: EP0_TX\n", __func__);
+#endif
 		csr0 = readw(IECSR + CSR0);
 		csr0 |= (EP0_SERVICED_RXPKTRDY);
 		writew(csr0, IECSR + CSR0);
@@ -1264,19 +1304,20 @@ static void mt_udc_ep0_setup(void) {
 
 		break;
 	case EP0_RX:
-
-		DBG("%s: EP0_RX\n", __func__);
 		/* data stage: from host to device */
+#if DBG_USB_GENERAL
+		DBG_I("%s: EP0_RX\n", __func__);
+#endif
 		csr0 = readw(IECSR + CSR0);
 		csr0 |= (EP0_SERVICED_RXPKTRDY);
 		writew(csr0, IECSR + CSR0);
 
 		break;
 	case EP0_IDLE:
-
-		DBG("%s: EP0_IDLE\n", __func__);
 		/* no data stage */
-
+#if DBG_USB_GENERAL
+		DBG_I("%s: EP0_IDLE\n", __func__);
+#endif
 		csr0 = readw(IECSR + CSR0);
 		csr0 |= (EP0_SERVICED_RXPKTRDY | EP0_DATAEND);
 
@@ -1304,13 +1345,17 @@ static void mt_udc_ep0_handler(void) {
 	csr0 = readw(IECSR + CSR0);
 
 	if (csr0 & EP0_SENTSTALL) {
-		DBG("USB: [EP0] SENTSTALL\n");
+#if DBG_USB_GENERAL
+		DBG_I("USB: [EP0] SENTSTALL\n");
+#endif
 		/* needs implementation for exception handling here */
 		ep0_state = EP0_IDLE;
 	}
 
 	if (csr0 & EP0_SETUPEND) {
-		DBG("USB: [EP0] SETUPEND\n");
+#if DBG_USB_GENERAL
+		DBG_I("USB: [EP0] SETUPEND\n");
+#endif
 		csr0 |= EP0_SERVICE_SETUP_END;
 		writew(csr0, IECSR + CSR0);
 
@@ -1319,7 +1364,9 @@ static void mt_udc_ep0_handler(void) {
 
 	switch (ep0_state) {
 	case EP0_IDLE:
-		DBG("%s: EP0_IDLE\n", __func__);
+#if DBG_USB_GENERAL
+		DBG_I("%s: EP0_IDLE\n", __func__);
+#endif
 		if (set_address) {
 			writeb(dev_address, FADDR);
 			set_address = 0;
@@ -1327,11 +1374,15 @@ static void mt_udc_ep0_handler(void) {
 		mt_udc_ep0_setup();
 		break;
 	case EP0_TX:
-		DBG("%s: EP0_TX\n", __func__);
+#if DBG_USB_GENERAL
+		DBG_I("%s: EP0_TX\n", __func__);
+#endif
 		mt_udc_ep0_write();
 		break;
 	case EP0_RX:
-		DBG("%s: EP0_RX\n", __func__);
+#if DBG_USB_GENERAL
+		DBG_I("%s: EP0_RX\n", __func__);
+#endif
 		mt_udc_ep0_read();
 		break;
 	default:
@@ -1357,7 +1408,6 @@ void mt_setup_ep(unsigned int ep, struct udc_endpoint *endpoint) {
 	u8 fifosz = 0;
 
 	/* EP table records in bits hence bit 1 is ep0 */
-
 	index = readb(INDEX);
 	writeb(ep, INDEX);
 
@@ -1372,8 +1422,10 @@ void mt_setup_ep(unsigned int ep, struct udc_endpoint *endpoint) {
 
 	/* Configure endpoint fifo */
 	/* Set fifo address, fifo size, and fifo max packet size */
-	DBG("%s: endpoint->in: %d, maxpkt: %d\n",
+#if DBG_USB_GENERAL
+	DBG_I("%s: endpoint->in: %d, maxpkt: %d\n",
 		__func__, endpoint->in, endpoint->maxpkt);
+#endif
 	if (endpoint->in == 0) { /* USB_DIR_OUT */
 		/* Clear data toggle to 0 */
 		csr = readw(IECSR + RXCSR);
@@ -1405,10 +1457,10 @@ void mt_setup_ep(unsigned int ep, struct udc_endpoint *endpoint) {
 			case 3072:
 				fifosz = uffs(4096 >> 4);
 				writeb(fifosz, RXFIFOSZ);
-				break; 
+				break;
 
 			default:
-				dprintf(ALWAYS, "The max_packet_size for ep %d is not supported\n", ep);
+				DBG_C("The max_packet_size for ep %d is not supported\n", ep);
 		}
 	} else {
 		/* Clear data toggle to 0 */
@@ -1441,10 +1493,10 @@ void mt_setup_ep(unsigned int ep, struct udc_endpoint *endpoint) {
 			case 3072:
 				fifosz = uffs(4096 >> 4);
 				writeb(fifosz, TXFIFOSZ);
-				break; 
+				break;
 
 			default:
-				dprintf(ALWAYS, "The max_packet_size for ep %d is not supported\n", ep);
+				DBG_C("The max_packet_size for ep %d is not supported\n", ep);
 		}
 	}
 
@@ -1459,8 +1511,6 @@ void mt_setup_ep(unsigned int ep, struct udc_endpoint *endpoint) {
 
 struct udc_endpoint *_udc_endpoint_alloc(unsigned char num, unsigned char in,
 					 unsigned short max_pkt) {
-	struct udc_endpoint *ept;
-	unsigned cfg;
 	int i;
 
 	/*
@@ -1469,7 +1519,7 @@ struct udc_endpoint *_udc_endpoint_alloc(unsigned char num, unsigned char in,
 	 */
 	if (num != EP0) {
 		for (i = 1; i < MT_EP_NUM; i++) {
-			if (ep_list[i].num == 0) /* usable */ 
+			if (ep_list[i].num == 0) /* usable */
 				break;
 		}
 
@@ -1506,7 +1556,7 @@ struct udc_endpoint *_udc_endpoint_alloc(unsigned char num, unsigned char in,
 	/* write parameters to this ep (write to hardware) */
 	mt_setup_ep(num, &ep_list[i]);
 
-	DBG("ept%d %s @%p/%p max=%d bit=%x\n",
+	DBG_I("[USB] ept%d %s @%p/%p max=%d bit=%x\n",
 		num, in ? "in" : "out", &ep_list[i], &ep_list, max_pkt, ep_list[i].bit);
 
 	return &ep_list[i];
@@ -1546,21 +1596,22 @@ struct udc_endpoint *udc_endpoint_alloc(unsigned type, unsigned maxpkt)
 
 static void handle_ept_complete(struct udc_endpoint *ept)
 {
-	struct ept_queue_item *item;
 	unsigned int actual;
 	int status;
 	struct udc_request *req;
 
 	req = ept->req;
-	DBG("%s: req: %x: req->length: %d: status: %d\n", __func__, req, req->length, ept->status);
 	if (req) {
+#if DBG_USB_GENERAL
+		DBG_I("%s: req: %x: req->length: %d: status: %d\n", __func__, req, req->length, ept->status);
+#endif
 		/* release this request for processing next */
 		ept->req = NULL;
 
 		if (ept->status == -1) {
 			actual = 0;
 			status = -1;
-			DBG("%s: EP%d/%s FAIL status: %x\n",
+			DBG_C("%s: EP%d/%s FAIL status: %x\n",
 				__func__, ept->num, ept->in ? "in" : "out", status);
 		} else {
 			actual = req->length;
@@ -1571,7 +1622,6 @@ static void handle_ept_complete(struct udc_endpoint *ept)
 	}
 
 }
-
 
 static void mt_udc_epx_handler(u8 ep_num, u8 dir)
 {
@@ -1588,8 +1638,10 @@ static void mt_udc_epx_handler(u8 ep_num, u8 dir)
 	index = readb(INDEX);
 	writeb(ep_num, INDEX);
 
-	DBG("EP%d Interrupt\n", ep_num);
-	DBG("dir: %x\n", dir);
+#if DBG_USB_GENERAL
+	DBG_I("EP%d Interrupt\n", ep_num);
+	DBG_I("dir: %x\n", dir);
+#endif
 
 	switch (dir) {
 	case USB_DIR_OUT:
@@ -1598,52 +1650,70 @@ static void mt_udc_epx_handler(u8 ep_num, u8 dir)
 		csr = readw(IECSR + RXCSR);
 
 		if (csr & EPX_RX_SENTSTALL) {
-			DBG("EP %d(RX): STALL\n", ep_num);
+			DBG_C("EP %d(RX): STALL\n", ep_num);
 			/* exception handling: implement this!! */
 			return;
 		}
 
 		if (!(csr & EPX_RX_RXPKTRDY)) {
-			DBG("EP %d: ERRONEOUS INTERRUPT\n", ep_num);
+#if DBG_USB_GENERAL
+			DBG_I("EP %d: ERRONEOUS INTERRUPT\n", ep_num); // normal
+#endif
 			return;
 		}
 
-		//printf("mt_read_fifo, start\n");
+		//DBG_C("mt_read_fifo, start\n");
 		count = mt_read_fifo(endpoint);
-		//printf("mt_read_fifo, end\n");
+		//DBG_C("mt_read_fifo, end\n");
 
-		DBG("EP%d(RX), count = %d\n", ep_num, count);
+#if DBG_USB_GENERAL
+		DBG_I("EP%d(RX), count = %d\n", ep_num, count);
+#endif
 
 		csr &= ~EPX_RX_RXPKTRDY;
 		writew(csr, IECSR + RXCSR);
 		if (readw(IECSR + RXCSR) & EPX_RX_RXPKTRDY) {
-			DBG("%s: rxpktrdy clear failed\n", __func__);
-		} else {
-			DBG("%s: normal\n", __func__);
+#if DBG_USB_GENERAL
+			DBG_I("%s: rxpktrdy clear failed\n", __func__);
+#endif
 		}
 
 		/* do signaling */
 		req = endpoint->req;
 		/* workaround: if req->lenth == 64 bytes (not huge data transmission)
 		 * do normal return */
-		DBG("%s: req->length: %x, endpoint->rcv_urb->actual_length: %x\n",
+#if DBG_USB_GENERAL
+		DBG_I("%s: req->length: %x, endpoint->rcv_urb->actual_length: %x\n",
 			__func__, req->length, endpoint->rcv_urb->actual_length);
+#endif
 
 		/* Deal with FASTBOOT command */
 		if ((req->length >= endpoint->rcv_urb->actual_length) && req->length == 64) {
 			req->length = count;
 
 			/* mask EPx INTRRXE */
+			/* The buffer is passed from the AP caller.
+			 * It happens that AP is dealing with the buffer filled data by driver,
+			 * but the driver is still receiving the next data packets onto the buffer.
+			 * Data corrupted happens if the every request use the same buffer.
+			 * Mask the EPx to ensure that AP and driver are not accessing the buffer parallely.
+			 */
 			intrrxe = readb(INTRRXE);
 			writeb((intrrxe &= ~(1 << ep_num)), INTRRXE);
 		}
 
 		/* Deal with DATA transfer */
-		if ((req->length == endpoint->rcv_urb->actual_length) || 
+		if ((req->length == endpoint->rcv_urb->actual_length) ||
 			((req->length >= endpoint->rcv_urb->actual_length) && req->length == 64)) {
 			handle_ept_complete(endpoint);
 
 			/* mask EPx INTRRXE */
+			/* The buffer is passed from the AP caller.
+			 * It happens that AP is dealing with the buffer filled data by driver,
+			 * but the driver is still receiving the next data packets onto the buffer.
+			 * Data corrupted happens if the every request use the same buffer.
+			 * Mask the EPx to ensure that AP and driver are not accessing the buffer parallely.
+			 */
 			intrrxe = readb(INTRRXE);
 			writeb((intrrxe &= ~(1 << ep_num)), INTRRXE);
 		}
@@ -1654,40 +1724,38 @@ static void mt_udc_epx_handler(u8 ep_num, u8 dir)
 		csr = readw(IECSR + TXCSR);
 
 		if (csr & EPX_TX_SENTSTALL) {
-			DBG("EP %d(TX): STALL\n", ep_num);
+			DBG_C("EP %d(TX): STALL\n", ep_num);
+			endpoint->status = -1;
+			handle_ept_complete(endpoint);
 			/* exception handling: implement this!! */
 			return;
 		}
 
 		if (csr & EPX_TX_TXPKTRDY) {
-			DBG
+			DBG_C
 				("mt_udc_epx_handler: ep%d is not ready to be written\n",
 				ep_num);
 			return;
 		}
 
-		count = mt_write_fifo(endpoint);
+		urb = endpoint->tx_urb;
+		if (endpoint->sent == urb->actual_length) {
+			/* do signaling */
+			handle_ept_complete(endpoint);
+			break;
+		}
 
-		DBG("EP%d(TX), count = %d\n", ep_num, endpoint->sent);
+		/* send next packet of the same urb */
+		count = mt_write_fifo(endpoint);
+#if DBG_USB_GENERAL
+		DBG_I("EP%d(TX), count = %d\n", ep_num, endpoint->sent);
+#endif
 
 		if (count != 0) {
 			/* not the interrupt generated by the last tx packet of the transfer */
 			csr |= EPX_TX_TXPKTRDY;
 			writew(csr, IECSR + TXCSR);
 		}
-
-		urb = endpoint->tx_urb;
-
-		if (endpoint->tx_urb->actual_length - endpoint->sent <= 0) {
-			urb->actual_length = 0;
-			endpoint->sent = 0;
-			endpoint->last = 0;
-		}
-
-		/* do signaling */
-		req = endpoint->req;
-		req->length = count;
-		handle_ept_complete(endpoint);
 
 		break;
 	default:
@@ -1704,41 +1772,41 @@ void mt_udc_irq(u8 intrtx, u8 intrrx, u8 intrusb) {
 
 	int i;
 
-	DBG("INTERRUPT\n");
+	DBG_IRQ("[USB] INTERRUPT\n");
 
 	if (intrusb) {
 		if (intrusb & INTRUSB_RESUME) {
-			DBG("INTRUSB: RESUME\n");
+			DBG_IRQ("[USB] INTRUSB: RESUME\n");
 		}
 
 		if (intrusb & INTRUSB_SESS_REQ) {
-			DBG("INTRUSB: SESSION REQUEST\n");
+			DBG_IRQ("[USB] INTRUSB: SESSION REQUEST\n");
 		}
 
 		if (intrusb & INTRUSB_VBUS_ERROR) {
-			DBG("INTRUSB: VBUS ERROR\n");
+			DBG_IRQ("[USB] INTRUSB: VBUS ERROR\n");
 		}
 
 		if (intrusb & INTRUSB_SUSPEND) {
-			DBG("INTRUSB: SUSPEND\n");
+			DBG_IRQ("[USB] INTRUSB: SUSPEND\n");
 			mt_udc_suspend();
 		}
 
 		if (intrusb & INTRUSB_CONN) {
-			DBG("INTRUSB: CONNECT\n");
+			DBG_IRQ("[USB] INTRUSB: CONNECT\n");
 		}
 
 		if (intrusb & INTRUSB_DISCON) {
-			DBG("INTRUSB: DISCONNECT\n");
+			DBG_IRQ("[USB] INTRUSB: DISCONNECT\n");
 		}
 
 		if (intrusb & INTRUSB_RESET) {
-			DBG("INTRUSB: RESET\n");
+			DBG_IRQ("[USB] INTRUSB: RESET\n");
 			mt_udc_reset();
 		}
 
 		if (intrusb & INTRUSB_SOF) {
-			DBG("INTRUSB: SOF\n");
+			DBG_IRQ("[USB] INTRUSB: SOF\n");
 		}
 	}
 
@@ -1771,8 +1839,6 @@ void service_interrupts(void)
 
 	volatile u8 intrtx, intrrx, intrusb;
 	/* polling interrupt status for incoming interrupts and service it */
-	u16 rxcsr;
-
 	intrtx = readb(INTRTX) & readb(INTRTXE);
 	intrrx = readb(INTRRX) & readb(INTRRXE);
 	intrusb = readb(INTRUSB) & readb(INTRUSBE);
@@ -1791,15 +1857,15 @@ void service_interrupts(void)
 
 void lk_usb_scheduler(void)
 {
-	static enum handler_return ret;
-
 	mt_irq_ack(MT_USB0_IRQ_ID);
 	service_interrupts();
-
 #if 0
-	if(ret == INT_RESCHEDULE) {
-       		thread_preempt();
-    	}
+	static enum handler_return ret;
+	ret = INT_RESCHEDULE;
+
+	if (ret == INT_RESCHEDULE) {
+		thread_preempt();
+	}
 #endif
 	return;
 }
@@ -1820,39 +1886,74 @@ int mt_usb_irq_init(void) {
 	return 0;
 }
 
+/* Turn on the USB connection by enabling the pullup resistor */
+void mt_usb_connect_internal(void)
+{
+	u8 tmpReg8;
+
+	/* connect */
+	tmpReg8 = readb(POWER);
+	tmpReg8 |= PWR_SOFT_CONN;
+	tmpReg8 |= PWR_ENABLE_SUSPENDM;
+
+#ifdef USB_FORCE_FULL_SPEED
+	tmpReg8 &= ~PWR_HS_ENAB;
+#else
+	tmpReg8 |= PWR_HS_ENAB;
+#endif
+	writeb(tmpReg8, POWER);
+}
+
+/* Turn off the USB connection by disabling the pullup resistor */
+void mt_usb_disconnect_internal(void)
+{
+	u8 tmpReg8;
+
+	/* connect */
+	tmpReg8 = readb(POWER);
+	tmpReg8 &= ~PWR_SOFT_CONN;
+	writeb(tmpReg8, POWER);
+}
+
 int udc_init(struct udc_device *dev)
 {
 	struct udc_descriptor *desc = NULL;
 #ifdef USB_GINTR
+#ifdef USB_HSDMA_ISR
 	u32 usb_dmaintr;
+#endif
 	u32 usb_l1intm;
 #endif
 
-	DBG("%s:\n", __func__);
+	DBG_I("[USB] %s:\n", __func__);
 
-	DBG("ep0_urb: 0x%x\n", ep0_urb);
+	DBG_I("[USB] ep0_urb: %p\n", ep0_urb);
 	/* RESET */
 	mt_usb_disconnect_internal();
 	mt_usb_connect_internal();
 	thread_sleep(20);
 
 //ALPS00427972, implement the analog register formula
-    //Set the calibration after power on
-    //Add here for eFuse, chip version checking -> analog register calibration
-    int input_reg = INREG16(M_HW_RES3);
-    printf("%s: input_reg = 0x%x \n", __func__, input_reg);
-    int term_vref 	= (input_reg & RG_USB20_TERM_VREF_SEL_MASK) >> 13;     //0xE000      //0b 1110,0000,0000,0000     15~13
-    int clkref 		= (input_reg & RG_USB20_CLKREF_REF_MASK)    >> 10;     //0x1C00      //0b 0001,1100,0000,0000     12~10
-    int vrt_vref	= (input_reg & RG_USB20_VRT_VREF_SEL_MASK)  >> 7;      //0x0380      //0b 0000,0011,1000,0000     9~7
+	//Set the calibration after power on
+	//Add here for eFuse, chip version checking -> analog register calibration
+	int input_reg = INREG16(M_HW_RES3);
+#if DBG_PHY_CALIBRATION
+	DBG_I("%s: input_reg = 0x%x \n", __func__, input_reg);
+#endif
+	int term_vref 	= (input_reg & RG_USB20_TERM_VREF_SEL_MASK) >> 13;	//0xE000	//0b 1110,0000,0000,0000	15~13
+	int clkref 	= (input_reg & RG_USB20_CLKREF_REF_MASK) >> 10;		//0x1C00	//0b 0001,1100,0000,0000	12~10
+	int vrt_vref	= (input_reg & RG_USB20_VRT_VREF_SEL_MASK)  >> 7;	//0x0380	//0b 0000,0011,1000,0000	9~7
 
-    printf("%s: term_vref = 0x%x,  clkref = 0x%x, vrt_vref = 0x%x,\n", __func__, term_vref, clkref, vrt_vref);
+#if DBG_PHY_CALIBRATION
+	DBG_I("%s: term_vref = 0x%x,  clkref = 0x%x, vrt_vref = 0x%x,\n", __func__, term_vref, clkref, vrt_vref);
+#endif
 
-    if(term_vref)
-            mt_usb_phy_calibraion(1, term_vref);
-    if(clkref)
-            mt_usb_phy_calibraion(2, clkref);
-    if(vrt_vref)
-            mt_usb_phy_calibraion(3, vrt_vref);
+	if (term_vref)
+		mt_usb_phy_calibraion(1, term_vref);
+	if (clkref)
+		mt_usb_phy_calibraion(2, clkref);
+	if (vrt_vref)
+		mt_usb_phy_calibraion(3, vrt_vref);
 //ALPS00427972, implement the analog register formula
 
 	/* usb phy init */
@@ -1912,38 +2013,43 @@ void udc_request_free(struct udc_request *req)
 }
 
 /* Called to start packet transmission. */
-int mt_ep_write(struct udc_endpoint *endpoint)
+/* It must be applied in udc_request_queue when polling mode is used.
+ * (When USB_GINTR is undefined).
+ * If interrupt mode is used, you can use
+ * mt_udc_epx_handler(ept->num, USB_DIR_IN); to replace mt_ep_write make ISR
+ * do it for you.
+ */
+static int mt_ep_write(struct udc_endpoint *endpoint)
 {
 	int ep_num = endpoint->num;
 	int count;
 	u8 index;
 	u16 csr;
 
-	DBG("udc_endpoint_write\n");
-
 	index = readb(INDEX);
 	writeb(ep_num, INDEX);
 
-	if (ep_num == 0) {
-		DBG("udc_endpoint_write: ep0 cannot be written\n");
-		return;
-	} else {
-		if (endpoint->in == 0) { /* USB_DIR_OUT */
-			DBG("udc_endpoint_write: ep%d is RX endpoint\n", ep_num);
-		} else {
-			csr = readw(IECSR + TXCSR);
-			if (csr & EPX_TX_TXPKTRDY) {
-				DBG
-					("udc_endpoint_write: ep%d is not ready to be written\n",
-					ep_num);
-				return;
-			}
-			count = mt_write_fifo(endpoint);
+	/* udc_endpoint_write: cannot write ep0 */
+	if (ep_num == 0)
+		return -1;
 
-			csr |= EPX_TX_TXPKTRDY;
-			writew(csr, IECSR + TXCSR);
-		}
+	/* udc_endpoint_write: cannot write USB_DIR_OUT */
+	if (endpoint->in == 0)
+		return -1;
+
+	csr = readw(IECSR + TXCSR);
+	if (csr & EPX_TX_TXPKTRDY) {
+#if DBG_USB_GENERAL
+		DBG_I("[USB]: udc_endpoint_write: ep%d is not ready to be written\n",
+			 ep_num);
+
+#endif
+		return -1;
 	}
+	count = mt_write_fifo(endpoint);
+
+	csr |= EPX_TX_TXPKTRDY;
+	writew(csr, IECSR + TXCSR);
 
 	writeb(index, INDEX);
 
@@ -1951,25 +2057,21 @@ int mt_ep_write(struct udc_endpoint *endpoint)
 }
 
 int udc_request_queue(struct udc_endpoint *ept, struct udc_request *req) {
-
-	unsigned int count = 0;
 	u8 intrrxe;
 
-	DBG("%s: ept%d %s queue req=%p, req->length=%x\n",
+#if DBG_USB_GENERAL
+	DBG_I("[USB] %s: ept%d %s queue req=%p, req->length=%x\n",
 		__func__, ept->num, ept->in ? "in" : "out", req, req->length);
-	DBG("%s: ept%d: %x, ept->in: %s, ept->rcv_urb->buffer: %x, req->buf: %x\n",
+	DBG_I("[USB] %s: ept%d: %x, ept->in: %s, ept->rcv_urb->buffer: %x, req->buf: %x\n",
 		__func__, ept->num, ept, ept->in ? "IN" : "OUT" , ept->rcv_urb->buffer, req->buf);
+#endif
 
 	enter_critical_section();
 	ept->req = req;
 	ept->status = 0;	/* ACTIVE */
 
-	/* usbdl_poll */
-	/*
-	 * service_interrupt -> 
-	 * buf_to_ep -> mt_ep_write
-	 * ep_to_buf -> buf_push?
-	 */
+	ept->sent = 0;
+	ept->last = 0;
 
 	/* read */
 	if (!ept->in) {
@@ -1977,37 +2079,27 @@ int udc_request_queue(struct udc_endpoint *ept, struct udc_request *req) {
 		ept->rcv_urb->actual_length = 0;
 
 		/* unmask EPx INTRRXE */
+		/*
+		 * To avoid the parallely access the buffer,
+		 * it is umasked here and umask at complete.
+		 */
 		intrrxe = readb(INTRRXE);
 		intrrxe |= (1 << ept->num);
 		writeb(intrrxe, INTRRXE);
-
-#ifdef USB_GINTR
-		mt_udc_epx_handler(ept->num, USB_DIR_OUT);
-#else
-		service_interrupts();
-#endif
-
-//		req->length = count;
-//		count = req->length;
-		count = ept->rcv_urb->actual_length;
 	}
 
 	/* write */
 	if (ept->in) {
 		ept->tx_urb->buffer = req->buf;
 		ept->tx_urb->actual_length = req->length;
-#ifdef USB_GINTR
-		mt_udc_epx_handler(ept->num, USB_DIR_IN);
-#else
-		service_interrupts();
-#endif
-		//req->length = count;
-		count = ept->tx_urb->actual_length;
+
+		mt_ep_write(ept);
 	}
 	exit_critical_section();
-	return count;
+	return 0;
 }
 
+#if 0
 enum handler_return udc_interrupt(void *arg)
 {
 	struct udc_endpoint *ept;
@@ -2015,11 +2107,12 @@ enum handler_return udc_interrupt(void *arg)
 
 	return ret;
 }
+#endif
 
 int udc_register_gadget(struct udc_gadget *gadget)
 {
 	if (the_gadget) {
-		dprintf(CRITICAL, "only one gadget supported\n");
+		DBG_C("only one gadget supported\n");
 		return -1;
 	}
 	the_gadget = gadget;
@@ -2063,52 +2156,20 @@ static void udc_ifc_desc_fill(struct udc_gadget *g, unsigned char *data)
 	}
 }
 
-
-
-
-/* Turn on the USB connection by enabling the pullup resistor */
-void mt_usb_connect_internal(void)
-{
-	u8 tmpReg8;
-
-	/* connect */
-	tmpReg8 = readb(POWER);
-	tmpReg8 |= PWR_SOFT_CONN;
-	tmpReg8 |= PWR_ENABLE_SUSPENDM;
-
-#ifdef USB_FORCE_FULL_SPEED
-	tmpReg8 &= ~PWR_HS_ENAB;
-#else
-	tmpReg8 |= PWR_HS_ENAB;
-#endif
-	writeb(tmpReg8, POWER);
-}
-
-/* Turn off the USB connection by disabling the pullup resistor */
-void mt_usb_disconnect_internal(void)
-{
-	u8 tmpReg8;
-
-	/* connect */
-	tmpReg8 = readb(POWER);
-	tmpReg8 &= ~PWR_SOFT_CONN;
-	writeb(tmpReg8, POWER);
-}
-
 int udc_start(void)
 {
 	struct udc_descriptor *desc;
 	unsigned char *data;
 	unsigned size;
 
-	dprintf(ALWAYS, "udc_start()\n");
+	DBG_C("[USB] %s\n", __func__);
 
 	if (!the_device) {
-		dprintf(CRITICAL, "udc cannot start before init\n");
+		DBG_C("udc cannot start before init\n");
 		return -1;
 	}
 	if (!the_gadget) {
-		dprintf(CRITICAL, "udc has no gadget registered\n");
+		DBG_C("udc has no gadget registered\n");
 		return -1;
 	}
 
@@ -2147,16 +2208,12 @@ int udc_start(void)
 	udc_descriptor_register(desc);
 
 #if DBG_USB_DUMP_DESC
-	DBG("%s: DUMP DESC_LIST\n", __func__);
-	unsigned int i;
+	DBG_I("%s: dump desc_list\n", __func__);
 	for (desc = desc_list; desc; desc = desc->next) {
-		DBG("tag: %04x\n", desc->tag);
-		DBG("len: %d\n", desc->len);
-		DBG("data:");
-		for (i = 0; i < desc->len; i++) {
-			printf("%02x ", desc->data[i]);
-		}
-		printf("\n");
+		DBG_I("tag: %04x\n", desc->tag);
+		DBG_I("len: %d\n", desc->len);
+		DBG_I("data:");
+		hexdump8(desc->data, desc->len);
 	}
 #endif
 
@@ -2175,11 +2232,12 @@ int udc_start(void)
 #ifdef USB_GINTR
 	mt_irq_unmask(MT_USB0_IRQ_ID);
 #endif
-	mt_udc_reset();
+	writeb((INTRUSB_SUSPEND | INTRUSB_RESUME | INTRUSB_RESET |INTRUSB_DISCON), INTRUSBE);
 
 	while (1) {
+#ifdef USB_GINTR
 		thread_sleep(1);
-#ifndef USB_GINTR
+#else
 		service_interrupts();
 #endif
 	}

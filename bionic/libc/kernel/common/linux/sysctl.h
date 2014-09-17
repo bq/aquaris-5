@@ -24,7 +24,7 @@
 #include <linux/compiler.h>
 struct file;
 struct completion;
-#define CTL_MAXNAME 10  
+#define CTL_MAXNAME 10
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 struct __sysctl_args {
  int __user *name;
@@ -34,7 +34,7 @@ struct __sysctl_args {
  size_t __user *oldlenp;
  void __user *newval;
  size_t newlen;
- unsigned long __unused[4];
+ unsigned long __linux_unused[4];
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 };
 enum

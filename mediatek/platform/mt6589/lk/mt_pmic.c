@@ -35600,6 +35600,8 @@ void PMIC_INIT_SETTING_V1(void)
     {
         printf("[LK_PMIC_INIT_SETTING_V1] Unknown PMIC Chip (%x)\n",chip_version);
     }
+    
+    printf("[LK_PMIC_INIT_SETTING_V1] ret=%d\n",ret);
 }
 
 void PMIC_CUSTOM_SETTING_V1(void)

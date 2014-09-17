@@ -1867,7 +1867,7 @@ void BAT_thread_bq24158(void)
             BMT_status.POSTFULL_charging_time = 0;    
             g_HW_Charging_Done = 1;            
             //pchr_turn_off_charging_bq24158();
-            printk("[BATTERY:bq24158] Battery real full and disable charging (%ld) \n", bq24158_status); 
+            printk("[BATTERY:bq24158] Battery real full and disable charging (%d) \n", bq24158_status); 
             return;
         }
 
@@ -1875,7 +1875,7 @@ void BAT_thread_bq24158(void)
         BMT_status.total_charging_time += BAT_TASK_PERIOD;
         pchr_turn_on_charging_bq24158();        
         if (Enable_BATDRV_LOG == 1) {
-                printk(  "[BATTERY:bq24158] Total charging timer=%ld, bq24158_status=%ld \n\r", 
+                printk(  "[BATTERY:bq24158] Total charging timer=%d, bq24158_status=%d \n\r", 
                     BMT_status.total_charging_time, bq24158_status);    
         }            
     }

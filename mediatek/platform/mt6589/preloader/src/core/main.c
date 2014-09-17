@@ -63,7 +63,7 @@
 static void bldr_pre_process(void)
 {
     /* enter preloader safe mode */
-    platform_safe_mode(1, 0);
+    platform_safe_mode(1, 5000); //reboot
 
     /* essential hardware initialization. e.g. timer, pll, uart... */
     platform_pre_init();

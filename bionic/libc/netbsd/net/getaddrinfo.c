@@ -93,6 +93,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include "resolv_private.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -212,11 +213,9 @@ struct res_target {
 	int n;			/* result length */
 };
 
-extern char * __progname;
-
 static int str2number(const char *);
 static int explore_fqdn(const struct addrinfo *, const char *,
-	const char *, struct addrinfo **);
+	const char *, struct addrinfo **, const char *iface, int mark);
 static int explore_null(const struct addrinfo *,
 	const char *, struct addrinfo **);
 static int explore_numeric(const struct addrinfo *, const char *,
@@ -404,17 +403,15 @@ _have_ipv4() {
         return _test_connect(PF_INET, &addr.generic, sizeof(addr.in));
 }
 
-// Returns 0 on success, else returns non-zero on error (in which case
-// getaddrinfo should continue as normal)
+// Returns 0 on success, else returns on error.
 static int
 android_getaddrinfo_proxy(
     const char *hostname, const char *servname,
-    const struct addrinfo *hints, struct addrinfo **res)
+    const struct addrinfo *hints, struct addrinfo **res, const char *iface)
 {
 	int sock;
 	const int one = 1;
 	struct sockaddr_un proxy_addr;
-	const char* cache_mode = getenv("ANDROID_DNS_MODE");
 	FILE* proxy = NULL;
 	int success = 0;
 
@@ -423,35 +420,18 @@ android_getaddrinfo_proxy(
 	// allocated in the process (before failing).
 	*res = NULL;
 
-	if (cache_mode != NULL && strcmp(cache_mode, "local") == 0) {
-		// Don't use the proxy in local mode.  This is used by the
-		// proxy itself.
-		return -1;
-	}
-
-	// Temporary cautious hack to disable the DNS proxy for processes
-	// requesting special treatment.  Ideally the DNS proxy should
-	// accomodate these apps, though.
-	char propname[PROP_NAME_MAX];
-	char propvalue[PROP_VALUE_MAX];
-	snprintf(propname, sizeof(propname), "net.dns1.%s", __progname);
-	if (__system_property_get(propname, propvalue) > 0) {
-		debug_log("getaddrinfo: dnsproxy private dns: %s >>\n", propname);
-		return -1;
-	}
-
-	// Bogus things we can't serialize.  Don't use the proxy.
+	// Bogus things we can't serialize.  Don't use the proxy.  These will fail - let them.
 	if ((hostname != NULL &&
 	     strcspn(hostname, " \n\r\t^'\"") != strlen(hostname)) ||
 	    (servname != NULL &&
 	     strcspn(servname, " \n\r\t^'\"") != strlen(servname))) {
-	    debug_log("getaddrinfo: dnsproxy bogus hostname >>\n");
-		return -1;
+	    debug_log("getaddrinfo: dnsproxy bogus hostname >>\n");		
+		return EAI_NODATA;
 	}
 
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
-		return -1;
+		return EAI_NODATA;
 	}
 
 	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
@@ -463,18 +443,19 @@ android_getaddrinfo_proxy(
 				       (const struct sockaddr*) &proxy_addr,
 				       sizeof(proxy_addr))) != 0) {
 		close(sock);
-		return -1;
+		return EAI_NODATA;
 	}
 
 	// Send the request.
 	proxy = fdopen(sock, "r+");
-	if (fprintf(proxy, "getaddrinfo %s %s %d %d %d %d",
+	if (fprintf(proxy, "getaddrinfo %s %s %d %d %d %d %s",
 		    hostname == NULL ? "^" : hostname,
 		    servname == NULL ? "^" : servname,
 		    hints == NULL ? -1 : hints->ai_flags,
 		    hints == NULL ? -1 : hints->ai_family,
 		    hints == NULL ? -1 : hints->ai_socktype,
-		    hints == NULL ? -1 : hints->ai_protocol) < 0) {
+		    hints == NULL ? -1 : hints->ai_protocol,
+		    iface == NULL ? "^" : iface) < 0) {
 		goto exit;
 	}
 	// literal NULL byte at end, required by FrameworkListener
@@ -492,6 +473,7 @@ android_getaddrinfo_proxy(
 	int result_code = (int)strtol(buf, NULL, 10);
 	// verify the code itself
 	if (result_code != DnsProxyQueryResult ) {
+		fread(buf, 1, sizeof(buf), proxy);
 		goto exit;
 	}
 
@@ -584,19 +566,25 @@ exit:
 		return 0;
 	}
 
-	// Proxy failed; fall through to local
-	// resolver case.  But first clean up any
-	// memory we might've allocated.
+	// Proxy failed;
+	// clean up memory we might've allocated.
 	if (*res) {
 		freeaddrinfo(*res);
 		*res = NULL;
 	}
-	return -1;
+	return EAI_NODATA;
 }
 
 int
 getaddrinfo(const char *hostname, const char *servname,
     const struct addrinfo *hints, struct addrinfo **res)
+{
+	return android_getaddrinfoforiface(hostname, servname, hints, NULL, 0, res);
+}
+
+int
+android_getaddrinfoforiface(const char *hostname, const char *servname,
+    const struct addrinfo *hints, const char *iface, int mark, struct addrinfo **res)
 {
 	struct addrinfo sentinel;
 	struct addrinfo *cur;
@@ -605,12 +593,12 @@ getaddrinfo(const char *hostname, const char *servname,
 	struct addrinfo ai0;
 	struct addrinfo *pai;
 	const struct explore *ex;
+	const char* cache_mode = getenv("ANDROID_DNS_MODE");
 
 	/* hostname is allowed to be NULL */
 	/* servname is allowed to be NULL */
 	/* hints is allowed to be NULL */
 	assert(res != NULL);
-
 	memset(&sentinel, 0, sizeof(sentinel));
 	cur = &sentinel;
 	pai = &ai;
@@ -743,12 +731,20 @@ getaddrinfo(const char *hostname, const char *servname,
         /*
          * BEGIN ANDROID CHANGES; proxying to the cache
          */
-        if (android_getaddrinfo_proxy(hostname, servname, hints, res) == 0) {
-            debug_log("getaddrinfo: %s get result from proxy >>\n",hostname);
-            return 0;
-        } else {
+	int proxy_res;
+	if (cache_mode == NULL || strcmp(cache_mode, "local") != 0) {
+		// we're not the proxy - pass the request to them
+		if ((proxy_res=android_getaddrinfo_proxy(hostname, servname, hints, res, iface)) == 0)
+		{
+			debug_log("getaddrinfo: %s get result from proxy >>\n",hostname);
+			return 0;
+		}
+		else
+		{
             debug_log("getaddrinfo: %s NO result from proxy \n",hostname);
-        }
+			return proxy_res;
+		}
+	}
 
 	/*
 	 * hostname as alphabetical name.
@@ -777,7 +773,7 @@ getaddrinfo(const char *hostname, const char *servname,
 			pai->ai_protocol = ex->e_protocol;
 
 		error = explore_fqdn(pai, hostname, servname,
-			&cur->ai_next);
+			&cur->ai_next, iface, mark);
 
 		while (cur && cur->ai_next)
 			cur = cur->ai_next;
@@ -810,7 +806,7 @@ getaddrinfo(const char *hostname, const char *servname,
  */
 static int
 explore_fqdn(const struct addrinfo *pai, const char *hostname,
-    const char *servname, struct addrinfo **res)
+    const char *servname, struct addrinfo **res, const char *iface, int mark)
 {
 	struct addrinfo *result;
 	struct addrinfo *cur;
@@ -836,7 +832,7 @@ explore_fqdn(const struct addrinfo *pai, const char *hostname,
 		return 0;
 
 	switch (nsdispatch(&result, dtab, NSDB_HOSTS, "getaddrinfo",
-			default_dns_files, hostname, pai)) {
+			default_dns_files, hostname, pai, iface, mark)) {
 	case NS_TRYAGAIN:
 		error = EAI_AGAIN;
 		goto free;
@@ -1534,10 +1530,8 @@ _get_scope(const struct sockaddr *addr)
 			return IPV6_ADDR_SCOPE_LINKLOCAL;
 		} else {
 			/*
-			 * According to draft-ietf-6man-rfc3484-revise-01 section 2.3,
-			 * it is best not to treat the private IPv4 ranges
-			 * (10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16) as being
-			 * in a special scope, so we don't.
+			 * RFC 6724 section 3.2. Other IPv4 addresses, including private addresses
+			 * and shared addresses (100.64.0.0/10), are assigned global scope.
 			 */
 			return IPV6_ADDR_SCOPE_GLOBAL;
 		}
@@ -1566,7 +1560,7 @@ _get_scope(const struct sockaddr *addr)
 
 /*
  * Get the label for a given IPv4/IPv6 address.
- * RFC 3484, section 2.1, plus changes from draft-ietf-6man-rfc3484-revise-01.
+ * RFC 6724, section 2.1.
  */
 
 /*ARGSUSED*/
@@ -1574,27 +1568,28 @@ static int
 _get_label(const struct sockaddr *addr)
 {
 	if (addr->sa_family == AF_INET) {
-		return 3;
+		return 4;
 	} else if (addr->sa_family == AF_INET6) {
-		const struct sockaddr_in6 *addr6 = (const struct sockaddr_in6 *)addr;
+		const struct sockaddr_in6 *addr6 = (const struct sockaddr_in6 *) addr;
 		if (IN6_IS_ADDR_LOOPBACK(&addr6->sin6_addr)) {
 			return 0;
-		} else if (IN6_IS_ADDR_ULA(&addr6->sin6_addr)) {
-			return 1;
 		} else if (IN6_IS_ADDR_V4MAPPED(&addr6->sin6_addr)) {
-			return 3;
-		} else if (IN6_IS_ADDR_6TO4(&addr6->sin6_addr)) {
 			return 4;
+		} else if (IN6_IS_ADDR_6TO4(&addr6->sin6_addr)) {
+			return 2;
 		} else if (IN6_IS_ADDR_TEREDO(&addr6->sin6_addr)) {
 			return 5;
+		} else if (IN6_IS_ADDR_ULA(&addr6->sin6_addr)) {
+			return 13;
 		} else if (IN6_IS_ADDR_V4COMPAT(&addr6->sin6_addr)) {
-			return 10;
+			return 3;
 		} else if (IN6_IS_ADDR_SITELOCAL(&addr6->sin6_addr)) {
 			return 11;
 		} else if (IN6_IS_ADDR_6BONE(&addr6->sin6_addr)) {
 			return 12;
 		} else {
-			return 2;
+			/* All other IPv6 addresses, including global unicast addresses. */
+			return 1;
 		}
 	} else {
 		/*
@@ -1607,7 +1602,7 @@ _get_label(const struct sockaddr *addr)
 
 /*
  * Get the precedence for a given IPv4/IPv6 address.
- * RFC 3484, section 2.1, plus changes from draft-ietf-6man-rfc3484-revise-01.
+ * RFC 6724, section 2.1.
  */
 
 /*ARGSUSED*/
@@ -1615,24 +1610,25 @@ static int
 _get_precedence(const struct sockaddr *addr)
 {
 	if (addr->sa_family == AF_INET) {
-		return 30;
+		return 35;
 	} else if (addr->sa_family == AF_INET6) {
 		const struct sockaddr_in6 *addr6 = (const struct sockaddr_in6 *)addr;
 		if (IN6_IS_ADDR_LOOPBACK(&addr6->sin6_addr)) {
-			return 60;
-		} else if (IN6_IS_ADDR_ULA(&addr6->sin6_addr)) {
 			return 50;
 		} else if (IN6_IS_ADDR_V4MAPPED(&addr6->sin6_addr)) {
-			return 30;
+			return 35;
 		} else if (IN6_IS_ADDR_6TO4(&addr6->sin6_addr)) {
-			return 20;
+			return 30;
 		} else if (IN6_IS_ADDR_TEREDO(&addr6->sin6_addr)) {
-			return 10;
+			return 5;
+		} else if (IN6_IS_ADDR_ULA(&addr6->sin6_addr)) {
+			return 3;
 		} else if (IN6_IS_ADDR_V4COMPAT(&addr6->sin6_addr) ||
 		           IN6_IS_ADDR_SITELOCAL(&addr6->sin6_addr) ||
 		           IN6_IS_ADDR_6BONE(&addr6->sin6_addr)) {
 			return 1;
 		} else {
+			/* All other IPv6 addresses, including global unicast addresses. */
 			return 40;
 		}
 	} else {
@@ -1671,12 +1667,12 @@ _common_prefix_len(const struct in6_addr *a1, const struct in6_addr *a2)
 
 /*
  * Compare two source/destination address pairs.
- * RFC 3484, section 6.
+ * RFC 6724, section 6.
  */
 
 /*ARGSUSED*/
 static int
-_rfc3484_compare(const void *ptr1, const void* ptr2)
+_rfc6724_compare(const void *ptr1, const void* ptr2)
 {
 	const struct addrinfo_sort_elem *a1 = (const struct addrinfo_sort_elem *)ptr1;
 	const struct addrinfo_sort_elem *a2 = (const struct addrinfo_sort_elem *)ptr2;
@@ -1747,7 +1743,7 @@ _rfc3484_compare(const void *ptr1, const void* ptr2)
 
 	/*
 	 * Rule 9: Use longest matching prefix.
-         * We implement this for IPv6 only, as the rules in RFC 3484 don't seem
+         * We implement this for IPv6 only, as the rules in RFC 6724 don't seem
          * to work very well directly applied to IPv4. (glibc uses information from
          * the routing table for a custom IPv4 implementation here.)
 	 */
@@ -1827,13 +1823,13 @@ _find_src_addr(const struct sockaddr *addr, struct sockaddr *src_addr)
 }
 
 /*
- * Sort the linked list starting at sentinel->ai_next in RFC3484 order.
+ * Sort the linked list starting at sentinel->ai_next in RFC6724 order.
  * Will leave the list unchanged if an error occurs.
  */
 
 /*ARGSUSED*/
 static void
-_rfc3484_sort(struct addrinfo *list_sentinel)
+_rfc6724_sort(struct addrinfo *list_sentinel)
 {
 	struct addrinfo *cur;
 	int nelem = 0, i;
@@ -1868,7 +1864,7 @@ _rfc3484_sort(struct addrinfo *list_sentinel)
 	}
 
 	/* Sort the addresses, and rearrange the linked list so it matches the sorted order. */
-	qsort((void *)elems, nelem, sizeof(struct addrinfo_sort_elem), _rfc3484_compare);
+	qsort((void *)elems, nelem, sizeof(struct addrinfo_sort_elem), _rfc6724_compare);
 
 	list_sentinel->ai_next = elems[0].ai;
 	for (i = 0; i < nelem - 1; ++i) {
@@ -1880,18 +1876,19 @@ error:
 	free(elems);
 }
 
-static int _using_alt_dns()
+static bool _using_default_dns(const char *iface)
 {
-	char propname[PROP_NAME_MAX];
-	char propvalue[PROP_VALUE_MAX];
+	char buf[IF_NAMESIZE+1];
+	size_t if_len;
 
-	propvalue[0] = 0;
-	snprintf(propname, sizeof(propname), "net.dns1.%s", __progname);
-	if (__system_property_get(propname, propvalue) > 0 ) {
-		debug_log("getaddrinfo: dnsproxy private dns: %s \n", propname);
-		return 1;
+	// common case
+	if (iface == NULL || *iface == '\0') return true;
+
+	if_len = _resolv_get_default_iface(buf, sizeof(buf));
+	if (if_len != 0 && if_len + 1 <= sizeof(buf)) {
+		if (strcmp(buf, iface) == 0) return true;
 	}
-	return 0;
+	return false;
 }
 
 /*ARGSUSED*/
@@ -1905,11 +1902,14 @@ _dns_getaddrinfo(void *rv, void	*cb_data, va_list ap)
 	struct addrinfo sentinel, *cur;
 	struct res_target q, q2;
 	res_state res;
+	const char* iface;
+	int mark;
 
 	name = va_arg(ap, char *);
 	pai = va_arg(ap, const struct addrinfo *);
+	iface = va_arg(ap, char *);
+	mark = va_arg(ap, int);
 	//fprintf(stderr, "_dns_getaddrinfo() name = '%s'\n", name);
-
 	memset(&q, 0, sizeof(q));
 	memset(&q2, 0, sizeof(q2));
 	memset(&sentinel, 0, sizeof(sentinel));
@@ -1939,9 +1939,10 @@ _dns_getaddrinfo(void *rv, void	*cb_data, va_list ap)
 			// Only implement AI_ADDRCONFIG if the application is not
 			// using its own DNS servers, since our implementation
 			// only works on the default connection.
-			if (!_using_alt_dns()) {
+			if (_using_default_dns(iface)) {
 				query_ipv6 = _have_ipv6();
 				query_ipv4 = _have_ipv4();
+				debug_log("default dns: query_ipv6=%d, query_ipv4=%d\n", query_ipv6, query_ipv4);
 			}
 		}
 		if (query_ipv6) {
@@ -1989,6 +1990,13 @@ _dns_getaddrinfo(void *rv, void	*cb_data, va_list ap)
 		return NS_NOTFOUND;
 	}
 
+	/* this just sets our iface val in the thread private data so we don't have to
+	 * modify the api's all the way down to res_send.c's res_nsend.  We could
+	 * fully populate the thread private data here, but if we get down there
+	 * and have a cache hit that would be wasted, so we do the rest there on miss
+	 */
+	res_setiface(res, iface);
+	res_setmark(res, mark);
 	if (res_searchN(name, &q, res) < 0) {
 		__res_put_state(res);
 		free(buf);
@@ -2020,7 +2028,7 @@ _dns_getaddrinfo(void *rv, void	*cb_data, va_list ap)
 		}
 	}
 
-	_rfc3484_sort(&sentinel);
+	_rfc6724_sort(&sentinel);
 
 	__res_put_state(res);
 
@@ -2322,6 +2330,12 @@ res_searchN(const char *name, struct res_target *target, res_state res)
 	if ((!dots && (res->options & RES_DEFNAMES)) ||
 	    (dots && !trailing_dot && (res->options & RES_DNSRCH))) {
 		int done = 0;
+
+		/* Unfortunately we need to set stuff up before
+		 * the domain stuff is tried.  Will have a better
+		 * fix after thread pools are used.
+		 */
+		_resolv_populate_res_for_iface(res);
 
 		for (domain = (const char * const *)res->dnsrch;
 		   *domain && !done;

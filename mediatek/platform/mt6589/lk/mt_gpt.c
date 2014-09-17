@@ -276,37 +276,13 @@ void set_timer (ulong ticks)
 /* delay msec mseconds */
 void mdelay (unsigned long msec)
 {
-    ulong start_time = 0;
-
-    start_time = get_timer (0);
-    while (get_timer (start_time) < msec);
+    gpt_busy_wait_ms(msec);
 }
 
 /* delay usec useconds */
 void udelay (unsigned long usec)
 {
-    ulong tmo, tmp;
-
-    if (usec >= 1000)
-    {                         /* if "big" number, spread normalization to seconds */
-        tmo = usec / 1000;    /* start to normalize for usec to ticks per sec */
-        tmo *= MS_TO_US;      /* find number of "ticks" to wait to achieve target */
-        tmo /= 1000;          /* finish normalize. */
-    }
-    else
-    {                         /* else small number, don't kill it prior to HZ multiply */
-        tmo = usec * MS_TO_US;
-        tmo /= (1000 * 1000);
-    }
-
-    tmp = get_timer (0);        /* get current timestamp */
-    if ((tmo + tmp + 1) < tmp)  /* if setting this fordward will roll time stamp */
-        reset_timer_masked ();  /* reset "advancing" timestamp to 0, set lastdec value */
-    else
-        tmo += tmp;             /* else, set advancing stamp wake up time */
-
-    while (get_timer_masked () < tmo)   /* loop till event */
-        /*NOP*/;
+   gpt_busy_wait_us(usec);
 }
 
 /*

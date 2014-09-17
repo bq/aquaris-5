@@ -106,7 +106,7 @@ int g_temp_status=TEMP_POS_10_TO_POS_45;
  ****************************************************************************/
 #define charger_OVER_VOL                    1
 #define ADC_SAMPLE_TIMES                    5
-#define BATTERY_OVER_TEMP              3
+
 /*****************************************************************************
  *  Pulse Charging State
  ****************************************************************************/
@@ -1282,7 +1282,6 @@ int BAT_CheckBatteryStatus(void)
         (BMT_status.temperature == ERR_CHARGE_TEMPERATURE))
     {
         printf(  "[BATTERY] Battery Under Temperature or NTC fail !!\n\r");                
-	BMT_status.charger_protect_status = BATTERY_OVER_TEMP;//加上这句话		
         BMT_status.bat_charging_state = CHR_ERROR;
         return PMU_STATUS_FAIL;       
     }
@@ -1290,7 +1289,6 @@ int BAT_CheckBatteryStatus(void)
     if (BMT_status.temperature >= MAX_CHARGE_TEMPERATURE)
     {
         printf(  "[BATTERY] Battery Over Temperature !!\n\r");                
-	BMT_status.charger_protect_status = BATTERY_OVER_TEMP;//加上这句话		
         BMT_status.bat_charging_state = CHR_ERROR;
         return PMU_STATUS_FAIL;       
     }
@@ -1367,19 +1365,6 @@ PMU_STATUS BAT_BatteryStatusFailAction(void)
 
     /*  Disable charger */
     pchr_turn_off_charging();    
-   
-	 if ((BMT_status.temperature <= (MAX_CHARGE_TEMPERATURE - 5)) &&     // 小于MAX_CHARGE_TEMPERATURE-5以及高于MIN_CHARGE_TEMPERATURE+5的时候恢复充电
-	    (BMT_status.temperature >= (MIN_CHARGE_TEMPERATURE + 5))&&
-	    (BMT_status.temperature != ERR_CHARGE_TEMPERATURE)&&
-	    (BMT_status.charger_protect_status == BATTERY_OVER_TEMP))
-	 {
-	    BMT_status.bat_charging_state = CHR_PRE;
-	    BMT_status.charger_protect_status = 0;
-	    if (Enable_BATDRV_LOG == 1) 
-	    {
-	       printf("[BATTERY] temperture in range... start charging again!!\n\r");
-	    }
-	 }
    
     return PMU_STATUS_OK;
 }

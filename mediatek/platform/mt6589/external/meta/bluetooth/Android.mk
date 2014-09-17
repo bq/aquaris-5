@@ -3,8 +3,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := \
-	$(MTK_PATH_SOURCE)/external/meta/common/inc \
-	$(MTK_PATH_CUSTOM)/hal/bluetooth
+  $(MTK_PATH_SOURCE)/external/meta/common/inc
 
 LOCAL_SRC_FILES := meta_bt.c
 
@@ -21,7 +20,7 @@ ifeq ($(BUILD_SELF_TEST), true)
 include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := \
-	$(MTK_PATH_SOURCE)/external/meta/common/inc
+  $(MTK_PATH_SOURCE)/external/meta/common/inc
 
 LOCAL_SRC_FILES := meta_bt_test.c
 

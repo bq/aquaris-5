@@ -451,7 +451,7 @@ int hw_check_battery(void)
         ret_val=pmic_read_interface(CHR_CON7,&reg_val,0xFFFF,0x0);    print("[0x%x]=0x%x\n",CHR_CON7,reg_val);
         ret_val=pmic_read_interface(AUXADC_CON0,&reg_val,0xFFFF,0x0); print("[0x%x]=0x%x\n",AUXADC_CON0,reg_val);                
         
-        return 0;        
+        return 1;        
     }
     else
     {

@@ -54,15 +54,15 @@ extern "C" {
 #define mt6573_DBG  1
 
 #if mt6573_DBG
-
-#define ASSERT(expr)                                                    \
+/*for assert redefined warning*/
+/*#define ASSERT(expr)                                                    \
     do {                                                                \
         if(!(expr)) {                                                   \
     		printf("<ASSERT> %s:line %d %s\n",                          \
-    		    __FILE__,__LINE__,(int)(#expr));                        \
+    		    __FILE__,__LINE__,#expr);                        \
     		while (1);                                                  \
         }                                                               \
-    } while(0);
+    } while(0);*/
 
 #define NOT_IMPLEMENTED()                                               \
     do {                                                                \

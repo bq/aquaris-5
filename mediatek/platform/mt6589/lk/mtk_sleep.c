@@ -33,23 +33,21 @@
 *
 *****************************************************************************/
 
+#include <platform/mt_typedefs.h>
 #include <platform/mt_sleep.h>
+#include <platform/mt_gpt.h>
 
 void mtk_sleep(u32 timeout, kal_bool en_deep_idle)
 {
-    printf("enter mtk_sleep, timeout = %d\n", timeout);
-
     gpt_busy_wait_ms(timeout);
-
-    return 0;
 }
 
 void sc_mod_init(void)
 {
-    printf("[BATTERY] sc_mod_init : done\n");
+    /* do nothing */
 }
 
 void sc_mod_exit(void)
 {
-    printf("[BATTERY] sc_mod_exit : done\n");
+    /* do nothing */
 }

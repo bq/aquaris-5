@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
- 
 #define MT8193_CKGEN_VFY 1
 
  
@@ -121,11 +86,11 @@ int mt8193_ckgen_config_pad_level_shift(int i4GroupNum, int i4TurnLow)
         u4Tmp = CKGEN_READ32(REG_RW_LS_CTRL);
         u4Tmp |= LS_CTRL_SHIFT_HIGH_EN;
         CKGEN_WRITE32(REG_RW_LS_CTRL, u4Tmp);
-        u4Tmp != (1U<<i4GroupNum);
+        u4Tmp |= (1U<<i4GroupNum);
         CKGEN_WRITE32(REG_RW_LS_CTRL, u4Tmp);
     }
 
-    printk("[CKGEN] LS_CTRL: 0x%lx\n", u4Tmp);
+    printk("[CKGEN] LS_CTRL: 0x%x\n", u4Tmp);
 
     return 0;
 }
@@ -133,7 +98,6 @@ int mt8193_ckgen_config_pad_level_shift(int i4GroupNum, int i4TurnLow)
 
 u32 mt8193_ckgen_reg_rw_test(u16 addr)
 {
-    u32 u4Tmp = 0;
     u32 u4Loop = 0;
     
     printk("[CKGEN] mt8193_ckgen_reg_rw_test() 0x%x\n", addr);
@@ -163,11 +127,11 @@ u32 mt8193_ckgen_bus_clk_switch_xtal_test(u16 addr)
     /* swicth bus clock to 32k */
     u4Tmp = CKGEN_READ32(REG_RW_BUS_CKCFG);
     CKGEN_WRITE32(REG_RW_BUS_CKCFG, (u4Tmp &(~(0xF))) | CLK_BUS_SEL_32K);
-    
+    return 0;
 }
 
 
-u32 mt8193_io_agent_test()
+u32 mt8193_io_agent_test(void)
 {
     u32 u4Tmp = 0;
 
@@ -181,7 +145,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x1500. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x1500. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
     
 
@@ -193,7 +157,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x18. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x18. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
 
     IO_WRITE32(0x0, 0x0408, 0x55555555);
@@ -204,7 +168,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x408. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x408. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
     
     IO_WRITE32(0x0, 0x0608, 0x55555555);
@@ -215,7 +179,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x608. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x608. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
     
     IO_WRITE32(0x0, 0x0a10, 0x55555555);
@@ -226,7 +190,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0xa10. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0xa10. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
 
     
@@ -238,7 +202,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x1200. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x1200. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
     
     IO_WRITE32(0x1000, 0x608, 0x05550555);
@@ -249,7 +213,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x1608. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x1608. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
     
     IO_WRITE32(0x1000, 0x708, 0x55555555);
@@ -260,7 +224,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x1708. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x1708. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
     
     IO_WRITE32(0x1000, 0xd00, 0x55555555);
@@ -271,7 +235,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x1d00. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x1d00. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
 
     IO_WRITE32(0x1000, 0xd00, 0xaaaaaaaa);
@@ -282,7 +246,7 @@ u32 mt8193_io_agent_test()
     }
     else
     {
-        printk("[CKGEN] TEST FAIL at 0x1d00. [0x%lx] !!!!!!!!!!\n", u4Tmp);
+        printk("[CKGEN] TEST FAIL at 0x1d00. [0x%x] !!!!!!!!!!\n", u4Tmp);
     }
 
     printk("[CKGEN] IO AGENT TEST FINISH ------------------------------------------ \n");

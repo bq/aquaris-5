@@ -25,6 +25,7 @@
 #include <platform/mt_pmic_wrap_init.h>
 #include <target/board.h>
 #include <platform/mtk_wdt.h>
+#include "../../kernel/core/include/mach/mt_rtc_hw.h"
 
 #define RTC_RELPWR_WHEN_XRST	1	/* BBPU = 0 when xreset_rstb goes low */
 
@@ -72,9 +73,9 @@ static void rtc_write_trigger(void)
 
 void rtc_writeif_unlock(void)
 {
-	RTC_Write(RTC_PROT, 0x586a);
+	RTC_Write(RTC_PROT, RTC_PROT_UNLOCK1);
 	rtc_write_trigger();
-	RTC_Write(RTC_PROT, 0x9136);
+	RTC_Write(RTC_PROT, RTC_PROT_UNLOCK2);
 	rtc_write_trigger();
 }
 
@@ -100,13 +101,13 @@ U16 rtc_rdwr_uart_bits(U16 *val)
 	U16 pdn2;
 
 	if (val) {
-		pdn2 = RTC_Read(RTC_PDN2) & ~0x0060;
-		pdn2 |= (*val & 0x0003) << 5;
+		pdn2 = RTC_Read(RTC_PDN2) & ~RTC_PDN2_UART_MASK;
+		pdn2 |= (*val & (RTC_PDN2_UART_MASK >> RTC_PDN2_UART_SHIFT)) << RTC_PDN2_UART_SHIFT;
 		RTC_Write(RTC_PDN2, pdn2);
 		rtc_write_trigger();
 	}
 
-	return (RTC_Read(RTC_PDN2) & 0x0060) >> 5;
+	return (RTC_Read(RTC_PDN2) & RTC_PDN2_UART_MASK) >> RTC_PDN2_UART_SHIFT;
 }
 
 bool rtc_boot_check(bool can_alarm_boot)
@@ -129,7 +130,7 @@ bool rtc_boot_check(bool can_alarm_boot)
 		rtc_write_trigger();
 #endif
 
-		if (pdn1 & 0x0080) {	/* power-on time is available */
+		if (pdn1 & RTC_PDN1_PWRON_TIME) {	/* power-on time is available */
 			U16 now_sec, now_min, now_hou, now_dom, now_mth, now_yea;
 			U16 irqen, sec, min, hou, dom, mth, yea;
 			unsigned long now_time, time;
@@ -149,12 +150,12 @@ bool rtc_boot_check(bool can_alarm_boot)
 				now_yea = RTC_Read(RTC_TC_YEA) + RTC_MIN_YEAR;
 			}
 
-			sec = spar0 & 0x003f;
-			min = spar1 & 0x003f;
-			hou = (spar1 & 0x07c0) >> 6;
-			dom = (spar1 & 0xf800) >> 11;
-			mth = pdn2 & 0x000f;
-			yea = ((pdn2 & 0x7f00) >> 8) + RTC_MIN_YEAR;
+			sec = ((spar0 & RTC_SPAR0_PWRON_SEC_MASK) >> RTC_SPAR0_PWRON_SEC_SHIFT);
+			min = ((spar1 & RTC_SPAR1_PWRON_MIN_MASK) >> RTC_SPAR1_PWRON_MIN_SHIFT);
+			hou = ((spar1 & RTC_SPAR1_PWRON_HOU_MASK) >> RTC_SPAR1_PWRON_HOU_SHIFT);
+			dom = ((spar1 & RTC_SPAR1_PWRON_DOM_MASK) >> RTC_SPAR1_PWRON_DOM_SHIFT);
+			mth = ((pdn2  & RTC_PDN2_PWRON_MTH_MASK) >> RTC_PDN2_PWRON_MTH_SHIFT);
+			yea = ((pdn2  & RTC_PDN2_PWRON_YEA_MASK) >> RTC_PDN2_PWRON_YEA_SHIFT) + RTC_MIN_YEAR;
 
 			now_time = rtc_mktime(now_yea, now_mth, now_dom, now_hou, now_min, now_sec);
 			time = rtc_mktime(yea, mth, dom, hou, min, sec);
@@ -165,23 +166,23 @@ bool rtc_boot_check(bool can_alarm_boot)
 			       yea, mth, dom, hou, min, sec, time);
 
 			if (now_time >= time - 1 && now_time <= time + 4) {	/* power on */
-				pdn1 &= ~(0x0080 | 0x0010 | 0x0040);
+				pdn1 &= ~(RTC_PDN1_PWRON_TIME | RTC_PDN1_FAC_RESET | RTC_PDN1_BYPASS_PWR);
 				RTC_Write(RTC_PDN1, pdn1);
-				RTC_Write(RTC_PDN2, pdn2 | 0x0010);
+				RTC_Write(RTC_PDN2, pdn2 | RTC_PDN2_PWRON_ALARM);
 				rtc_write_trigger();
 				if (can_alarm_boot &&
-				    !(pdn2 & 0x8000)) {		/* no logo means ALARM_BOOT */
+				    !(pdn2 & RTC_PDN2_PWRON_LOGO)) {		/* no logo means ALARM_BOOT */
 					g_boot_mode = ALARM_BOOT;
 				}
 				return true;
 			} else if (now_time < time) {	/* set power-on alarm */
 				RTC_Write(RTC_AL_YEA, yea - RTC_MIN_YEAR);
-				RTC_Write(RTC_AL_MTH, (RTC_Read(RTC_AL_MTH)&0xff00)|mth);
-				RTC_Write(RTC_AL_DOM, (RTC_Read(RTC_AL_DOM)&0xff00)|dom);
-				RTC_Write(RTC_AL_HOU, (RTC_Read(RTC_AL_HOU)&0xff00)|hou);
+				RTC_Write(RTC_AL_MTH, (RTC_Read(RTC_AL_MTH)&RTC_NEW_SPARE3)|mth);
+				RTC_Write(RTC_AL_DOM, (RTC_Read(RTC_AL_DOM)&RTC_NEW_SPARE1)|dom);
+				RTC_Write(RTC_AL_HOU, (RTC_Read(RTC_AL_HOU)&RTC_NEW_SPARE_FG_MASK)|hou);
 				RTC_Write(RTC_AL_MIN, min);
 				RTC_Write(RTC_AL_SEC, sec);
-				RTC_Write(RTC_AL_MASK, 0x0010);	/* mask DOW */
+				RTC_Write(RTC_AL_MASK, RTC_AL_MASK_DOW);	/* mask DOW */
 				rtc_write_trigger();
 				irqen = RTC_Read(RTC_IRQ_EN) | RTC_IRQ_EN_ONESHOT_AL;
 				RTC_Write(RTC_IRQ_EN, irqen);
@@ -190,14 +191,14 @@ bool rtc_boot_check(bool can_alarm_boot)
 		}
 	}
 
-	if ((pdn1 & 0x0030) == 0x0010) {	/* factory data reset */
-		RTC_Write(RTC_PDN1, pdn1 & ~0x0010);
+	if ((pdn1 & RTC_PDN1_RECOVERY_MASK) == RTC_PDN1_FAC_RESET) {	/* factory data reset */
+		RTC_Write(RTC_PDN1, pdn1 & ~RTC_PDN1_FAC_RESET);
 		rtc_write_trigger();
 		return true;
 	}
 
-	if (pdn1 & 0x0040) {	/* bypass power key detection */
-		RTC_Write(RTC_PDN1, pdn1 & ~0x0040);
+	if (pdn1 & RTC_PDN1_BYPASS_PWR) {	/* bypass power key detection */
+		RTC_Write(RTC_PDN1, pdn1 & ~RTC_PDN1_BYPASS_PWR);
 		rtc_write_trigger();
 		return true;
 	}
@@ -213,9 +214,9 @@ void Set_Clr_RTC_PDN1_bit13(bool flag)
 	//use PDN1 bit13 for LK
 	pdn1 = RTC_Read(RTC_PDN1);
 	if(flag==true)
-		pdn1 = pdn1 | 0x2000;
+		pdn1 = pdn1 | RTC_PDN1_FAST_BOOT;
 	else if(flag==false)
-		pdn1 = pdn1 & ~0x2000;
+		pdn1 = pdn1 & ~RTC_PDN1_FAST_BOOT;
 	RTC_Write(RTC_PDN1, pdn1);
 	rtc_write_trigger();
 }
@@ -225,7 +226,7 @@ bool Check_RTC_PDN1_bit13(void)
 	U16 pdn1;
 
 	pdn1 = RTC_Read(RTC_PDN1);
-	if(pdn1 & 0x2000)
+	if(pdn1 & RTC_PDN1_FAST_BOOT)
 		return true;
 	else
 		return false;
@@ -236,7 +237,7 @@ bool Check_RTC_Recovery_Mode(void)
 	U16 pdn1;
 
 	pdn1 = RTC_Read(RTC_PDN1);
-	if( (pdn1 & 0x0030)==0x0010 )
+	if( (pdn1 & RTC_PDN1_RECOVERY_MASK)==RTC_PDN1_FAC_RESET )
 		return true;
 	else
 		return false;
@@ -260,4 +261,16 @@ void mt6575_power_off(void)
 #endif
 */
 
-
+void Set_RTC_Recovery_Mode(bool flag)
+{
+   U16 pdn1;
+   rtc_writeif_unlock();
+   pdn1 = RTC_Read(RTC_PDN1);
+   if(flag==true)
+      pdn1 = pdn1 | RTC_PDN1_FAC_RESET;
+   else if(flag==false)
+      pdn1 = pdn1 & ~RTC_PDN1_FAC_RESET;
+   RTC_Write(RTC_PDN1, pdn1);
+   rtc_write_trigger();
+   printf("Set_RTC_Fastboot_Mode\n");
+}

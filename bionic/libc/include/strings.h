@@ -43,21 +43,19 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-int	 bcmp(const void *, const void *, size_t);
 void	 bcopy(const void *, void *, size_t);
 void	 bzero(void *, size_t);
 int	 ffs(int);
 char	*index(const char *, int);
-char	*rindex(const char *, int);
 int	 strcasecmp(const char *, const char *);
 int	 strncasecmp(const char *, const char *, size_t);
 
-#if defined(__BIONIC_FORTIFY_INLINE)
+#if defined(__BIONIC_FORTIFY)
 __BIONIC_FORTIFY_INLINE
 void bzero (void *s, size_t n) {
     __builtin___memset_chk(s, '\0', n, __builtin_object_size (s, 0));
 }
-#endif /* defined(__BIONIC_FORTIFY_INLINE) */
+#endif /* defined(__BIONIC_FORTIFY) */
 
 __END_DECLS
 

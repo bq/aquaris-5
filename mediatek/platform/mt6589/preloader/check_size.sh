@@ -4,7 +4,7 @@ PL_MAX_ROM_SIZE=128000
 ROM_RPT_SIZE=500
 RAM_RPT_SIZE=500
     
-size `ls out/*.o` > report-objsize.txt
+size `ls ../../${MTK_ROOT_OUT}/PRELOADER_OBJ/obj/*.o` > ../../${MTK_ROOT_OUT}/PRELOADER_OBJ/report-objsize.txt
 
 # check image rom size
 PL_ROM_SIZE=$(stat -c%s "${PL_IMAGE}")    
@@ -23,8 +23,8 @@ if [ $PL_ROM_SIZE -gt $PL_MAX_ROM_SIZE ]; then
 fi
 
 # check image ram size
-PL_RAM_SIZE=$(awk '{if($3=="_bss_start") {BSS_START= strtonum("0x" $1)} ;
-             if($3=="_bss_end") {BSS_END=strtonum("0x" $1)}}
+PL_RAM_SIZE=$(mawk '{if($3=="_bss_start") {BSS_START=("0x" $1)+0} ;
+             if($3=="_bss_end") {BSS_END=("0x" $1)+0}}
              END{printf("%d\n",BSS_END-BSS_START)}' ${PL_FUN_MAP})
 if [ $PL_RAM_SIZE -gt $PL_MAX_RAM_SIZE ]; then
     echo "===================== Building Fail ==========================="

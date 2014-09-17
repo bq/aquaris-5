@@ -146,7 +146,42 @@
 #define REG_RW_GPIO_IN_2            0x138       // need get register addr
 
 
+/* PLLGP */
+#define REG_RW_PLLGP_ANACFG0              0x34c
+#define PLLGP_ANACFG0_PLL1_RESERVED       1
+#define PLLGP_ANACFG0_PLL1_NFIPLL_EN      (1U<<1)
+#define PLLGP_ANACFG0_PLL1_EN             (1U<<31)
 
+#define REG_RW_PLLGP_ANACFG2              0x354
+#define PLLGP_ANACFG2_PLLGP_BIAS_EN       (1U<<20)
+
+
+
+/* DCXO */
+
+#define REG_RW_DCXO_ANACFG2              0x308
+#define DCXO_ANACFG2_LDO4_EN             (1U<<2)
+#define DCXO_ANACFG2_LDO4_MAN_EN         (1U<<3)
+#define DCXO_ANACFG2_LDO3_EN             (1U<<4)
+#define DCXO_ANACFG2_LDO3_MAN_EN         (1U<<5)
+#define DCXO_ANACFG2_LDO2_EN             (1U<<6)
+#define DCXO_ANACFG2_LDO2_MAN_EN         (1U<<7)
+#define DCXO_ANACFG2_LDO1_EN             (1U<<8)
+#define DCXO_ANACFG2_LDO1_MAN_EN         (1U<<9)
+#define DCXO_ANACFG2_PO_MAN              (1U<<29)
+
+
+
+
+#define REG_RW_DCXO_ANACFG4              0x370
+#define DCXO_ANACFG4_BT_MAN             (1U<<18)
+#define DCXO_ANACFG4_EXT2_MAN           (1U<<19)
+#define DCXO_ANACFG4_EXT1_MAN           (1U<<20)
+
+
+
+#define REG_LVDS_PWR_CTRL (0x10c)
+#define REG_LVDS_PWR_RST_B (0x108)
 
 
 #if 0
@@ -172,6 +207,9 @@ u32 mt8193_i2c_read(u16 addr)
 //============================================================================
 // Macros for register write
 //============================================================================
+extern int mt8193_i2c_write32(u16 addr, u32 data);
+extern u32 mt8193_i2c_read32(u16 addr);
+
 #define IO_WRITE8(base, offset, value)                  mt8193_i2c_write8((base) + (offset), (value))
 #define IO_WRITE16(base, offset, value)                 mt8193_i2c_write16((base) + (offset), (value))
 #define IO_WRITE32(base, offset, value)                 mt8193_i2c_write32((base) + (offset), (value))

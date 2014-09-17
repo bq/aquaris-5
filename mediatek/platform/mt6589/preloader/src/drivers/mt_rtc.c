@@ -829,10 +829,30 @@ bool rtc_boot_check(void)
 
 void pl_power_off(void)
 {
+#if 0//for tablet long press reboot not boot up from a reset	
+	int ret_val=0;
+	int reg_val=0;
+
+	ret_val=pmic_read_interface(TOP_RST_MISC, &reg_val, 0xFFFF, 0); 
+	print("TOP_RST_MISC [0x%x]=0x%x\n", TOP_RST_MISC, reg_val);
+
+	pmic_config_interface(TOP_RST_MISC, 0x01, 0x01, 0x2);
+
+	print("[RTC] pl_power_off\n");
+
+	rtc_bbpu_power_down();
+
+	while (1) {
+		//print("pl_power_off : check charger\n");
+		if (PMIC_CHRDET_EXIST == pmic_IsUsbCableIn())
+			mtk_wdt_sw_reset(); 
+	}
+#else  
 	print("[RTC] pl_power_off\n");
 
 	rtc_bbpu_power_down();
 
 	while (1);
+#endif
 }
 

@@ -24,5 +24,5 @@ LOCAL_SHARED_LIBRARIES:= liblog libcutils libacdk
 LOCAL_MODULE:= ccaptest
 
 ifneq (yes,$(strip $(MTK_EMULATOR_SUPPORT)))
-include $(BUILD_EXECUTABLE)
+#include $(BUILD_EXECUTABLE)
 endif

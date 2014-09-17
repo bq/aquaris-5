@@ -15,8 +15,8 @@ namespace android
 
 enum
 {
-    CHIP_VERSION_E1 =0,
-    CHIP_VERSION_E2 =1
+    CHIP_VERSION_E1 = 0,
+    CHIP_VERSION_E2 = 1
 };
 
 
@@ -27,7 +27,7 @@ class AudioMachineDevice
 
         enum ZCD_GAIN_STEP
         {
-            GAIN_STEP_1DB =0,
+            GAIN_STEP_1DB = 0,
             GAIN_STEP_2DB,
             GAIN_STEP_4DB,
             GAIN_STEP_8DB,
@@ -35,7 +35,7 @@ class AudioMachineDevice
 
         enum ZCD_GAIN_TIME
         {
-            GAIN_TIME_0US=0,
+            GAIN_TIME_0US = 0,
             GAIN_TIME_250US,
             GAIN_TIME_500US ,
             GAIN_TIME_1MS ,
@@ -105,7 +105,7 @@ class AudioMachineDevice
         * @return AudioAnalogType::MUX_TYPE
         */
         AudioAnalogType::MUX_TYPE AnalogGetMux(AudioAnalogType::DEVICE_TYPE DeviceType);
-    
+
         /**
         * a basic function fo select mux of device type, not all device may have mux
         * if select a device with no mux support , report error.
@@ -140,6 +140,8 @@ class AudioMachineDevice
         * @return copy_size
         */
         int getParameters(int command1 , int command2 , void *data);
+        status_t AnalogOpenForAddSPK(AudioAnalogType::DEVICE_TYPE DeviceType);
+        status_t AnalogCloseForSubSPK(AudioAnalogType::DEVICE_TYPE DeviceType);
 
         status_t SetLevelShiftBufferGain(AudioAnalogType::VOLUME_TYPE volume_Type, int volume);
         status_t SetPreampBufferGain(AudioAnalogType::VOLUME_TYPE volume_Type, int volume);
@@ -161,15 +163,20 @@ class AudioMachineDevice
         status_t GetSPKAutoTrimOffset(void);
 
         status_t SetZCDStatus(AudioAnalogType::AUDIOANALOGZCD_TYPE ZcdType,
-                                                AudioMachineDevice::ZCD_GAIN_STEP Gainstep ,
-                                                AudioMachineDevice::ZCD_GAIN_TIME GainTime ,
-                                                bool Enable);
+                              AudioMachineDevice::ZCD_GAIN_STEP Gainstep ,
+                              AudioMachineDevice::ZCD_GAIN_TIME GainTime ,
+                              bool Enable);
 
         bool GetULinkStatus(void);
         bool GetDownLinkStatus(void);
         int GetChipVersion();
 
     private:
+
+        void GetSleepEver();
+        void ClearSleepEver();
+        bool CheckSleepEver();
+
 
         AudioLock mLock;
         /**
@@ -187,23 +194,27 @@ class AudioMachineDevice
 
         AudioAnalogReg  *mAudioAnalogReg;
 
-         /**
-         * file descriptor to open speaker , headset or earpiece
-         */
-         int mFd;
+        /**
+        * file descriptor to open speaker , headset or earpiece
+        */
+        int mFd;
 
-         /**
-         * offset trim value
-         */
-         uint8_t mHPRtrim;
-         uint8_t mHPRfinetrim;
-         uint8_t mHPLtrim;
-         uint8_t mHPLfinetrim;
-         uint8_t mIVHPLtrim;
-         uint8_t mIVHPLfinetrim;
-         uint8_t mSPKpolarity;
-         uint8_t mISPKtrim;
+        /**
+        * offset trim value
+        */
+        uint8_t mHPRtrim;
+        uint8_t mHPRfinetrim;
+        uint8_t mHPLtrim;
+        uint8_t mHPLfinetrim;
+        uint8_t mIVHPLtrim;
+        uint8_t mIVHPLfinetrim;
+        uint8_t mSPKpolarity;
+        uint8_t mISPKtrim;
 
+        /**
+        * check for hardware first init
+        */
+        bool mDeviceSleepEver;
 };
 
 }

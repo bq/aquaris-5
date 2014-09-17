@@ -29,7 +29,8 @@ bool META_Editor_ReadFile_OP(FT_AP_Editor_read_req *pReq)
 	F_ID iFD;
 	char* pBuffer = NULL;
 	bool IsRead =true;
-
+	int iCurPos = 0;
+	
 	memset(&kCnf, 0, sizeof(FT_AP_Editor_read_cnf));
 	kCnf.header.id 		= pReq->header.id + 1;
 	kCnf.header.token 	= pReq->header.token;
@@ -57,7 +58,11 @@ bool META_Editor_ReadFile_OP(FT_AP_Editor_read_req *pReq)
 
     /* Open NVRAM realted files */
 	pBuffer = (char*)malloc(iNvmRecSize);
-	lseek(iFD.iFileDesc, (pReq->para - 1) * iNvmRecSize, SEEK_SET);
+
+	//  for pro_info multi lid feature, the position should not be zero. 
+	//iCurPos = lseek(iFD.iFileDesc, 0, SEEK_CUR);
+	//lseek(iFD.iFileDesc, iCurPos + (pReq->para - 1) * iNvmRecSize, SEEK_SET);
+	lseek(iFD.iFileDesc, (pReq->para - 1) * iNvmRecSize, SEEK_CUR);
 	iReadSize=read(iFD.iFileDesc, pBuffer, iNvmRecSize);
 	if(iNvmRecSize != iReadSize){
 		NVRAM_LOG("Error AP_Editor_ReadFile :Read size not match:iReadSize(%d),iNvmRecSize(%d),error:%s\n",iReadSize,iNvmRecSize,strerror(errno));
@@ -71,6 +76,7 @@ bool META_Editor_ReadFile_OP(FT_AP_Editor_read_req *pReq)
 
 	kCnf.read_status = META_STATUS_SUCCESS;
 	kCnf.status = META_SUCCESS;
+
 
 	WriteDataToPC(&kCnf, sizeof(FT_AP_Editor_read_cnf), pBuffer, iNvmRecSize);
 
@@ -90,6 +96,7 @@ FT_AP_Editor_write_cnf	META_Editor_WriteFile_OP(
 	int iNvmRecSize = 0, iWriteSize;
 	F_ID iFD;
 	bool IsRead = false;
+	int iCurPos = 0;
 
 	memset(&kCnf, 0, sizeof(FT_AP_Editor_write_cnf));
 	kCnf.file_idx 		= pReq->file_idx;
@@ -116,7 +123,11 @@ FT_AP_Editor_write_cnf	META_Editor_WriteFile_OP(
 		return kCnf;
 
 	}
-	lseek(iFD.iFileDesc, (pReq->para - 1) * iNvmRecSize, SEEK_SET);
+	
+	//for pro_info multi lid feature, the position should not be zero. 
+	//iCurPos = lseek(iFD.iFileDesc, 0, SEEK_CUR);
+	//lseek(iFD.iFileDesc, iCurPos + (pReq->para - 1) * iNvmRecSize, SEEK_SET);
+	lseek(iFD.iFileDesc, (pReq->para - 1) * iNvmRecSize, SEEK_CUR);
 	iWriteSize = write(iFD.iFileDesc, peer_buf, iNvmRecSize);
 	if(iNvmRecSize != iWriteSize){
 		NVRAM_LOG("Error AP_Editor_WriteFile :Write size not match:iWriteSize(%d),iNvmRecSize(%d),error:%s\n",iWriteSize,iNvmRecSize,strerror(errno));

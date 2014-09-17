@@ -15,8 +15,7 @@
 #include "../camera/kd_camera_hw.h"
 
 #define LENS_I2C_BUSNUM 1
-//static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("OV8825AF", 0x18)};
-#define OV8825AF_VCM_WRITE_ID           0x18
+static struct i2c_board_info __initdata kd_lens_dev={ I2C_BOARD_INFO("OV8825AF", 0x1B)};
 
 
 #define OV8825AF_DRVNAME "OV8825AF"
@@ -57,9 +56,9 @@ static unsigned long g_u4CurrPosition   = 0;
 
 static int g_sr = 3;
 
-extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
-extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
-extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
+//extern s32 mt_set_gpio_mode(u32 u4Pin, u32 u4Mode);
+//extern s32 mt_set_gpio_out(u32 u4Pin, u32 u4PinOut);
+//extern s32 mt_set_gpio_dir(u32 u4Pin, u32 u4Dir);
 
 
 static int s4OV8825AF_ReadReg(unsigned short * a_pu2Result)
@@ -124,16 +123,22 @@ inline static int moveOV8825AF(unsigned long a_u4Position)
         unsigned short InitPos;
         ret = s4OV8825AF_ReadReg(&InitPos);
 	    
-        spin_lock(&g_OV8825AF_SpinLock);
+	    
         if(ret == 0)
         {
             OV8825AFDB("[OV8825AF] Init Pos %6d \n", InitPos);
+			
+			spin_lock(&g_OV8825AF_SpinLock);
             g_u4CurrPosition = (unsigned long)InitPos;
+			spin_unlock(&g_OV8825AF_SpinLock);
         }
         else
         {		
+			spin_lock(&g_OV8825AF_SpinLock);
             g_u4CurrPosition = 0;
+			spin_unlock(&g_OV8825AF_SpinLock);
         }
+		spin_lock(&g_OV8825AF_SpinLock);
         g_s4OV8825AF_Opened = 2;
         spin_unlock(&g_OV8825AF_SpinLock);
     }
@@ -239,17 +244,15 @@ unsigned long a_u4Param)
 //CAM_RESET
 static int OV8825AF_Open(struct inode * a_pstInode, struct file * a_pstFile)
 {
-    spin_lock(&g_OV8825AF_SpinLock);
 
     if(g_s4OV8825AF_Opened)
     {
-        spin_unlock(&g_OV8825AF_SpinLock);
         OV8825AFDB("[OV8825AF] the device is opened \n");
         return -EBUSY;
     }
 
+    spin_lock(&g_OV8825AF_SpinLock);
     g_s4OV8825AF_Opened = 1;
-		
     spin_unlock(&g_OV8825AF_SpinLock);
 
     return 0;
@@ -293,12 +296,12 @@ static int OV8825AF_Release(struct inode * a_pstInode, struct file * a_pstFile)
         }
 
         if (g_u4CurrPosition > 200)  {
-	    s4OV8825AF_WriteReg(200);
+	        s4OV8825AF_WriteReg(200);
             msleep(3);
         }
 
         if (g_u4CurrPosition > 100)   {
-	    s4OV8825AF_WriteReg(100);
+	        s4OV8825AF_WriteReg(100);
             msleep(3);
         }
             	            	    	    
@@ -358,7 +361,7 @@ inline static int Register_OV8825AF_CharDrv(void)
         return -EAGAIN;
     }
 
-    actuator_class = class_create(THIS_MODULE, "actuatordrv");
+    actuator_class = class_create(THIS_MODULE, "actuatordrv2");
     if (IS_ERR(actuator_class)) {
         int ret = PTR_ERR(actuator_class);
         OV8825AFDB("Unable to create class, err = %d\n", ret);
@@ -466,14 +469,14 @@ static struct platform_driver g_stOV8825AF_Driver = {
     .suspend	= OV8825AF_suspend,
     .resume	= OV8825AF_resume,
     .driver		= {
-        .name	= "lens_actuator",
+        .name	= "lens_actuator2",
         .owner	= THIS_MODULE,
     }
 };
 
 static int __init OV8825AF_i2C_init(void)
 {
-//    i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
+    i2c_register_board_info(LENS_I2C_BUSNUM, &kd_lens_dev, 1);
 	
     if(platform_driver_register(&g_stOV8825AF_Driver)){
         OV8825AFDB("failed to register OV8825AF driver\n");

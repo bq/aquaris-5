@@ -177,6 +177,8 @@
 #define	__unused	/* delete */
 #endif
 
+#define __pure2 __attribute__((__const__)) /* Android-added: used by FreeBSD libm */
+
 #if __GNUC_PREREQ__(3, 1)
 #define	__used		__attribute__((__used__))
 #else
@@ -208,6 +210,11 @@
 #else
 #define __statement(x)	(x)
 #endif
+
+#define __nonnull(args) __attribute__((__nonnull__ args))
+
+#define __printflike(x, y) __attribute__((__format__(printf, x, y))) __nonnull((x))
+#define __scanflike(x, y) __attribute__((__format__(scanf, x, y))) __nonnull((x))
 
 /*
  * C99 defines the restrict type qualifier keyword, which was made available
@@ -313,6 +320,24 @@
 #define __purefunc
 #endif
 
+#if __GNUC_PREREQ__(3, 1)
+#define __always_inline __attribute__((__always_inline__))
+#else
+#define __always_inline
+#endif
+
+#if __GNUC_PREREQ__(3, 4)
+#define __wur __attribute__((__warn_unused_result__))
+#else
+#define __wur
+#endif
+
+#if __GNUC_PREREQ__(4, 3)
+#define __errordecl(name, msg) extern void name(void) __attribute__((__error__(msg)))
+#else
+#define __errordecl(name, msg) extern void name(void)
+#endif
+
 /*
  * Macros for manipulating "link sets".  Link sets are arrays of pointers
  * to objects, which are gathered up by the linker.
@@ -363,11 +388,11 @@
 #define	__link_set_entry(set, idx)	(__link_set_begin(set)[idx])
 
 /*
- * Some of the recend FreeBSD sources used in Bionic need this.
+ * Some of the FreeBSD sources used in Bionic need this.
  * Originally, this is used to embed the rcs versions of each source file
  * in the generated binary. We certainly don't want this in Bionic.
  */
-#define	__FBSDID(s)	struct __hack
+#define __FBSDID(s) /* nothing */
 
 /*-
  * The following definitions are an extension of the behavior originally
@@ -501,15 +526,26 @@
 #define  __BIONIC__   1
 #include <android/api-level.h>
 
+#if defined(_FORTIFY_SOURCE) && _FORTIFY_SOURCE > 0 && defined(__OPTIMIZE__) && __OPTIMIZE__ > 0
+#define __BIONIC_FORTIFY 1
+#if _FORTIFY_SOURCE == 2
+#define __bos(s) __builtin_object_size((s), 1)
+#else
+#define __bos(s) __builtin_object_size((s), 0)
+#endif
 
-#if 1  //\\ AAMTF, Twen, Fix Build Error
-#if defined(_FORTIFY_SOURCE) && _FORTIFY_SOURCE > 0 && defined(__OPTIMIZE__) && __OPTIMIZE__ > 0 && !defined(__clang__)
 #define __BIONIC_FORTIFY_INLINE \
     extern inline \
     __attribute__ ((always_inline)) \
-    __attribute__ ((gnu_inline)) \
-    __attribute__ ((artificial))
+    __attribute__ ((gnu_inline))
+#endif
 #define __BIONIC_FORTIFY_UNKNOWN_SIZE ((size_t) -1)
-#endif
-#endif
+
+/* Android-added: for FreeBSD's libm. */
+#define __weak_reference(sym,alias) \
+    __asm__(".weak " #alias); \
+    __asm__(".equ "  #alias ", " #sym)
+#define __strong_reference(sym,aliassym) \
+    extern __typeof (sym) aliassym __attribute__ ((__alias__ (#sym)))
+
 #endif /* !_SYS_CDEFS_H_ */

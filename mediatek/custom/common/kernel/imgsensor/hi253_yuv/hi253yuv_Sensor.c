@@ -158,17 +158,14 @@ void HI253InitSetting(void)
   HI253WriteCmosSensor(0x01, 0xf3);
   HI253WriteCmosSensor(0x01, 0xf1);
 
-// PAGE 20
-HI253SetPage(0x20); //page 20
- HI253WriteCmosSensor(0x10, 0x1c); //ae off
+  HI253SetPage(0x20); 
+  HI253WriteCmosSensor(0x10, 0x0c); // AE OFF
+  HI253SetPage(0x22); 
+  HI253WriteCmosSensor(0x10, 0x69); // AWB OFF
 
-// PAGE 22
-HI253SetPage(0x22); //page 22
- HI253WriteCmosSensor(0x10, 0x69); //awb off
-
-HI253SetPage(0x00);
-  HI253WriteCmosSensor(0x10, 0x10); // Sub1/2_Preview2 Mode_H binning
-  HI253WriteCmosSensor(0x11, 0x90); // Windowing ON, 1Frame Skip
+  HI253SetPage(0x00); 
+  HI253WriteCmosSensor(0x10, 0x10); // Sub1/2_Preview2
+  HI253WriteCmosSensor(0x11, 0x93); // Windowing ON, 1Frame Skip
   HI253WriteCmosSensor(0x12, 0x04); // 00:Rinsing edge 04:fall edge
   HI253WriteCmosSensor(0x0b, 0xaa); // ESD Check Register
   HI253WriteCmosSensor(0x0c, 0xaa); // ESD Check Register
@@ -200,15 +197,15 @@ HI253SetPage(0x00);
   HI253WriteCmosSensor(0x83, 0x00);
   HI253WriteCmosSensor(0x84, 0x0c);
   HI253WriteCmosSensor(0x85, 0x00);
-  HI253WriteCmosSensor(0x90, 0x0C); // BLCTIMETH ON
-  HI253WriteCmosSensor(0x91, 0x0C); // BLCTIMETH OFF
+  HI253WriteCmosSensor(0x90, 0x0a); // BLCTIMETH ON
+  HI253WriteCmosSensor(0x91, 0x0a); // BLCTIMETH OFF
   HI253WriteCmosSensor(0x92, 0x78); // BLCAGTH ON
   HI253WriteCmosSensor(0x93, 0x70); // BLCAGTH OFF
   HI253WriteCmosSensor(0x94, 0x75); // BLCDGTH ON
   HI253WriteCmosSensor(0x95, 0x70); // BLCDGTH OFF
   HI253WriteCmosSensor(0x96, 0xdc);
   HI253WriteCmosSensor(0x97, 0xfe);
- HI253WriteCmosSensor(0x98, 0x38);
+  HI253WriteCmosSensor(0x98, 0x20);
 
   //OutDoor BLC
   HI253WriteCmosSensor(0x99,0x42);// B
@@ -228,173 +225,128 @@ HI253SetPage(0x00);
   HI253WriteCmosSensor(0xac, 0x43);
   HI253WriteCmosSensor(0xae, 0x43);
 
-/////// PAGE 2 START ///////
-HI253SetPage(0x02); //Page 02
- HI253WriteCmosSensor(0x10, 0x00); //Mode_test
- HI253WriteCmosSensor(0x11, 0x00); //Mode_dead_test
- HI253WriteCmosSensor(0x12, 0x03); //pwr_ctl_ctl1
- HI253WriteCmosSensor(0x13, 0x03); //Mode_ana_test
- HI253WriteCmosSensor(0x14, 0x00); //mode_memory
- HI253WriteCmosSensor(0x16, 0x00); //dcdc_ctl1
- HI253WriteCmosSensor(0x17, 0x8c); //dcdc_ctl2
- HI253WriteCmosSensor(0x18, 0x4C); //analog_func1
- HI253WriteCmosSensor(0x19, 0x00); //analog_func2
- HI253WriteCmosSensor(0x1a, 0x39); //analog_func3
- HI253WriteCmosSensor(0x1b, 0x00); //analog_func4
- HI253WriteCmosSensor(0x1c, 0x09); //dcdc_ctl3
- HI253WriteCmosSensor(0x1d, 0x40); //dcdc_ctl4
- HI253WriteCmosSensor(0x1e, 0x30); //analog_func7
- HI253WriteCmosSensor(0x1f, 0x10); //analog_func8
- HI253WriteCmosSensor(0x20, 0x77); //pixel bias
- HI253WriteCmosSensor(0x21, 0xde); //adc,asp bias
- HI253WriteCmosSensor(0x22, 0xa7); //main,bus bias
- HI253WriteCmosSensor(0x23, 0x30); //clamp
- HI253WriteCmosSensor(0x24, 0x4a);
- HI253WriteCmosSensor(0x25, 0x10);
- HI253WriteCmosSensor(0x27, 0x3c);
- HI253WriteCmosSensor(0x28, 0x00);
- HI253WriteCmosSensor(0x29, 0x0c);
- HI253WriteCmosSensor(0x2a, 0x80);
- HI253WriteCmosSensor(0x2b, 0x80);
- HI253WriteCmosSensor(0x2c, 0x02);
- HI253WriteCmosSensor(0x2d, 0xa0);
- HI253WriteCmosSensor(0x2e, 0x11);
- HI253WriteCmosSensor(0x2f, 0xa1);
- HI253WriteCmosSensor(0x30, 0x05); //swap_ctl
- HI253WriteCmosSensor(0x31, 0x99);
- HI253WriteCmosSensor(0x32, 0x00);
- HI253WriteCmosSensor(0x33, 0x00);
- HI253WriteCmosSensor(0x34, 0x22);
- HI253WriteCmosSensor(0x38, 0x88);
- HI253WriteCmosSensor(0x39, 0x88);
- HI253WriteCmosSensor(0x50, 0x20);
- HI253WriteCmosSensor(0x51, 0x00);
- HI253WriteCmosSensor(0x52, 0x01);
- HI253WriteCmosSensor(0x53, 0xc1);
- HI253WriteCmosSensor(0x54, 0x10);
- HI253WriteCmosSensor(0x55, 0x1c);
- HI253WriteCmosSensor(0x56, 0x11);
- HI253WriteCmosSensor(0x58, 0x10);
- HI253WriteCmosSensor(0x59, 0x0e);
- HI253WriteCmosSensor(0x5d, 0xa2);
- HI253WriteCmosSensor(0x5e, 0x5a);
- HI253WriteCmosSensor(0x60, 0x87);
- HI253WriteCmosSensor(0x61, 0x99);
- HI253WriteCmosSensor(0x62, 0x88);
- HI253WriteCmosSensor(0x63, 0x97);
- HI253WriteCmosSensor(0x64, 0x88);
- HI253WriteCmosSensor(0x65, 0x97);
- HI253WriteCmosSensor(0x67, 0x0c);
- HI253WriteCmosSensor(0x68, 0x0c);
- HI253WriteCmosSensor(0x69, 0x0c);
- HI253WriteCmosSensor(0x6a, 0xb4);
- HI253WriteCmosSensor(0x6b, 0xc4);
- HI253WriteCmosSensor(0x6c, 0xb5);
- HI253WriteCmosSensor(0x6d, 0xc2);
- HI253WriteCmosSensor(0x6e, 0xb5);
- HI253WriteCmosSensor(0x6f, 0xc0);
- HI253WriteCmosSensor(0x70, 0xb6);
- HI253WriteCmosSensor(0x71, 0xb8);
- HI253WriteCmosSensor(0x72, 0x89);
- HI253WriteCmosSensor(0x73, 0x96);
- HI253WriteCmosSensor(0x74, 0x89);
- HI253WriteCmosSensor(0x75, 0x96);
- HI253WriteCmosSensor(0x76, 0x89);
- HI253WriteCmosSensor(0x77, 0x96);
- HI253WriteCmosSensor(0x7c, 0x85);
- HI253WriteCmosSensor(0x7d, 0xaf);
- HI253WriteCmosSensor(0x80, 0x01);
- HI253WriteCmosSensor(0x81, 0x7f);
- HI253WriteCmosSensor(0x82, 0x13); //rx_on1_read
- HI253WriteCmosSensor(0x83, 0x24);
- HI253WriteCmosSensor(0x84, 0x7D);
- HI253WriteCmosSensor(0x85, 0x81);
- HI253WriteCmosSensor(0x86, 0x7D);
- HI253WriteCmosSensor(0x87, 0x81);
- HI253WriteCmosSensor(0x88, 0xab);
- HI253WriteCmosSensor(0x89, 0xbc);
- HI253WriteCmosSensor(0x8a, 0xac);
- HI253WriteCmosSensor(0x8b, 0xba);
- HI253WriteCmosSensor(0x8c, 0xad);
- HI253WriteCmosSensor(0x8d, 0xb8);
- HI253WriteCmosSensor(0x8e, 0xae);
- HI253WriteCmosSensor(0x8f, 0xb2);
- HI253WriteCmosSensor(0x90, 0xb3);
- HI253WriteCmosSensor(0x91, 0xb7);
- HI253WriteCmosSensor(0x92, 0x48);
- HI253WriteCmosSensor(0x93, 0x54);
- HI253WriteCmosSensor(0x94, 0x7D);
- HI253WriteCmosSensor(0x95, 0x81);
- HI253WriteCmosSensor(0x96, 0x7D);
- HI253WriteCmosSensor(0x97, 0x81);
- HI253WriteCmosSensor(0xa0, 0x02);
- HI253WriteCmosSensor(0xa1, 0x7B);
- HI253WriteCmosSensor(0xa2, 0x02);
- HI253WriteCmosSensor(0xa3, 0x7B);
- HI253WriteCmosSensor(0xa4, 0x7B);
- HI253WriteCmosSensor(0xa5, 0x02);
- HI253WriteCmosSensor(0xa6, 0x7B);
- HI253WriteCmosSensor(0xa7, 0x02);
- HI253WriteCmosSensor(0xa8, 0x85);
- HI253WriteCmosSensor(0xa9, 0x8C);
- HI253WriteCmosSensor(0xaa, 0x85);
- HI253WriteCmosSensor(0xab, 0x8C);
- HI253WriteCmosSensor(0xac, 0x10); //Rx_pwr_off1_read
- HI253WriteCmosSensor(0xad, 0x16); //Rx_pwr_on1_read
- HI253WriteCmosSensor(0xae, 0x10); //Rx_pwr_off2_read
- HI253WriteCmosSensor(0xaf, 0x16); //Rx_pwr_on1_read
- HI253WriteCmosSensor(0xb0, 0x99);
- HI253WriteCmosSensor(0xb1, 0xA3);
- HI253WriteCmosSensor(0xb2, 0xA4);
- HI253WriteCmosSensor(0xb3, 0xAE);
- HI253WriteCmosSensor(0xb4, 0x9B);
- HI253WriteCmosSensor(0xb5, 0xA2);
- HI253WriteCmosSensor(0xb6, 0xA6);
- HI253WriteCmosSensor(0xb7, 0xAC);
- HI253WriteCmosSensor(0xb8, 0x9B);
- HI253WriteCmosSensor(0xb9, 0x9F);
- HI253WriteCmosSensor(0xba, 0xA6);
- HI253WriteCmosSensor(0xbb, 0xAA);
- HI253WriteCmosSensor(0xbc, 0x9B);
- HI253WriteCmosSensor(0xbd, 0x9F);
- HI253WriteCmosSensor(0xbe, 0xA6);
- HI253WriteCmosSensor(0xbf, 0xaa);
- HI253WriteCmosSensor(0xc4, 0x2c);
- HI253WriteCmosSensor(0xc5, 0x43);
- HI253WriteCmosSensor(0xc6, 0x63);
- HI253WriteCmosSensor(0xc7, 0x79);
- HI253WriteCmosSensor(0xc8, 0x2d);
- HI253WriteCmosSensor(0xc9, 0x42);
- HI253WriteCmosSensor(0xca, 0x2d);
- HI253WriteCmosSensor(0xcb, 0x42);
- HI253WriteCmosSensor(0xcc, 0x64);
- HI253WriteCmosSensor(0xcd, 0x78);
- HI253WriteCmosSensor(0xce, 0x64);
- HI253WriteCmosSensor(0xcf, 0x78);
- HI253WriteCmosSensor(0xd0, 0x0a);
- HI253WriteCmosSensor(0xd1, 0x09);
- HI253WriteCmosSensor(0xd2, 0x20);
- HI253WriteCmosSensor(0xd3, 0x00);
-
- HI253WriteCmosSensor(0xd4, 0x0c);
- HI253WriteCmosSensor(0xd5, 0x0c);
- HI253WriteCmosSensor(0xd6, 0x78);
- HI253WriteCmosSensor(0xd7, 0x70);
-
- HI253WriteCmosSensor(0xe0, 0xc4);
- HI253WriteCmosSensor(0xe1, 0xc4);
- HI253WriteCmosSensor(0xe2, 0xc4);
- HI253WriteCmosSensor(0xe3, 0xc4);
- HI253WriteCmosSensor(0xe4, 0x00);
- HI253WriteCmosSensor(0xe8, 0x80);
- HI253WriteCmosSensor(0xe9, 0x40);
- HI253WriteCmosSensor(0xea, 0x7f);
- HI253WriteCmosSensor(0xf0, 0x01); //sram1_cfg
- HI253WriteCmosSensor(0xf1, 0x01); //sram2_cfg
- HI253WriteCmosSensor(0xf2, 0x01); //sram3_cfg
- HI253WriteCmosSensor(0xf3, 0x01); //sram4_cfg
- HI253WriteCmosSensor(0xf4, 0x01); //sram5_cfg
-///////////
+  HI253SetPage(0x02); 
+  HI253WriteCmosSensor(0x12, 0x03);
+  HI253WriteCmosSensor(0x13, 0x03);
+  HI253WriteCmosSensor(0x16, 0x00);
+  HI253WriteCmosSensor(0x17, 0x8C);
+  HI253WriteCmosSensor(0x18, 0x4c); // 0x28->0x2c->4c [20100919 update]
+  HI253WriteCmosSensor(0x19, 0x00); // 0x40->0x00 [20100912 update]
+  HI253WriteCmosSensor(0x1a, 0x39);
+  HI253WriteCmosSensor(0x1c, 0x09);
+  HI253WriteCmosSensor(0x1d, 0x40);
+  HI253WriteCmosSensor(0x1e, 0x30);
+  HI253WriteCmosSensor(0x1f, 0x10);
+  HI253WriteCmosSensor(0x20, 0x77);
+  HI253WriteCmosSensor(0x21, 0xde); // 0xdd->0xde [20100919 update]
+  HI253WriteCmosSensor(0x22, 0xa7);
+  HI253WriteCmosSensor(0x23, 0x30); // 0xb0->0x30 [20100912 update]
+  HI253WriteCmosSensor(0x27, 0x3c);
+  HI253WriteCmosSensor(0x2b, 0x80);
+  HI253WriteCmosSensor(0x2e, 0x00); // 100913 power saving Hy gou 11},
+  HI253WriteCmosSensor(0x2f, 0x00); // 100913 power saving Hy gou a1},
+  HI253WriteCmosSensor(0x30, 0x05);
+  HI253WriteCmosSensor(0x50, 0x20);
+  HI253WriteCmosSensor(0x52, 0x01);
+  HI253WriteCmosSensor(0x53, 0xc1);
+  HI253WriteCmosSensor(0x55, 0x1c);
+  HI253WriteCmosSensor(0x56, 0x11); // 0x00->0x11 [20100912 update]
+  HI253WriteCmosSensor(0x5d, 0xA2);
+  HI253WriteCmosSensor(0x5e, 0x5a); 
+  HI253WriteCmosSensor(0x60, 0x87);
+  HI253WriteCmosSensor(0x61, 0x99);
+  HI253WriteCmosSensor(0x62, 0x88);
+  HI253WriteCmosSensor(0x63, 0x97);
+  HI253WriteCmosSensor(0x64, 0x88);
+  HI253WriteCmosSensor(0x65, 0x97);
+  HI253WriteCmosSensor(0x67, 0x0c);
+  HI253WriteCmosSensor(0x68, 0x0c);
+  HI253WriteCmosSensor(0x69, 0x0c);
+  HI253WriteCmosSensor(0x72, 0x89);
+  HI253WriteCmosSensor(0x73, 0x96); // 0x97->0x96 [20100919 update]
+  HI253WriteCmosSensor(0x74, 0x89);
+  HI253WriteCmosSensor(0x75, 0x96); // 0x97->0x96 [20100919 update]
+  HI253WriteCmosSensor(0x76, 0x89);
+  HI253WriteCmosSensor(0x77, 0x96); // 0x97->0x96 [20100912 update]
+  HI253WriteCmosSensor(0x7C, 0x85);
+  HI253WriteCmosSensor(0x7d, 0xaf);
+  HI253WriteCmosSensor(0x80, 0x01);
+  HI253WriteCmosSensor(0x81, 0x7f); // 0x81->0x7f [20100919 update]
+  HI253WriteCmosSensor(0x82, 0x13); // 0x23->0x13 [20100912 update]
+  HI253WriteCmosSensor(0x83, 0x24); // 0x2b->0x24 [20100912 update]
+  HI253WriteCmosSensor(0x84, 0x7d);
+  HI253WriteCmosSensor(0x85, 0x81);
+  HI253WriteCmosSensor(0x86, 0x7d);
+  HI253WriteCmosSensor(0x87, 0x81);
+  HI253WriteCmosSensor(0x92, 0x48); // 0x53->0x48 [20100912 update]
+  HI253WriteCmosSensor(0x93, 0x54); // 0x5e->0x54 [20100912 update]
+  HI253WriteCmosSensor(0x94, 0x7d);
+  HI253WriteCmosSensor(0x95, 0x81);
+  HI253WriteCmosSensor(0x96, 0x7d);
+  HI253WriteCmosSensor(0x97, 0x81);
+  HI253WriteCmosSensor(0xa0, 0x02);
+  HI253WriteCmosSensor(0xa1, 0x7b);
+  HI253WriteCmosSensor(0xa2, 0x02);
+  HI253WriteCmosSensor(0xa3, 0x7b);
+  HI253WriteCmosSensor(0xa4, 0x7b);
+  HI253WriteCmosSensor(0xa5, 0x02);
+  HI253WriteCmosSensor(0xa6, 0x7b);
+  HI253WriteCmosSensor(0xa7, 0x02);
+  HI253WriteCmosSensor(0xa8, 0x85);
+  HI253WriteCmosSensor(0xa9, 0x8c);
+  HI253WriteCmosSensor(0xaa, 0x85);
+  HI253WriteCmosSensor(0xab, 0x8c);
+  HI253WriteCmosSensor(0xac, 0x10); // 0x20->0x10 [20100912 update]
+  HI253WriteCmosSensor(0xad, 0x16); // 0x26->0x16 [20100912 update]
+  HI253WriteCmosSensor(0xae, 0x10); // 0x20->0x10 [20100912 update]
+  HI253WriteCmosSensor(0xaf, 0x16); // 0x26->0x16 [20100912 update]
+  HI253WriteCmosSensor(0xb0, 0x99);
+  HI253WriteCmosSensor(0xb1, 0xa3);
+  HI253WriteCmosSensor(0xb2, 0xa4);
+  HI253WriteCmosSensor(0xb3, 0xae);
+  HI253WriteCmosSensor(0xb4, 0x9b);
+  HI253WriteCmosSensor(0xb5, 0xa2);
+  HI253WriteCmosSensor(0xb6, 0xa6);
+  HI253WriteCmosSensor(0xb7, 0xac);
+  HI253WriteCmosSensor(0xb8, 0x9b);
+  HI253WriteCmosSensor(0xb9, 0x9f);
+  HI253WriteCmosSensor(0xba, 0xa6);
+  HI253WriteCmosSensor(0xbb, 0xaa);
+  HI253WriteCmosSensor(0xbc, 0x9b);
+  HI253WriteCmosSensor(0xbd, 0x9f);
+  HI253WriteCmosSensor(0xbe, 0xa6);
+  HI253WriteCmosSensor(0xbf, 0xaa);
+  HI253WriteCmosSensor(0xc4, 0x2c); // 0x36->0x2c [20100912 update]
+  HI253WriteCmosSensor(0xc5, 0x43); // 0x4e->0x43 [20100912 update]
+  HI253WriteCmosSensor(0xc6, 0x63); // 0x61->0x63 [20100912 update]
+  HI253WriteCmosSensor(0xc7, 0x79); // 0x78->0x79 [20100919 update]
+  HI253WriteCmosSensor(0xc8, 0x2d); // 0x36->0x2d [20100912 update]
+  HI253WriteCmosSensor(0xc9, 0x42); // 0x4d->0x42 [20100912 update]
+  HI253WriteCmosSensor(0xca, 0x2d); // 0x36->0x2d [20100912 update]
+  HI253WriteCmosSensor(0xcb, 0x42); // 0x4d->0x42 [20100912 update]
+  HI253WriteCmosSensor(0xcc, 0x64); // 0x62->0x64 [20100912 update]
+  HI253WriteCmosSensor(0xcd, 0x78);
+  HI253WriteCmosSensor(0xce, 0x64); // 0x62->0x64 [20100912 update]
+  HI253WriteCmosSensor(0xcf, 0x78);
+  HI253WriteCmosSensor(0xd0, 0x0a);
+  HI253WriteCmosSensor(0xd1, 0x09);
+  HI253WriteCmosSensor(0xd4, 0x0a); // DCDCTIMETHON
+  HI253WriteCmosSensor(0xd5, 0x0a); // DCDCTIMETHOFF
+  HI253WriteCmosSensor(0xd6, 0x78); // DCDCAGTHON
+  HI253WriteCmosSensor(0xd7, 0x70); // DCDCAGTHOFF
+  HI253WriteCmosSensor(0xe0, 0xc4);
+  HI253WriteCmosSensor(0xe1, 0xc4);
+  HI253WriteCmosSensor(0xe2, 0xc4);
+  HI253WriteCmosSensor(0xe3, 0xc4);
+  HI253WriteCmosSensor(0xe4, 0x00);
+  HI253WriteCmosSensor(0xe8, 0x80); // 0x00->0x80 [20100919 update]
+  HI253WriteCmosSensor(0xe9, 0x40);
+  HI253WriteCmosSensor(0xea, 0x7f); // 0x82->0x7f [20100919 update]
+  HI253WriteCmosSensor(0xf0, 0x01); // 100810 memory delay
+  HI253WriteCmosSensor(0xf1, 0x01); // 100810 memory delay
+  HI253WriteCmosSensor(0xf2, 0x01); // 100810 memory delay
+  HI253WriteCmosSensor(0xf3, 0x01); // 100810 memory delay
+  HI253WriteCmosSensor(0xf4, 0x01); // 100810 memory delay
 
   HI253SetPage(0x03);
   HI253WriteCmosSensor(0x10, 0x10);
@@ -402,40 +354,36 @@ HI253SetPage(0x02); //Page 02
   HI253SetPage(0x10); 
   HI253WriteCmosSensor(0x10, 0x03); // YUYV
   HI253WriteCmosSensor(0x12, 0x30); // ISPCTL3
- HI253WriteCmosSensor(0x13, 0x0a); // contrast on
- HI253WriteCmosSensor(0x20, 0x00);
- HI253WriteCmosSensor(0x40, 0x90);
- HI253WriteCmosSensor(0x41, 0x00);
- HI253WriteCmosSensor(0x48, 0x88);// 84
- HI253WriteCmosSensor(0x50, 0x90);
- HI253WriteCmosSensor(0x30, 0x00);
- HI253WriteCmosSensor(0x31, 0x00);
- HI253WriteCmosSensor(0x32, 0x00);
- HI253WriteCmosSensor(0x33, 0x00);
- HI253WriteCmosSensor(0x34, 0x30);
- HI253WriteCmosSensor(0x35, 0x00);
- HI253WriteCmosSensor(0x36, 0x00);
- HI253WriteCmosSensor(0x38, 0x00);
- HI253WriteCmosSensor(0x3e, 0x58);
- HI253WriteCmosSensor(0x3f, 0x00);
+  HI253WriteCmosSensor(0x13, 0x0a);
+  HI253WriteCmosSensor(0x20, 0x00); // ITUCTL
+  HI253WriteCmosSensor(0x30, 0x00);
+  HI253WriteCmosSensor(0x31, 0x00);
+  HI253WriteCmosSensor(0x32, 0x00);
+  HI253WriteCmosSensor(0x33, 0x00);
+  HI253WriteCmosSensor(0x34, 0x30);
+  HI253WriteCmosSensor(0x35, 0x00);
+  HI253WriteCmosSensor(0x36, 0x00);
+  HI253WriteCmosSensor(0x38, 0x00);
+  HI253WriteCmosSensor(0x3e, 0x58);
+  HI253WriteCmosSensor(0x3f, 0x02); // 0x02 for preview and 0x00 for capture
+  HI253WriteCmosSensor(0x40, 0x85); // YOFS modify brightness
+  HI253WriteCmosSensor(0x41, 0x00); // DYOFS
 
-//Saturation
- HI253WriteCmosSensor(0x60, 0x67);
- HI253WriteCmosSensor(0x61, 0x80);// 74
- HI253WriteCmosSensor(0x62, 0x80);// 76
- HI253WriteCmosSensor(0x63, 0x50);
- HI253WriteCmosSensor(0x64, 0x41);
- HI253WriteCmosSensor(0x66, 0x33);
- HI253WriteCmosSensor(0x67, 0x00);
-
- HI253WriteCmosSensor(0x6a, 0x90); 
- HI253WriteCmosSensor(0x6b, 0x80); 
- HI253WriteCmosSensor(0x6c, 0x80); 
- HI253WriteCmosSensor(0x6d, 0xa0); 
-
- HI253WriteCmosSensor(0x76, 0x01); 
- HI253WriteCmosSensor(0x74, 0x66);
- HI253WriteCmosSensor(0x79, 0x06);
+  //Saturation;
+  HI253WriteCmosSensor(0x60, 0x67); // SATCTL
+  HI253WriteCmosSensor(0x61, 0x7b); // SATB
+  HI253WriteCmosSensor(0x62, 0x7b); // SATR
+  HI253WriteCmosSensor(0x63, 0x50); // AGSAT
+  HI253WriteCmosSensor(0x64, 0x41);
+  HI253WriteCmosSensor(0x66, 0x42); // SATTIMETH
+  HI253WriteCmosSensor(0x67, 0x20); // SATOUTDEL
+  HI253WriteCmosSensor(0x6a, 0x80); // UPOSSAT
+  HI253WriteCmosSensor(0x6b, 0x84); // UNEGSAT
+  HI253WriteCmosSensor(0x6c, 0x80); // VPOSSAT
+  HI253WriteCmosSensor(0x6d, 0xa0); // VNEGSAT
+  HI253WriteCmosSensor(0x76, 0x01); // white protection ON
+  HI253WriteCmosSensor(0x74, 0x66);
+  HI253WriteCmosSensor(0x79, 0x06);
 
   HI253SetPage(0x11);
   HI253WriteCmosSensor(0x10, 0x3f); // DLPFCTL1
@@ -504,10 +452,9 @@ HI253SetPage(0x02); //Page 02
   HI253WriteCmosSensor(0x62, 0x50);
   HI253WriteCmosSensor(0x70, 0x06);
 
-HI253SetPage(0x12);
- HI253WriteCmosSensor(0x20, 0x0f);
- HI253WriteCmosSensor(0x21, 0x0f);
-
+  HI253SetPage(0x12); 
+  HI253WriteCmosSensor(0x20, 0x00); // YCLPFCTL1 0x00 for preview and 0x0f for capture
+  HI253WriteCmosSensor(0x21, 0x00); // YCLPFCTL2 0x00 for preview and 0x0f for capture
   HI253WriteCmosSensor(0x25, 0x30);
   HI253WriteCmosSensor(0x28, 0x00); // Out1 BP t
   HI253WriteCmosSensor(0x29, 0x00); // Out2 BP t
@@ -515,10 +462,12 @@ HI253SetPage(0x12);
   HI253WriteCmosSensor(0x30, 0x50);
   HI253WriteCmosSensor(0x31, 0x18); // YCUNI1TH
   HI253WriteCmosSensor(0x32, 0x32); // YCUNI2TH
- HI253WriteCmosSensor(0x33, 0x40);
- HI253WriteCmosSensor(0x34, 0x50);
- HI253WriteCmosSensor(0x35, 0x70);
- HI253WriteCmosSensor(0x36, 0xa0);
+  HI253WriteCmosSensor(0x33, 0x40); // YCUNI3TH
+  HI253WriteCmosSensor(0x34, 0x50); // YCNOR1TH
+  HI253WriteCmosSensor(0x35, 0x70); // YCNOR2TH
+  HI253WriteCmosSensor(0x36, 0xa0); // YCNOR3TH
+  HI253WriteCmosSensor(0x3b, 0x06);
+  HI253WriteCmosSensor(0x3c, 0x06);
 
   //Out2 th
   HI253WriteCmosSensor(0x40, 0xa0); // YCOUT2THH
@@ -560,13 +509,13 @@ HI253SetPage(0x12);
   HI253WriteCmosSensor(0x5c, 0xe0); // YCDARK2STDL
   HI253WriteCmosSensor(0x5d, 0x80); // YCDARK2RAT
 
-//Dark3 th
- HI253WriteCmosSensor(0x5e, 0x70);//88
- HI253WriteCmosSensor(0x5f, 0x40);
- HI253WriteCmosSensor(0x60, 0xe0);
- HI253WriteCmosSensor(0x61, 0xe0);
- HI253WriteCmosSensor(0x62, 0xe0);
- HI253WriteCmosSensor(0x63, 0xb4);//80
+  //Dark3 th
+  HI253WriteCmosSensor(0x5e, 0x88); // YCDARK3THH
+  HI253WriteCmosSensor(0x5f, 0x40); // YCDARK3THL
+  HI253WriteCmosSensor(0x60, 0xe0); // YCDARK3STDH
+  HI253WriteCmosSensor(0x61, 0xe6); // YCDARK3STDM
+  HI253WriteCmosSensor(0x62, 0xe6); // YCDARK3STDL
+  HI253WriteCmosSensor(0x63, 0x80); // YCDARK3RAT
 
   HI253WriteCmosSensor(0x70, 0x15);
   HI253WriteCmosSensor(0x71, 0x01); //Don't Touch register
@@ -574,57 +523,19 @@ HI253SetPage(0x12);
   HI253WriteCmosSensor(0x72, 0x18);
   HI253WriteCmosSensor(0x73, 0x01); //Don't Touch register
 
- HI253WriteCmosSensor(0x74, 0x25);
- HI253WriteCmosSensor(0x75, 0x15);
+  HI253WriteCmosSensor(0x74, 0x25);
+  HI253WriteCmosSensor(0x75, 0x15);
+  HI253WriteCmosSensor(0x80, 0x30);
+  HI253WriteCmosSensor(0x81, 0x50);
+  HI253WriteCmosSensor(0x82, 0x80);
+  HI253WriteCmosSensor(0x85, 0x1a);
+  HI253WriteCmosSensor(0x88, 0x00);
+  HI253WriteCmosSensor(0x89, 0x00);
+  HI253WriteCmosSensor(0x90, 0x00); // DPCCTL 0x00 For Preview and 0x5d for capture
 
- HI253WriteCmosSensor(0x80, 0x20);
- HI253WriteCmosSensor(0x81, 0x40);
- HI253WriteCmosSensor(0x82, 0x65);
- HI253WriteCmosSensor(0x85, 0x1a);
- HI253WriteCmosSensor(0x88, 0x00);
- HI253WriteCmosSensor(0x89, 0x00);
- HI253WriteCmosSensor(0x90, 0x5d); //For capture
- HI253WriteCmosSensor(0x91, 0x88);
- HI253WriteCmosSensor(0x98, 0x7d);
- HI253WriteCmosSensor(0x99, 0x28);
- HI253WriteCmosSensor(0x9A, 0x14);
- HI253WriteCmosSensor(0x9B, 0xc8);
- HI253WriteCmosSensor(0x9C, 0x02);
- HI253WriteCmosSensor(0x9D, 0x1e);
- HI253WriteCmosSensor(0x9E, 0x28);
- HI253WriteCmosSensor(0x9F, 0x07);
- HI253WriteCmosSensor(0xA0, 0x32);
- HI253WriteCmosSensor(0xA4, 0x04);
- HI253WriteCmosSensor(0xA5, 0x0e);
- HI253WriteCmosSensor(0xA6, 0x0c);
- HI253WriteCmosSensor(0xA7, 0x04);
- HI253WriteCmosSensor(0xA8, 0x3c);
+  HI253WriteCmosSensor(0xc5, 0x30);
+  HI253WriteCmosSensor(0xc6, 0x2a);
 
- HI253WriteCmosSensor(0xAA, 0x14);
- HI253WriteCmosSensor(0xAB, 0x11);
- HI253WriteCmosSensor(0xAC, 0x0f);
- HI253WriteCmosSensor(0xAD, 0x16);
- HI253WriteCmosSensor(0xAE, 0x15);
- HI253WriteCmosSensor(0xAF, 0x14);
- HI253WriteCmosSensor(0xB1, 0xaa);
- HI253WriteCmosSensor(0xB2, 0x96);
- HI253WriteCmosSensor(0xB3, 0x28);
-//Dont Touch register
- HI253WriteCmosSensor(0xB8, 0x78);
- HI253WriteCmosSensor(0xB9, 0xa0);
- HI253WriteCmosSensor(0xBA, 0xb4);
- HI253WriteCmosSensor(0xBB, 0x14);
- HI253WriteCmosSensor(0xBC, 0x14);
- HI253WriteCmosSensor(0xBD, 0x00);//14 \u53bb\u767d\u70b9
- HI253WriteCmosSensor(0xBE, 0x64);
- HI253WriteCmosSensor(0xBF, 0x64);
- HI253WriteCmosSensor(0xC0, 0x64);
- HI253WriteCmosSensor(0xC1, 0x64);
- HI253WriteCmosSensor(0xC2, 0x04);
- HI253WriteCmosSensor(0xC3, 0x03);
- HI253WriteCmosSensor(0xC4, 0x0c);
- HI253WriteCmosSensor(0xC5, 0x30);
- HI253WriteCmosSensor(0xC6, 0x2a);
   //Dont Touch register
   HI253WriteCmosSensor(0xD0, 0x0c);
   HI253WriteCmosSensor(0xD1, 0x80);
@@ -634,188 +545,173 @@ HI253SetPage(0x12);
   HI253WriteCmosSensor(0xD5, 0x02);
   HI253WriteCmosSensor(0xD6, 0xff);
   HI253WriteCmosSensor(0xD7, 0x18);
-//End
- HI253WriteCmosSensor(0x3b, 0x06);
- HI253WriteCmosSensor(0x3c, 0x06);
 
- HI253WriteCmosSensor(0xc5, 0x00);//55->48
- HI253WriteCmosSensor(0xc6, 0x00);//48->40
+  HI253SetPage(0x13); 
+  HI253WriteCmosSensor(0x10, 0xcb); // EDGECTL1
+  HI253WriteCmosSensor(0x11, 0x7b); // EDGECTL2
+  HI253WriteCmosSensor(0x12, 0x07); // EDGECTL3
+  HI253WriteCmosSensor(0x14, 0x00); // EDGECTL5
 
-/////// PAGE 13 START ///////
-HI253SetPage(0x13);
-//Edge
- HI253WriteCmosSensor(0x10, 0xcb);
- HI253WriteCmosSensor(0x11, 0x7b);
- HI253WriteCmosSensor(0x12, 0x07);
- HI253WriteCmosSensor(0x14, 0x00);
+  HI253WriteCmosSensor(0x20, 0x15); // EDGENGAIN
+  HI253WriteCmosSensor(0x21, 0x13); // EDGEPGAIN
+  HI253WriteCmosSensor(0x22, 0x33);
+  HI253WriteCmosSensor(0x23, 0x04); // EDGEHCLIP1TH
+  HI253WriteCmosSensor(0x24, 0x09); // EDGEHCLIP2TH
+  HI253WriteCmosSensor(0x25, 0x08); // EDGELCLIPTH
+  HI253WriteCmosSensor(0x26, 0x18); // EDGELCLIPLMT
+  HI253WriteCmosSensor(0x27, 0x30);
+  HI253WriteCmosSensor(0x29, 0x12); // EDGETIMETH
+  HI253WriteCmosSensor(0x2a, 0x50); // EDGEAGTH
 
- HI253WriteCmosSensor(0x20, 0x15);
- HI253WriteCmosSensor(0x21, 0x13);
- HI253WriteCmosSensor(0x22, 0x33);
- HI253WriteCmosSensor(0x23, 0x05);
- HI253WriteCmosSensor(0x24, 0x12);//09
+  //Low clip th
+  HI253WriteCmosSensor(0x2b, 0x06);
+  HI253WriteCmosSensor(0x2c, 0x06);
+  HI253WriteCmosSensor(0x25, 0x08);
+  HI253WriteCmosSensor(0x2d, 0x0c);
+  HI253WriteCmosSensor(0x2e, 0x12);
+  HI253WriteCmosSensor(0x2f, 0x12);
 
- HI253WriteCmosSensor(0x26, 0x18);
- HI253WriteCmosSensor(0x27, 0x30);
- HI253WriteCmosSensor(0x29, 0x12);
- HI253WriteCmosSensor(0x2a, 0x50);
+  //Out2 Edge
+  HI253WriteCmosSensor(0x50, 0x10);
+  HI253WriteCmosSensor(0x51, 0x14);
+  HI253WriteCmosSensor(0x52, 0x10);
+  HI253WriteCmosSensor(0x53, 0x0c);
+  HI253WriteCmosSensor(0x54, 0x0f);
+  HI253WriteCmosSensor(0x55, 0x0c);
 
-//Low clip th
- HI253WriteCmosSensor(0x2b, 0x01); //Out2 02
- HI253WriteCmosSensor(0x2c, 0x01); //Out1 02
- HI253WriteCmosSensor(0x25, 0x06);
- HI253WriteCmosSensor(0x2d, 0x0c);
- HI253WriteCmosSensor(0x2e, 0x12);
- HI253WriteCmosSensor(0x2f, 0x12);
+  //Out1 Edge
+  HI253WriteCmosSensor(0x56, 0x10);
+  HI253WriteCmosSensor(0x57, 0x13);
+  HI253WriteCmosSensor(0x58, 0x10);
+  HI253WriteCmosSensor(0x59, 0x0c);
+  HI253WriteCmosSensor(0x5a, 0x0f);
+  HI253WriteCmosSensor(0x5b, 0x0c);
 
-//Out2 Edge
- HI253WriteCmosSensor(0x50, 0x18);
- HI253WriteCmosSensor(0x51, 0x1c);
- HI253WriteCmosSensor(0x52, 0x1b);
- HI253WriteCmosSensor(0x53, 0x15);
- HI253WriteCmosSensor(0x54, 0x18);
- HI253WriteCmosSensor(0x55, 0x15);
+  //Indoor Edg 
+  HI253WriteCmosSensor(0x5c, 0x0a);
+  HI253WriteCmosSensor(0x5d, 0x0b);
+  HI253WriteCmosSensor(0x5e, 0x0a);
+  HI253WriteCmosSensor(0x5f, 0x08);
+  HI253WriteCmosSensor(0x60, 0x09);
+  HI253WriteCmosSensor(0x61, 0x08);
 
-//Out1 Edge  
- HI253WriteCmosSensor(0x56, 0x18);
- HI253WriteCmosSensor(0x57, 0x1c);////1C
- HI253WriteCmosSensor(0x58, 0x1b);
- HI253WriteCmosSensor(0x59, 0x15);
- HI253WriteCmosSensor(0x5a, 0x18);//18
- HI253WriteCmosSensor(0x5b, 0x15);
+  //Dark1 Edge
+  HI253WriteCmosSensor(0x62, 0x08);
+  HI253WriteCmosSensor(0x63, 0x08);
+  HI253WriteCmosSensor(0x64, 0x08);
+  HI253WriteCmosSensor(0x65, 0x06);
+  HI253WriteCmosSensor(0x66, 0x06);
+  HI253WriteCmosSensor(0x67, 0x06);
 
-//Indoor Edge
- HI253WriteCmosSensor(0x5c, 0x0b);
- HI253WriteCmosSensor(0x5d, 0x10);//0C
- HI253WriteCmosSensor(0x5e, 0x0a);
- HI253WriteCmosSensor(0x5f, 0x08);
- HI253WriteCmosSensor(0x60, 0x19);//09
- HI253WriteCmosSensor(0x61, 0x08);
+  //Dark2 Edge
+  HI253WriteCmosSensor(0x68, 0x07);
+  HI253WriteCmosSensor(0x69, 0x07);
+  HI253WriteCmosSensor(0x6a, 0x07);
+  HI253WriteCmosSensor(0x6b, 0x05);
+  HI253WriteCmosSensor(0x6c, 0x05);
+  HI253WriteCmosSensor(0x6d, 0x05);
 
-//Dark1 Edge
- HI253WriteCmosSensor(0x62, 0x08);
- HI253WriteCmosSensor(0x63, 0x18);//08
- HI253WriteCmosSensor(0x64, 0x08);
- HI253WriteCmosSensor(0x65, 0x06);
- HI253WriteCmosSensor(0x66, 0x16);//16
- HI253WriteCmosSensor(0x67, 0x06);
+  //Dark3 Edge
+  HI253WriteCmosSensor(0x6e, 0x07);
+  HI253WriteCmosSensor(0x6f, 0x07);
+  HI253WriteCmosSensor(0x70, 0x07);
+  HI253WriteCmosSensor(0x71, 0x05);
+  HI253WriteCmosSensor(0x72, 0x05);
+  HI253WriteCmosSensor(0x73, 0x05);
 
-//Dark2 Edge
- HI253WriteCmosSensor(0x68, 0x07);
- HI253WriteCmosSensor(0x69, 0x07);
- HI253WriteCmosSensor(0x6a, 0x07);
- HI253WriteCmosSensor(0x6b, 0x05);
- HI253WriteCmosSensor(0x6c, 0x05);
- HI253WriteCmosSensor(0x6d, 0x05);
+  //2DY 
+  HI253WriteCmosSensor(0x80, 0x00); // EDGE2DCTL1 00 for preview, must turn on 2DY 0xfd when capture
+  HI253WriteCmosSensor(0x81, 0x1f); // EDGE2DCTL2
+  HI253WriteCmosSensor(0x82, 0x05); // EDGE2DCTL3
+  HI253WriteCmosSensor(0x83, 0x01); // EDGE2DCTL4
 
-//Dark3 Edge
- HI253WriteCmosSensor(0x6e, 0x07);
- HI253WriteCmosSensor(0x6f, 0x07);
- HI253WriteCmosSensor(0x70, 0x07);
- HI253WriteCmosSensor(0x71, 0x05);
- HI253WriteCmosSensor(0x72, 0x05);
- HI253WriteCmosSensor(0x73, 0x05);
+  HI253WriteCmosSensor(0x90, 0x05); // EDGE2DNGAIN
+  HI253WriteCmosSensor(0x91, 0x05); // EDGE2DPGAIN
+  HI253WriteCmosSensor(0x92, 0x33); // EDGE2DLCLIPLMT
+  HI253WriteCmosSensor(0x93, 0x30);
+  HI253WriteCmosSensor(0x94, 0x03); // EDGE2DHCLIP1TH
+  HI253WriteCmosSensor(0x95, 0x14); // EDGE2DHCLIP2TH
+  HI253WriteCmosSensor(0x97, 0x30);
+  HI253WriteCmosSensor(0x99, 0x30);
 
-//2DY
- HI253WriteCmosSensor(0x80, 0xfd);
- HI253WriteCmosSensor(0x81, 0x1f);
- HI253WriteCmosSensor(0x82, 0x05);
- HI253WriteCmosSensor(0x83, 0x31);
+  HI253WriteCmosSensor(0xa0, 0x04); // EDGE2DLCOUT2N
+  HI253WriteCmosSensor(0xa1, 0x05); // EDGE2DLCOUT2P
+  HI253WriteCmosSensor(0xa2, 0x04); // EDGE2DLCOUT1N
+  HI253WriteCmosSensor(0xa3, 0x05); // EDGE2DLCOUT1P
+  HI253WriteCmosSensor(0xa4, 0x07); // EDGE2DLCINN
+  HI253WriteCmosSensor(0xa5, 0x08); // EDGE2DLCINP
+  HI253WriteCmosSensor(0xa6, 0x07); // EDGE2DLCD1N
+  HI253WriteCmosSensor(0xa7, 0x08); // EDGE2DLCD1P
+  HI253WriteCmosSensor(0xa8, 0x07); // EDGE2DLCD2N
+  HI253WriteCmosSensor(0xa9, 0x08); // EDGE2DLCD2P
+  HI253WriteCmosSensor(0xaa, 0x07); // EDGE2DLCD3N
+  HI253WriteCmosSensor(0xab, 0x08); // EDGE2DLCD3P
 
- HI253WriteCmosSensor(0x90, 0x15);
- HI253WriteCmosSensor(0x91, 0x15);
- HI253WriteCmosSensor(0x92, 0x33);
- HI253WriteCmosSensor(0x93, 0x30);
- HI253WriteCmosSensor(0x94, 0x03);
- HI253WriteCmosSensor(0x95, 0x14);
- HI253WriteCmosSensor(0x97, 0x30);
- HI253WriteCmosSensor(0x99, 0x30);
+  //Out2
+  HI253WriteCmosSensor(0xb0, 0x22);
+  HI253WriteCmosSensor(0xb1, 0x2a);
+  HI253WriteCmosSensor(0xb2, 0x28);
+  HI253WriteCmosSensor(0xb3, 0x22);
+  HI253WriteCmosSensor(0xb4, 0x2a);
+  HI253WriteCmosSensor(0xb5, 0x28);
 
- HI253WriteCmosSensor(0xa0, 0x01);
- HI253WriteCmosSensor(0xa1, 0x02);
- HI253WriteCmosSensor(0xa2, 0x01);
- HI253WriteCmosSensor(0xa3, 0x02);
- HI253WriteCmosSensor(0xa4, 0x05);
- HI253WriteCmosSensor(0xa5, 0x05);
- HI253WriteCmosSensor(0xa6, 0x07);
- HI253WriteCmosSensor(0xa7, 0x08);
- HI253WriteCmosSensor(0xa8, 0x07);
- HI253WriteCmosSensor(0xa9, 0x08);
- HI253WriteCmosSensor(0xaa, 0x07);
- HI253WriteCmosSensor(0xab, 0x08);
+  //Out1
+  HI253WriteCmosSensor(0xb6, 0x22);
+  HI253WriteCmosSensor(0xb7, 0x2a);
+  HI253WriteCmosSensor(0xb8, 0x28);
+  HI253WriteCmosSensor(0xb9, 0x22);
+  HI253WriteCmosSensor(0xba, 0x2a);
+  HI253WriteCmosSensor(0xbb, 0x28);
 
-//Out2 
- HI253WriteCmosSensor(0xb0, 0x22);
- HI253WriteCmosSensor(0xb1, 0x2a);
- HI253WriteCmosSensor(0xb2, 0x28);
- HI253WriteCmosSensor(0xb3, 0x22);
- HI253WriteCmosSensor(0xb4, 0x2a);
- HI253WriteCmosSensor(0xb5, 0x28);
+  HI253WriteCmosSensor(0xbc, 0x17);
+  HI253WriteCmosSensor(0xbd, 0x17);
+  HI253WriteCmosSensor(0xbe, 0x17);
+  HI253WriteCmosSensor(0xbf, 0x17);
+  HI253WriteCmosSensor(0xc0, 0x17);
+  HI253WriteCmosSensor(0xc1, 0x17);
 
-//Out1 
- HI253WriteCmosSensor(0xb6, 0x22);
- HI253WriteCmosSensor(0xb7, 0x2a);
- HI253WriteCmosSensor(0xb8, 0x28);
- HI253WriteCmosSensor(0xb9, 0x22);
- HI253WriteCmosSensor(0xba, 0x2a);
- HI253WriteCmosSensor(0xbb, 0x28);
+  //Dark1
+  HI253WriteCmosSensor(0xc2, 0x1e);
+  HI253WriteCmosSensor(0xc3, 0x12);
+  HI253WriteCmosSensor(0xc4, 0x10);
+  HI253WriteCmosSensor(0xc5, 0x1e);
+  HI253WriteCmosSensor(0xc6, 0x12);
+  HI253WriteCmosSensor(0xc7, 0x10);
 
-//Indoor 
- HI253WriteCmosSensor(0xbc, 0x25);
- HI253WriteCmosSensor(0xbd, 0x2a);
- HI253WriteCmosSensor(0xbe, 0x27);
- HI253WriteCmosSensor(0xbf, 0x25);
- HI253WriteCmosSensor(0xc0, 0x2a);
- HI253WriteCmosSensor(0xc1, 0x27);
+  //Dark2
+  HI253WriteCmosSensor(0xc8, 0x18);
+  HI253WriteCmosSensor(0xc9, 0x05);
+  HI253WriteCmosSensor(0xca, 0x05);
+  HI253WriteCmosSensor(0xcb, 0x18);
+  HI253WriteCmosSensor(0xcc, 0x05);
+  HI253WriteCmosSensor(0xcd, 0x05);
 
-//Dark1
- HI253WriteCmosSensor(0xc2, 0x1e);
- HI253WriteCmosSensor(0xc3, 0x24);
- HI253WriteCmosSensor(0xc4, 0x20);
- HI253WriteCmosSensor(0xc5, 0x1e);
- HI253WriteCmosSensor(0xc6, 0x24);
- HI253WriteCmosSensor(0xc7, 0x20);
+  //Dark3
+  HI253WriteCmosSensor(0xce, 0x18);
+  HI253WriteCmosSensor(0xcf, 0x05);
+  HI253WriteCmosSensor(0xd0, 0x05);
+  HI253WriteCmosSensor(0xd1, 0x18);
+  HI253WriteCmosSensor(0xd2, 0x05);
+  HI253WriteCmosSensor(0xd3, 0x05);
 
-//Dark2
- HI253WriteCmosSensor(0xc8, 0x18);
- HI253WriteCmosSensor(0xc9, 0x20);
- HI253WriteCmosSensor(0xca, 0x1e);
- HI253WriteCmosSensor(0xcb, 0x18);
- HI253WriteCmosSensor(0xcc, 0x20);
- HI253WriteCmosSensor(0xcd, 0x1e);
+  HI253SetPage(0x14);
+  HI253WriteCmosSensor(0x10, 0x11); // LENSCTL1
+  HI253WriteCmosSensor(0x20, 0x40); // XCEN
+  HI253WriteCmosSensor(0x21, 0x80); // YCEN
+  HI253WriteCmosSensor(0x22, 0x80); // LENSRGAIN
+  HI253WriteCmosSensor(0x23, 0x80); // LENSGGAIN
+  HI253WriteCmosSensor(0x24, 0x80); // LENSBGAIN
 
-//Dark3 
- HI253WriteCmosSensor(0xce, 0x18);
- HI253WriteCmosSensor(0xcf, 0x20);
- HI253WriteCmosSensor(0xd0, 0x1e);
- HI253WriteCmosSensor(0xd1, 0x18);
- HI253WriteCmosSensor(0xd2, 0x20);
- HI253WriteCmosSensor(0xd3, 0x1e);
+  HI253WriteCmosSensor(0x30, 0xc8);
+  HI253WriteCmosSensor(0x31, 0x2b);
+  HI253WriteCmosSensor(0x32, 0x00);
+  HI253WriteCmosSensor(0x33, 0x00);
+  HI253WriteCmosSensor(0x34, 0x90);
 
-
-/////// PAGE 14 START ///////
-HI253SetPage(0x14);
- HI253WriteCmosSensor(0x10, 0x11);
- HI253WriteCmosSensor(0x14, 0x80); // GX
- HI253WriteCmosSensor(0x15, 0x80); // GY
- HI253WriteCmosSensor(0x16, 0x80); // RX
- HI253WriteCmosSensor(0x17, 0x80); // RY
- HI253WriteCmosSensor(0x18, 0x80); // BX
- HI253WriteCmosSensor(0x19, 0x80); // BY
- HI253WriteCmosSensor(0x20, 0x60); //X 60 //a0
- HI253WriteCmosSensor(0x21, 0x80); //Y
- HI253WriteCmosSensor(0x22, 0x70);
- HI253WriteCmosSensor(0x23, 0x80);
- HI253WriteCmosSensor(0x24, 0x80);
- HI253WriteCmosSensor(0x30, 0xc8);
- HI253WriteCmosSensor(0x31, 0x2b);
- HI253WriteCmosSensor(0x32, 0x00);
- HI253WriteCmosSensor(0x33, 0x00);
- HI253WriteCmosSensor(0x34, 0x90);
- HI253WriteCmosSensor(0x40, 0x45);
- HI253WriteCmosSensor(0x50, 0x2d);
- HI253WriteCmosSensor(0x60, 0x28);
- HI253WriteCmosSensor(0x70, 0x2d);
+  HI253WriteCmosSensor(0x40, 0x65); // LENSRP0
+  HI253WriteCmosSensor(0x50, 0x42); // LENSGrP0
+  HI253WriteCmosSensor(0x60, 0x3a); // LENSBP0
+  HI253WriteCmosSensor(0x70, 0x42); // LENSGbP0
 
   HI253SetPage(0x15); 
   HI253WriteCmosSensor(0x10, 0x0f); // CMCCTL
@@ -864,259 +760,268 @@ HI253SetPage(0x14);
   HI253WriteCmosSensor(0x89, 0x00);
   HI253WriteCmosSensor(0x8a, 0x00);
 
-/////// PAGE 16 START ///////
-HI253SetPage(0x16);
- HI253WriteCmosSensor(0x10, 0x31);//GMA_CTL
- HI253WriteCmosSensor(0x18, 0x37);//AG_ON
- HI253WriteCmosSensor(0x19, 0x36);//AG_OFF
- HI253WriteCmosSensor(0x1A, 0x0e);//TIME_ON
- HI253WriteCmosSensor(0x1B, 0x01);//TIME_OFF
- HI253WriteCmosSensor(0x1C, 0xdc);//OUT_ON
- HI253WriteCmosSensor(0x1D, 0xfe);//OUT_OFF
-//GMA
- HI253WriteCmosSensor(0x30, 0x00);
- HI253WriteCmosSensor(0x31, 0x08);
- HI253WriteCmosSensor(0x32, 0x19);
- HI253WriteCmosSensor(0x33, 0x32);
- HI253WriteCmosSensor(0x34, 0x55);
- HI253WriteCmosSensor(0x35, 0x73);
- HI253WriteCmosSensor(0x36, 0x86);
- HI253WriteCmosSensor(0x37, 0x96);
- HI253WriteCmosSensor(0x38, 0xa6);
- HI253WriteCmosSensor(0x39, 0xb6);
- HI253WriteCmosSensor(0x3a, 0xc5);
- HI253WriteCmosSensor(0x3b, 0xd0);
- HI253WriteCmosSensor(0x3c, 0xd8);
- HI253WriteCmosSensor(0x3d, 0xe0);
- HI253WriteCmosSensor(0x3e, 0xe8);
- HI253WriteCmosSensor(0x3f, 0xf0);
- HI253WriteCmosSensor(0x40, 0xf7);
- HI253WriteCmosSensor(0x41, 0xfe);
- HI253WriteCmosSensor(0x42, 0xff);
-//RGMA
- HI253WriteCmosSensor(0x50, 0x00);
- HI253WriteCmosSensor(0x51, 0x0d);
- HI253WriteCmosSensor(0x52, 0x16);
- HI253WriteCmosSensor(0x53, 0x27);
- HI253WriteCmosSensor(0x54, 0x49);
- HI253WriteCmosSensor(0x55, 0x69);
- HI253WriteCmosSensor(0x56, 0x85);
- HI253WriteCmosSensor(0x57, 0x9e);
- HI253WriteCmosSensor(0x58, 0xb3);
- HI253WriteCmosSensor(0x59, 0xc4);
- HI253WriteCmosSensor(0x5a, 0xd2);
- HI253WriteCmosSensor(0x5b, 0xdd);
- HI253WriteCmosSensor(0x5c, 0xe7);
- HI253WriteCmosSensor(0x5d, 0xee);
- HI253WriteCmosSensor(0x5e, 0xf3);
- HI253WriteCmosSensor(0x5f, 0xf8);
- HI253WriteCmosSensor(0x60, 0xfb);
- HI253WriteCmosSensor(0x61, 0xfe);
- HI253WriteCmosSensor(0x62, 0xff);
-//BGMA
- HI253WriteCmosSensor(0x70, 0x00);
- HI253WriteCmosSensor(0x71, 0x0a);
- HI253WriteCmosSensor(0x72, 0x19);
- HI253WriteCmosSensor(0x73, 0x31);
- HI253WriteCmosSensor(0x74, 0x55);
- HI253WriteCmosSensor(0x75, 0x6e);
- HI253WriteCmosSensor(0x76, 0x83);
- HI253WriteCmosSensor(0x77, 0x96);
- HI253WriteCmosSensor(0x78, 0xa6);
- HI253WriteCmosSensor(0x79, 0xb5);
- HI253WriteCmosSensor(0x7a, 0xc2);
- HI253WriteCmosSensor(0x7b, 0xcd);
- HI253WriteCmosSensor(0x7c, 0xd7);
- HI253WriteCmosSensor(0x7d, 0xe0);
- HI253WriteCmosSensor(0x7e, 0xe8);
- HI253WriteCmosSensor(0x7f, 0xf0);
- HI253WriteCmosSensor(0x80, 0xf6);
- HI253WriteCmosSensor(0x81, 0xfc);
- HI253WriteCmosSensor(0x82, 0xff);
+  HI253SetPage(0x16); 
+  HI253WriteCmosSensor(0x10, 0x31); // GMACTL
+  HI253WriteCmosSensor(0x18, 0x37);
+  HI253WriteCmosSensor(0x19, 0x36);
+  HI253WriteCmosSensor(0x1a, 0x0e);
+  HI253WriteCmosSensor(0x1b, 0x01);
+  HI253WriteCmosSensor(0x1c, 0xdc);
+  HI253WriteCmosSensor(0x1d, 0xfe);
 
-/////// PAGE 17 START ///////
-HI253SetPage(0x17);
- HI253WriteCmosSensor(0x10, 0xf7);
+  HI253WriteCmosSensor(0x30, 0x00); // GGMA0
+  HI253WriteCmosSensor(0x31, 0x06); // GGMA1
+  HI253WriteCmosSensor(0x32, 0x1d); // GGMA2
+  HI253WriteCmosSensor(0x33, 0x33); // GGMA3
+  HI253WriteCmosSensor(0x34, 0x53); // GGMA4
+  HI253WriteCmosSensor(0x35, 0x6c); // GGMA5
+  HI253WriteCmosSensor(0x36, 0x81); // GGMA6
+  HI253WriteCmosSensor(0x37, 0x94); // GGMA7
+  HI253WriteCmosSensor(0x38, 0xa4); // GGMA8
+  HI253WriteCmosSensor(0x39, 0xb3); // GGMA9
+  HI253WriteCmosSensor(0x3a, 0xc0); // GGMA10
+  HI253WriteCmosSensor(0x3b, 0xcb); // GGMA11
+  HI253WriteCmosSensor(0x3c, 0xd5); // GGMA12
+  HI253WriteCmosSensor(0x3d, 0xde); // GGMA13
+  HI253WriteCmosSensor(0x3e, 0xe6); // GGMA14
+  HI253WriteCmosSensor(0x3f, 0xee); // GGMA15
+  HI253WriteCmosSensor(0x40, 0xf5); // GGMA16
+  HI253WriteCmosSensor(0x41, 0xfc); // GGMA17
+  HI253WriteCmosSensor(0x42, 0xff); // GGMA18
 
-/////// PAGE 20 START ///////
-HI253SetPage(0x20);
- HI253WriteCmosSensor(0x11, 0x1c);
- HI253WriteCmosSensor(0x18, 0x30);
- HI253WriteCmosSensor(0x1a, 0x08);
- HI253WriteCmosSensor(0x20, 0x01); //05_lowtemp Y Mean off
- HI253WriteCmosSensor(0x21, 0x30);
- HI253WriteCmosSensor(0x22, 0x10);
- HI253WriteCmosSensor(0x23, 0x00);
- HI253WriteCmosSensor(0x24, 0x00); //Uniform Scene Off
- HI253WriteCmosSensor(0x28, 0xe7);
- HI253WriteCmosSensor(0x29, 0x0d); //20100305 ad->0d
- HI253WriteCmosSensor(0x2a, 0xff);
- HI253WriteCmosSensor(0x2b, 0x34); //f4->Adaptive off
- HI253WriteCmosSensor(0x2c, 0xc3);
- HI253WriteCmosSensor(0x2d, 0xcf);  //fe->AE Speed option
- HI253WriteCmosSensor(0x2e, 0x33);
- HI253WriteCmosSensor(0x30, 0x78); //f8
- HI253WriteCmosSensor(0x32, 0x03);
- HI253WriteCmosSensor(0x33, 0x2e);
- HI253WriteCmosSensor(0x34, 0x30);
- HI253WriteCmosSensor(0x35, 0xd4);
- HI253WriteCmosSensor(0x36, 0xfe);
- HI253WriteCmosSensor(0x37, 0x32);
- HI253WriteCmosSensor(0x38, 0x04);
- HI253WriteCmosSensor(0x39, 0x22); //AE_escapeC10
- HI253WriteCmosSensor(0x3a, 0xde); //AE_escapeC11
- HI253WriteCmosSensor(0x3b, 0x22); //AE_escapeC1
- HI253WriteCmosSensor(0x3c, 0xde); //AE_escapeC2
- HI253WriteCmosSensor(0x50, 0x45);
- HI253WriteCmosSensor(0x51, 0x88);
- HI253WriteCmosSensor(0x56, 0x03);
- HI253WriteCmosSensor(0x57, 0xf7);
- HI253WriteCmosSensor(0x58, 0x14);
- HI253WriteCmosSensor(0x59, 0x88);
- HI253WriteCmosSensor(0x5a, 0x04);
+  HI253WriteCmosSensor(0x50, 0x00); // RGMA0
+  HI253WriteCmosSensor(0x51, 0x03); // RGMA1
+  HI253WriteCmosSensor(0x52, 0x19); // RGMA2
+  HI253WriteCmosSensor(0x53, 0x34); // RGMA3
+  HI253WriteCmosSensor(0x54, 0x58); // RGMA4
+  HI253WriteCmosSensor(0x55, 0x75); // RGMA5
+  HI253WriteCmosSensor(0x56, 0x8d); // RGMA6
+  HI253WriteCmosSensor(0x57, 0xa1); // RGMA7
+  HI253WriteCmosSensor(0x58, 0xb2); // RGMA8
+  HI253WriteCmosSensor(0x59, 0xbe); // RGMA9
+  HI253WriteCmosSensor(0x5a, 0xc9); // RGMA10
+  HI253WriteCmosSensor(0x5b, 0xd2); // RGMA11
+  HI253WriteCmosSensor(0x5c, 0xdb); // RGMA12
+  HI253WriteCmosSensor(0x5d, 0xe3); // RGMA13
+  HI253WriteCmosSensor(0x5e, 0xeb); // RGMA14
+  HI253WriteCmosSensor(0x5f, 0xf0); // RGMA15
+  HI253WriteCmosSensor(0x60, 0xf5); // RGMA16
+  HI253WriteCmosSensor(0x61, 0xf7); // RGMA17
+  HI253WriteCmosSensor(0x62, 0xf8); // RGMA18
 
-//New Weight For Samsung
- HI253WriteCmosSensor(0x60, 0x5f);
- HI253WriteCmosSensor(0x61, 0xf5);
- HI253WriteCmosSensor(0x62, 0x6a);
- HI253WriteCmosSensor(0x63, 0xa9);
- HI253WriteCmosSensor(0x64, 0x6f);
- HI253WriteCmosSensor(0x65, 0xf9);
- HI253WriteCmosSensor(0x66, 0x6f);//eb
- HI253WriteCmosSensor(0x67, 0xf9);//eb
- HI253WriteCmosSensor(0x68, 0x6f);//eb
- HI253WriteCmosSensor(0x69, 0xf9);//eb
- HI253WriteCmosSensor(0x6a, 0x6a);
- HI253WriteCmosSensor(0x6b, 0xa9);
- HI253WriteCmosSensor(0x6c, 0x6a);
- HI253WriteCmosSensor(0x6d, 0xa9);
- HI253WriteCmosSensor(0x6e, 0x55);
- HI253WriteCmosSensor(0x6f, 0x55);
-// HI253WriteCmosSensor(0x70, 0x42); 
- HI253WriteCmosSensor(0x70, 0x48); 
- HI253WriteCmosSensor(0x71, 0xBb);
+  HI253WriteCmosSensor(0x70, 0x00); // BGMA0
+  HI253WriteCmosSensor(0x71, 0x08); // BGMA1
+  HI253WriteCmosSensor(0x72, 0x17); // BGMA2
+  HI253WriteCmosSensor(0x73, 0x2f); // BGMA3
+  HI253WriteCmosSensor(0x74, 0x53); // BGMA4
+  HI253WriteCmosSensor(0x75, 0x6c); // BGMA5
+  HI253WriteCmosSensor(0x76, 0x81); // BGMA6
+  HI253WriteCmosSensor(0x77, 0x94); // BGMA7
+  HI253WriteCmosSensor(0x78, 0xa4); // BGMA8
+  HI253WriteCmosSensor(0x79, 0xb3); // BGMA9
+  HI253WriteCmosSensor(0x7a, 0xc0); // BGMA10
+  HI253WriteCmosSensor(0x7b, 0xcb); // BGMA11
+  HI253WriteCmosSensor(0x7c, 0xd5); // BGMA12
+  HI253WriteCmosSensor(0x7d, 0xde); // BGMA13
+  HI253WriteCmosSensor(0x7e, 0xe6); // BGMA14
+  HI253WriteCmosSensor(0x7f, 0xee); // BGMA15
+  HI253WriteCmosSensor(0x80, 0xf4); // BGMA16
+  HI253WriteCmosSensor(0x81, 0xfa); // BGMA17
+  HI253WriteCmosSensor(0x82, 0xff); // BGMA18
 
-// haunting control
- HI253WriteCmosSensor(0x76, 0x43);
- HI253WriteCmosSensor(0x77, 0xe2); //04 //f2
- HI253WriteCmosSensor(0x78, 0x23); //Yth1
- HI253WriteCmosSensor(0x79, 0x46); //Yth2 //46
- HI253WriteCmosSensor(0x7a, 0x23); //23
- HI253WriteCmosSensor(0x7b, 0x22); //22
- HI253WriteCmosSensor(0x7d, 0x23);
- 
+  HI253SetPage(0x17); 
+  HI253WriteCmosSensor(0xc4, 0x68); // FLK200
+  HI253WriteCmosSensor(0xc5, 0x56); // FLK240
+
+  HI253SetPage(0x20); 
+  HI253WriteCmosSensor(0x11, 0x1c);
+  HI253WriteCmosSensor(0x20, 0x01); // AEFRAMECTL lowtemp off
+  HI253WriteCmosSensor(0x21, 0x30);
+  HI253WriteCmosSensor(0x22, 0x10);
+  HI253WriteCmosSensor(0x23, 0x00);
+  HI253WriteCmosSensor(0x24, 0x04);
+
+  HI253WriteCmosSensor(0x28, 0xff);
+  HI253WriteCmosSensor(0x29, 0xad);
+
+  //MTK set up anti banding -- > 1/100s   
+  HI253WriteCmosSensor(0x2a, 0xf0);
+  HI253WriteCmosSensor(0x2b, 0x34);
+  HI253WriteCmosSensor(0x2c, 0xc3);
+  HI253WriteCmosSensor(0x2d, 0x5f);
+  HI253WriteCmosSensor(0x2e, 0x33);
+  HI253WriteCmosSensor(0x30, 0x78);
+  HI253WriteCmosSensor(0x32, 0x03);
+  HI253WriteCmosSensor(0x33, 0x2e);
+  HI253WriteCmosSensor(0x34, 0x30);
+  HI253WriteCmosSensor(0x35, 0xd4);
+  HI253WriteCmosSensor(0x36, 0xfe);
+  HI253WriteCmosSensor(0x37, 0x32);
+  HI253WriteCmosSensor(0x38, 0x04);
+  HI253WriteCmosSensor(0x3b, 0x22);
+  HI253WriteCmosSensor(0x3c, 0xef);
+  HI253WriteCmosSensor(0x47, 0xf0);
+
+  //Y_Frame TH
+  HI253WriteCmosSensor(0x50, 0x45);
+  HI253WriteCmosSensor(0x51, 0x88);
+
+  HI253WriteCmosSensor(0x56, 0x10);
+  HI253WriteCmosSensor(0x57, 0xb7);
+  HI253WriteCmosSensor(0x58, 0x14);
+  HI253WriteCmosSensor(0x59, 0x88);
+  HI253WriteCmosSensor(0x5a, 0x04);
+
+  HI253WriteCmosSensor(0x60, 0x55); // AEWGT1
+  HI253WriteCmosSensor(0x61, 0x55); // AEWGT2
+  HI253WriteCmosSensor(0x62, 0x6a); // AEWGT3
+  HI253WriteCmosSensor(0x63, 0xa9); // AEWGT4
+  HI253WriteCmosSensor(0x64, 0x6a); // AEWGT5
+  HI253WriteCmosSensor(0x65, 0xa9); // AEWGT6
+  HI253WriteCmosSensor(0x66, 0x6a); // AEWGT7
+  HI253WriteCmosSensor(0x67, 0xa9); // AEWGT8
+  HI253WriteCmosSensor(0x68, 0x6b); // AEWGT9
+  HI253WriteCmosSensor(0x69, 0xe9); // AEWGT10
+  HI253WriteCmosSensor(0x6a, 0x6a); // AEWGT11
+  HI253WriteCmosSensor(0x6b, 0xa9); // AEWGT12
+  HI253WriteCmosSensor(0x6c, 0x6a); // AEWGT13
+  HI253WriteCmosSensor(0x6d, 0xa9); // AEWGT14
+  HI253WriteCmosSensor(0x6e, 0x55); // AEWGT15
+  HI253WriteCmosSensor(0x6f, 0x55); // AEWGT16
+  HI253WriteCmosSensor(0x70, 0x48); // YLVL 60
+  HI253WriteCmosSensor(0x71, 0xBb);
+
+  // haunting control  
+  HI253WriteCmosSensor(0x76, 0x21);
+  HI253WriteCmosSensor(0x77, 0xBC); //02},
+  HI253WriteCmosSensor(0x78, 0x34); //22}, // YTH1
+  HI253WriteCmosSensor(0x79, 0x3a); //2a}, // YTH2HI
+
+
+  HI253WriteCmosSensor(0x7a, 0x23);
+  HI253WriteCmosSensor(0x7b, 0x22);
+  HI253WriteCmosSensor(0x7d, 0x23);
   HI253WriteCmosSensor(0x83, 0x01); //EXP Normal 33.33 fps 
   HI253WriteCmosSensor(0x84, 0x7c); 
-  HI253WriteCmosSensor(0x85, 0xDC); 
+  HI253WriteCmosSensor(0x85, 0xdc); 
   HI253WriteCmosSensor(0x86, 0x01); //EXPMin 10416.67 fps
-  HI253WriteCmosSensor(0x87, 0xF4); 
-  HI253WriteCmosSensor(0x88, 0x05); //EXP Max 10.00 fps 
-  HI253WriteCmosSensor(0x89, 0xf3); 
-  HI253WriteCmosSensor(0x8a, 0x70); 
+  HI253WriteCmosSensor(0x87, 0xf4); 
+  HI253WriteCmosSensor(0x88, 0x04); //EXP Max 10.00 fps 
+  HI253WriteCmosSensor(0x89, 0xf5); 
+  HI253WriteCmosSensor(0x8a, 0x88); 
   HI253WriteCmosSensor(0x8B, 0x7e); //EXP100 
-  HI253WriteCmosSensor(0x8C, 0xF4); 
+  HI253WriteCmosSensor(0x8C, 0xf4); 
   HI253WriteCmosSensor(0x8D, 0x69); //EXP120 
   HI253WriteCmosSensor(0x8E, 0x78); 
-  HI253WriteCmosSensor(0x9c, 0x0F); //EXP Limit 1736.11 fps 
-  HI253WriteCmosSensor(0x9d, 0xA0); 
+  HI253WriteCmosSensor(0x91, 0x05); 
+  HI253WriteCmosSensor(0x92, 0xe9); 
+  HI253WriteCmosSensor(0x93, 0xac); 
+  HI253WriteCmosSensor(0x94, 0x04); 
+  HI253WriteCmosSensor(0x95, 0x32); 
+  HI253WriteCmosSensor(0x96, 0x38); 
+  HI253WriteCmosSensor(0x98, 0xdc); // EXPOUT1 DC 9d out target th
+  HI253WriteCmosSensor(0x99, 0x45); // EXPOUT2
+  HI253WriteCmosSensor(0x9a, 0x0d);
+  HI253WriteCmosSensor(0x9b, 0xde);
+
+  HI253WriteCmosSensor(0x9c, 0x0b); //EXP Limit 1736.11 fps 
+  HI253WriteCmosSensor(0x9d, 0xb8); 
   HI253WriteCmosSensor(0x9e, 0x01); //EXP Unit 
-  HI253WriteCmosSensor(0x9f, 0xF4); 
+  HI253WriteCmosSensor(0x9f, 0xf4); 
+  HI253WriteCmosSensor(0xa0, 0x03);
+  HI253WriteCmosSensor(0xa1, 0xa9);
+  HI253WriteCmosSensor(0xa2, 0x80);
+  HI253WriteCmosSensor(0xb0, 0x1d); // AG
+  HI253WriteCmosSensor(0xb1, 0x1a); // AGMIN
+  HI253WriteCmosSensor(0xb2, 0x80); // AGMAX
+  HI253WriteCmosSensor(0xb3, 0x20); // AGLVLH //1a
+  HI253WriteCmosSensor(0xb4, 0x1a); // AGTH1
+  HI253WriteCmosSensor(0xb5, 0x44); // AGTH2
+  HI253WriteCmosSensor(0xb6, 0x2f); // AGBTH1
+  HI253WriteCmosSensor(0xb7, 0x28); // AGBTH2
+  HI253WriteCmosSensor(0xb8, 0x25); // AGBTH3
+  HI253WriteCmosSensor(0xb9, 0x22); // AGBTH4
+  HI253WriteCmosSensor(0xba, 0x21); // AGBTH5
+  HI253WriteCmosSensor(0xbb, 0x20); // AGBTH6
+  HI253WriteCmosSensor(0xbc, 0x1f); // AGBTH7
+  HI253WriteCmosSensor(0xbd, 0x1f); // AGBTH8
+  HI253WriteCmosSensor(0xc0, 0x30); // AGSKY
+  HI253WriteCmosSensor(0xc1, 0x20);
+  HI253WriteCmosSensor(0xc2, 0x20);
+  HI253WriteCmosSensor(0xc3, 0x20);
+  HI253WriteCmosSensor(0xc4, 0x08); // AGTIMETH
+  HI253WriteCmosSensor(0xc8, 0x80); // DGMAX
+  HI253WriteCmosSensor(0xc9, 0x40); // DGMIN   
 
- HI253WriteCmosSensor(0xb0, 0x18);
- HI253WriteCmosSensor(0xb1, 0x14); //ADC 400->560
- HI253WriteCmosSensor(0xb2, 0xA0); //d0
- HI253WriteCmosSensor(0xb3, 0x18);
- HI253WriteCmosSensor(0xb4, 0x1a);
- HI253WriteCmosSensor(0xb5, 0x44);
- HI253WriteCmosSensor(0xb6, 0x2f);
- HI253WriteCmosSensor(0xb7, 0x28);
- HI253WriteCmosSensor(0xb8, 0x25);
- HI253WriteCmosSensor(0xb9, 0x22);
- HI253WriteCmosSensor(0xba, 0x21);
- HI253WriteCmosSensor(0xbb, 0x20);
- HI253WriteCmosSensor(0xbc, 0x1f);
- HI253WriteCmosSensor(0xbd, 0x1f);
- HI253WriteCmosSensor(0xc0, 0x14);
- HI253WriteCmosSensor(0xc1, 0x1f);
- HI253WriteCmosSensor(0xc2, 0x1f);
- HI253WriteCmosSensor(0xc3, 0x18); //2b
- HI253WriteCmosSensor(0xc4, 0x10); //08
- HI253WriteCmosSensor(0xc8, 0x80);
- HI253WriteCmosSensor(0xc9, 0x40);
+  HI253SetPage(0x22); 
+HI253WriteCmosSensor(0x10, 0xfd);
+HI253WriteCmosSensor(0x11, 0x2e);
+HI253WriteCmosSensor(0x19, 0x01);
+HI253WriteCmosSensor(0x20, 0x30);
+HI253WriteCmosSensor(0x21, 0x80);
+HI253WriteCmosSensor(0x24, 0x01);
+HI253WriteCmosSensor(0x30, 0x80);
+HI253WriteCmosSensor(0x31, 0x80);
+HI253WriteCmosSensor(0x38, 0x11);
+HI253WriteCmosSensor(0x39, 0x34);
+HI253WriteCmosSensor(0x40, 0xf7);
+HI253WriteCmosSensor(0x41, 0x55);
+HI253WriteCmosSensor(0x42, 0x33); //43
 
-/////// PAGE 22 START ///////
-HI253SetPage(0x22);
- HI253WriteCmosSensor(0x10, 0xfd);
- HI253WriteCmosSensor(0x11, 0x2e);
- HI253WriteCmosSensor(0x19, 0x01); // Low On //
- HI253WriteCmosSensor(0x20, 0x30);
- HI253WriteCmosSensor(0x21, 0x80);
- HI253WriteCmosSensor(0x23, 0x08);
- HI253WriteCmosSensor(0x24, 0x01);
+HI253WriteCmosSensor(0x43, 0xf6);
+HI253WriteCmosSensor(0x44, 0x55); //44
+HI253WriteCmosSensor(0x45, 0x44); //33
 
- HI253WriteCmosSensor(0x30, 0x80); // ULVL
- HI253WriteCmosSensor(0x31, 0x80); // VLVL
- HI253WriteCmosSensor(0x38, 0x11); // UVTH1
- HI253WriteCmosSensor(0x39, 0x34); // UVTH2
- HI253WriteCmosSensor(0x40, 0xf7); // YRANGE
-
- HI253WriteCmosSensor(0x41, 0x55); //44
- HI253WriteCmosSensor(0x42, 0x33); //43
- HI253WriteCmosSensor(0x43, 0xf6);
- HI253WriteCmosSensor(0x44, 0x55); //44
- HI253WriteCmosSensor(0x45, 0x44); //33
- HI253WriteCmosSensor(0x46, 0x00);
-
- HI253WriteCmosSensor(0x50, 0xb2);
- HI253WriteCmosSensor(0x51, 0x81);
- HI253WriteCmosSensor(0x52, 0x98);
-
- HI253WriteCmosSensor(0x80, 0x38); // RGAIN
- HI253WriteCmosSensor(0x81, 0x20); // GGAIN
- HI253WriteCmosSensor(0x82, 0x3e);
- HI253WriteCmosSensor(0x83, 0x53);
- HI253WriteCmosSensor(0x84, 0x16);//1E
- HI253WriteCmosSensor(0x85, 0x5A);//52
- HI253WriteCmosSensor(0x86, 0x25);
- HI253WriteCmosSensor(0x87, 0x40);
- HI253WriteCmosSensor(0x88, 0x30);
- HI253WriteCmosSensor(0x89, 0x3f);
- HI253WriteCmosSensor(0x8a, 0x28);
- HI253WriteCmosSensor(0x8b, 0x40);
- HI253WriteCmosSensor(0x8c, 0x33);//39-32
- HI253WriteCmosSensor(0x8d, 0x39);
- HI253WriteCmosSensor(0x8e, 0x30);
- HI253WriteCmosSensor(0x8f, 0x53);
- HI253WriteCmosSensor(0x90, 0x52);
- HI253WriteCmosSensor(0x91, 0x50);
- HI253WriteCmosSensor(0x92, 0x4c);
- HI253WriteCmosSensor(0x93, 0x43);
- HI253WriteCmosSensor(0x94, 0x37);
- HI253WriteCmosSensor(0x95, 0x2f);//2a
- HI253WriteCmosSensor(0x96, 0x26);//24
- HI253WriteCmosSensor(0x97, 0x21);//20
- HI253WriteCmosSensor(0x98, 0x1e);
- HI253WriteCmosSensor(0x99, 0x1f);
- HI253WriteCmosSensor(0x9a, 0x20);
- HI253WriteCmosSensor(0x9b, 0x88);
- HI253WriteCmosSensor(0x9c, 0x88);
- HI253WriteCmosSensor(0x9d, 0x48);
- HI253WriteCmosSensor(0x9e, 0x38);
- HI253WriteCmosSensor(0x9f, 0x30);
- HI253WriteCmosSensor(0xa0, 0x60);
- HI253WriteCmosSensor(0xa1, 0x34);
- HI253WriteCmosSensor(0xa2, 0x6f);
- HI253WriteCmosSensor(0xa3, 0xff);
- HI253WriteCmosSensor(0xa4, 0x14); //1500fps
- HI253WriteCmosSensor(0xa5, 0x2c); // 700fps
- HI253WriteCmosSensor(0xa6, 0xcf);
- HI253WriteCmosSensor(0xad, 0x40);
- HI253WriteCmosSensor(0xae, 0x4a);
- HI253WriteCmosSensor(0xaf, 0x28);  // low temp Rgain
- HI253WriteCmosSensor(0xb0, 0x26);  // low temp Rgain
- HI253WriteCmosSensor(0xb1, 0x00); //0x20 -> 0x00 0405 modify
- HI253WriteCmosSensor(0xb8, 0xa0); //a2: b-2, R+2  //b4 B-3, R+4 lowtemp
- HI253WriteCmosSensor(0xb9, 0x00);
+HI253WriteCmosSensor(0x46, 0x00);
+HI253WriteCmosSensor(0x50, 0xb2);
+HI253WriteCmosSensor(0x51, 0x81);
+HI253WriteCmosSensor(0x52, 0x98);
+HI253WriteCmosSensor(0x80, 0x30);//40
+HI253WriteCmosSensor(0x81, 0x20);
+HI253WriteCmosSensor(0x82, 0x3e);
+HI253WriteCmosSensor(0x83, 0x5E);
+HI253WriteCmosSensor(0x84, 0x1E);//1E
+HI253WriteCmosSensor(0x85, 0x5E);//52
+HI253WriteCmosSensor(0x86, 0x25);
+HI253WriteCmosSensor(0x87, 0x49);
+HI253WriteCmosSensor(0x88, 0x35);
+HI253WriteCmosSensor(0x89, 0x47);
+HI253WriteCmosSensor(0x8a, 0x28);
+HI253WriteCmosSensor(0x8b, 0x41);
+HI253WriteCmosSensor(0x8c, 0x39);
+HI253WriteCmosSensor(0x8d, 0x3f);
+HI253WriteCmosSensor(0x8e, 0x28);
+HI253WriteCmosSensor(0x8f, 0x53);
+HI253WriteCmosSensor(0x90, 0x52);
+HI253WriteCmosSensor(0x91, 0x50);
+HI253WriteCmosSensor(0x92, 0x4c);
+HI253WriteCmosSensor(0x93, 0x43);
+HI253WriteCmosSensor(0x94, 0x37);
+HI253WriteCmosSensor(0x95, 0x2f);//2a
+HI253WriteCmosSensor(0x96, 0x26);//24
+HI253WriteCmosSensor(0x97, 0x21);//20
+HI253WriteCmosSensor(0x98, 0x1e);
+HI253WriteCmosSensor(0x99, 0x1f);
+HI253WriteCmosSensor(0x9a, 0x20);
+HI253WriteCmosSensor(0x9b, 0x88);
+HI253WriteCmosSensor(0x9c, 0x88);
+HI253WriteCmosSensor(0x9d, 0x48);
+HI253WriteCmosSensor(0x9e, 0x38);
+HI253WriteCmosSensor(0x9f, 0x30);
+HI253WriteCmosSensor(0xa0, 0x60);
+HI253WriteCmosSensor(0xa1, 0x34);
+HI253WriteCmosSensor(0xa2, 0x6f);
+HI253WriteCmosSensor(0xa3, 0xff);
+HI253WriteCmosSensor(0xa4, 0x14);
+HI253WriteCmosSensor(0xa5, 0x2c);
+HI253WriteCmosSensor(0xa6, 0xcf);
+HI253WriteCmosSensor(0xad, 0x40);
+HI253WriteCmosSensor(0xae, 0x4a);
+HI253WriteCmosSensor(0xaf, 0x28);
+HI253WriteCmosSensor(0xb0, 0x26);
+HI253WriteCmosSensor(0xb1, 0x00);
+HI253WriteCmosSensor(0xb8, 0xa0);
+HI253WriteCmosSensor(0xb9, 0x00);
 
   HI253SetPage(0x24); 
   HI253WriteCmosSensor(0x10, 0x01); // AFCTL1
@@ -1164,13 +1069,13 @@ void HI253InitPara(void)
   HI253Status.NightMode = KAL_FALSE;
   HI253Status.ZoomFactor = 0;
   HI253Status.Banding = AE_FLICKER_MODE_50HZ;
-  HI253Status.PvShutter = 0x5e800;
+  HI253Status.PvShutter = 0x17cdc;
   HI253Status.MaxFrameRate = HI253_MAX_FPS;
   HI253Status.MiniFrameRate = HI253_FPS(10);
-  HI253Status.PvDummyPixels = 408;
-  HI253Status.PvDummyLines = 130;
-  HI253Status.CapDummyPixels = 408;
-  HI253Status.CapDummyLines = 130; /* 10 FPS, 104 for 9.6 FPS*/
+  HI253Status.PvDummyPixels = 360;
+  HI253Status.PvDummyLines = 20;
+  HI253Status.CapDummyPixels = 360;
+  HI253Status.CapDummyLines = 20; /* 10 FPS, 104 for 9.6 FPS*/
   HI253Status.PvOpClk = 26;
   HI253Status.CapOpClk = 26;
   HI253Status.VDOCTL2 = 0x90;
@@ -1312,13 +1217,13 @@ void HI253NightMode(kal_bool Enable)
   HI253Status.VDOCTL2 &= 0xfb;
   spin_unlock(&hi253_drv_lock);
   HI253WriteCmosSensor(0x11,HI253Status.VDOCTL2);  // Fixed frame rate OFF
-  HI253WriteCmosSensor(0x90, 0x0c); // BLC_TIME_TH_ON
-  HI253WriteCmosSensor(0x91, 0x0c); // BLC_TIME_TH_OFF
+  HI253WriteCmosSensor(0x90, 0x0a); // BLC_TIME_TH_ON
+  HI253WriteCmosSensor(0x91, 0x0a); // BLC_TIME_TH_OFF
   HI253WriteCmosSensor(0x92, 0x78); // BLC_AG_TH_ON
   HI253WriteCmosSensor(0x93, 0x70); // BLC_AG_TH_OFF
   HI253SetPage(0x02);
-  HI253WriteCmosSensor(0xd4, 0x0c); // DCDC_TIME_TH_ON
-  HI253WriteCmosSensor(0xd5, 0x0c); // DCDC_TIME_TH_OFF
+  HI253WriteCmosSensor(0xd4, 0x0a); // DCDC_TIME_TH_ON
+  HI253WriteCmosSensor(0xd5, 0x0a); // DCDC_TIME_TH_OFF
   HI253WriteCmosSensor(0xd6, 0x78); // DCDC_AG_TH_ON
   HI253WriteCmosSensor(0xd7, 0x70); // DCDC_AG_TH_OFF
   HI253SetPage(0x20);
@@ -1333,9 +1238,9 @@ void HI253NightMode(kal_bool Enable)
   //HI253WriteCmosSensor(0x83, 0x01); //EXP Normal 33.33 fps
   //HI253WriteCmosSensor(0x84, 0x7c);
   //HI253WriteCmosSensor(0x85, 0xdc);
-  HI253WriteCmosSensor(0x88, 0x05); //EXP Max 8.33 fps
-  HI253WriteCmosSensor(0x89, 0xf3);
-  HI253WriteCmosSensor(0x8a, 0x70);
+  HI253WriteCmosSensor(0x88, 0x04); //EXP Max 8.33 fps
+  HI253WriteCmosSensor(0x89, 0xf5);
+  HI253WriteCmosSensor(0x8a, 0x88);
   HI253WriteCmosSensor(0x01, 0xf8); // Sleep OFF
   spin_lock(&hi253_drv_lock);
   HI253Status.AECTL1 |= 0x80;
@@ -1470,10 +1375,10 @@ UINT32 HI253Preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
   spin_lock(&hi253_drv_lock);
   HI253Status.MaxFrameRate = HI253_MAX_FPS;
   spin_unlock(&hi253_drv_lock);
-//	HI253SetMirror(IMAGE_NORMAL);
+	HI253SetMirror(IMAGE_NORMAL);
 
 	spin_lock(&hi253_drv_lock);
-  HI253Status.PvDummyPixels = 424;
+  HI253Status.PvDummyPixels = 360;
   spin_unlock(&hi253_drv_lock);
   LineLength = HI253_PV_PERIOD_PIXEL_NUMS + HI253Status.PvDummyPixels;
   spin_lock(&hi253_drv_lock);
@@ -1483,7 +1388,7 @@ UINT32 HI253Preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 
   HI253SetPage(0x00);
 	HI253WriteCmosSensor(0x10, 0x10);
-	HI253WriteCmosSensor(0x11, 0x90);
+	HI253WriteCmosSensor(0x11, 0x93);
 	HI253WriteCmosSensor(0x12, 0x04);
 	HI253WriteCmosSensor(0x20, 0x00); // WINROWH
 	HI253WriteCmosSensor(0x21, 0x04); // WINROWL
@@ -1494,7 +1399,7 @@ UINT32 HI253Preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	HI253WriteCmosSensor(0x40, 0x01); //Hblank 360
 	HI253WriteCmosSensor(0x41, 0x68);
 	HI253WriteCmosSensor(0x42, 0x00); //Vblank 18
-	HI253WriteCmosSensor(0x43, 0x12);
+	HI253WriteCmosSensor(0x43, 0x14);
        HI253WriteCmosSensor(0x3f, 0x02);
 
   HI253SetPage(0x12);
@@ -1512,21 +1417,23 @@ UINT32 HI253Preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
   SENSORDB("[HI253]EXP100:%d EXP120:%d;\n",EXP100,EXP120);
 
 	HI253SetPage(0x20);
-  HI253WriteCmosSensor(0x86, 0x01); //EXPMin 10416.67 fps
-  HI253WriteCmosSensor(0x87, 0xF4); 
-
-  HI253WriteCmosSensor(0x8B, 0x7e); //EXP100 
-  HI253WriteCmosSensor(0x8C, 0xF4); 
-  HI253WriteCmosSensor(0x8D, 0x69); //EXP120 
-  HI253WriteCmosSensor(0x8E, 0x78); 
-  HI253WriteCmosSensor(0x9c, 0x0F); //EXP Limit 1736.11 fps 
-  HI253WriteCmosSensor(0x9d, 0xA0); 
-  HI253WriteCmosSensor(0x9e, 0x01); //EXP Unit 
-  HI253WriteCmosSensor(0x9f, 0xF4); 
+	// HI253WriteCmosSensor(0x83, 0x01); //EXP Normal 33.33 fps
+	// HI253WriteCmosSensor(0x84, 0x7c);
+	// HI253WriteCmosSensor(0x85, 0xdc);
+	HI253WriteCmosSensor(0x86, 0x01); //EXPMin 6500.00 fps
+	HI253WriteCmosSensor(0x87, 0xf4);
+	HI253WriteCmosSensor(0x8B, 0x7e); //EXP100
+	HI253WriteCmosSensor(0x8C, 0xf4);
+	HI253WriteCmosSensor(0x8D, 0x69); //EXP120
+	HI253WriteCmosSensor(0x8E, 0x78);
+	HI253WriteCmosSensor(0x9c, 0x0b); //EXP Limit 541.67 fps
+	HI253WriteCmosSensor(0x9d, 0xb8);
+	HI253WriteCmosSensor(0x9e, 0x01); //EXP Unit
+	HI253WriteCmosSensor(0x9f, 0xf4);
 
 	HI253SetAeMode(KAL_TRUE);
 	HI253SetAwbMode(KAL_TRUE);
-	HI253SetMirror(IMAGE_HV_MIRROR);
+
 	return ERROR_NONE;
 }/* HI253Preview() */
 
@@ -1556,7 +1463,7 @@ UINT32 HI253Capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
   // 1600*1200
   HI253SetPage(0x00);
   HI253WriteCmosSensor(0x10,0x00);
- HI253WriteCmosSensor(0x11, 0x90);
+ HI253WriteCmosSensor(0x11, 0x93);
   HI253WriteCmosSensor(0x3f,0x00);
   HI253SetPage(0x12);
   HI253WriteCmosSensor(0x20, 0x0f);
@@ -1572,7 +1479,7 @@ UINT32 HI253Capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
   HI253WriteCmosSensor(0x23, 0x19); // WINCOLL
   spin_lock(&hi253_drv_lock);
   HI253Status.CapDummyPixels = 360;
-  HI253Status.CapDummyLines = 52; /* 10 FPS, 104 for 9.6 FPS*/
+  HI253Status.CapDummyLines = 20; /* 10 FPS, 104 for 9.6 FPS*/
   spin_unlock(&hi253_drv_lock);
   LineLength = HI253_FULL_PERIOD_PIXEL_NUMS + HI253Status.CapDummyPixels;
   spin_lock(&hi253_drv_lock);
@@ -1583,19 +1490,16 @@ UINT32 HI253Capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
   EXPMIN = EXPUNIT = LineLength / 4;
 
   HI253SetPage(0x20);
-
-  
-  HI253WriteCmosSensor(0x86, 0x01); //EXPMin 10416.67 fps
-  HI253WriteCmosSensor(0x87, 0xF4); 
-
-  HI253WriteCmosSensor(0x8B, 0x7e); //EXP100 
-  HI253WriteCmosSensor(0x8C, 0xF4); 
-  HI253WriteCmosSensor(0x8D, 0x69); //EXP120 
-  HI253WriteCmosSensor(0x8E, 0x78); 
-  HI253WriteCmosSensor(0x9c, 0x0F); //EXP Limit 1736.11 fps 
-  HI253WriteCmosSensor(0x9d, 0xA0); 
-  HI253WriteCmosSensor(0x9e, 0x01); //EXP Unit 
-  HI253WriteCmosSensor(0x9f, 0xF4); 
+	HI253WriteCmosSensor(0x86, 0x01); //EXPMin 6500.00 fps
+	HI253WriteCmosSensor(0x87, 0xf4);
+	HI253WriteCmosSensor(0x8B, 0x7e); //EXP100
+	HI253WriteCmosSensor(0x8C, 0xf4);
+	HI253WriteCmosSensor(0x8D, 0x69); //EXP120
+	HI253WriteCmosSensor(0x8E, 0x78);
+	HI253WriteCmosSensor(0x9c, 0x0b); //EXP Limit 541.67 fps
+	HI253WriteCmosSensor(0x9d, 0xb8);
+	HI253WriteCmosSensor(0x9e, 0x01); //EXP Unit
+	HI253WriteCmosSensor(0x9f, 0xf4);
 
 	HI253SetPage(0x00);
 	HI253WriteCmosSensor(0x40, 0x01); //Hblank 360
@@ -1660,7 +1564,7 @@ UINT32 HI253GetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
   pSensorInfo->SensroInterfaceType=SENSOR_INTERFACE_TYPE_PARALLEL;
 
 
-  pSensorInfo->CaptureDelayFrame = 1;
+  pSensorInfo->CaptureDelayFrame = 2;
   pSensorInfo->PreviewDelayFrame = 1;
   pSensorInfo->VideoDelayFrame = 2;
   pSensorInfo->SensorMasterClockSwitch = 0;
@@ -1913,7 +1817,7 @@ BOOL HI253SetExposure(UINT16 Para)
       HI253WriteCmosSensor(0x40,0x98);
       break;
     case AE_EV_COMP_00:                /* EV 0 */\
-      HI253WriteCmosSensor(0x40,0x88);
+      HI253WriteCmosSensor(0x40,0x80);
       break;
     case AE_EV_COMP_03:              /* EV +0.5 */
       HI253WriteCmosSensor(0x40,0x18);
@@ -2007,14 +1911,14 @@ UINT32 HI253YUVSetVideoMode(UINT16 FrameRate)
   spin_lock(&hi253_drv_lock);
   HI253Status.VDOCTL2 |= 0x04;
   spin_unlock(&hi253_drv_lock);
-  HI253WriteCmosSensor(0x11,HI253Status.VDOCTL2);  // Fixed frame rate OFF
-  HI253WriteCmosSensor(0x90, 0x0c); // BLC_TIME_TH_ON
-  HI253WriteCmosSensor(0x91, 0x0c); // BLC_TIME_TH_OFF
+  HI253WriteCmosSensor(0x11, 0x93); //HI253Status.VDOCTL2);  // Fixed frame rate OFF
+  HI253WriteCmosSensor(0x90, 0x0a); // BLC_TIME_TH_ON
+  HI253WriteCmosSensor(0x91, 0x0a); // BLC_TIME_TH_OFF
   HI253WriteCmosSensor(0x92, 0x78); // BLC_AG_TH_ON
   HI253WriteCmosSensor(0x93, 0x70); // BLC_AG_TH_OFF
   HI253WriteCmosSensor(0x03, 0x02); // Page 2
-  HI253WriteCmosSensor(0xd4, 0x0c); // DCDC_TIME_TH_ON
-  HI253WriteCmosSensor(0xd5, 0x0c); // DCDC_TIME_TH_OFF
+  HI253WriteCmosSensor(0xd4, 0x0a); // DCDC_TIME_TH_ON
+  HI253WriteCmosSensor(0xd5, 0x0a); // DCDC_TIME_TH_OFF
   HI253WriteCmosSensor(0xd6, 0x78); // DCDC_AG_TH_ON
   HI253WriteCmosSensor(0xd7, 0x70); // DCDC_AG_TH_OFF
 
@@ -2030,21 +1934,23 @@ UINT32 HI253YUVSetVideoMode(UINT16 FrameRate)
  // HI253WriteCmosSensor(0x83, 0x01); //EXP Normal 33.33 fps
  // HI253WriteCmosSensor(0x84, 0x7c);
  // HI253WriteCmosSensor(0x85, 0xdc);
-  HI253WriteCmosSensor(0x88, 0x05); //EXP Max 8.33 fps
-  HI253WriteCmosSensor(0x89, 0xf3);
-  HI253WriteCmosSensor(0x8a, 0x70);
-  HI253WriteCmosSensor(0x91, 0x06); //EXP Fix 8.00 fps
+  HI253WriteCmosSensor(0x88, 0x04); //EXP Max 8.33 fps
+  HI253WriteCmosSensor(0x89, 0xf5);
+  HI253WriteCmosSensor(0x8a, 0x88);
+HI253WriteCmosSensor(0x9c, 0x0b); //EXP Limit 541.67 fps
+HI253WriteCmosSensor(0x9d, 0xb8);
+HI253WriteCmosSensor(0x9e, 0x01); //EXP Unit
+HI253WriteCmosSensor(0x9f, 0xf4);
+
+  /*HI253WriteCmosSensor(0x91, 0x06); //EXP Fix 8.00 fps
   HI253WriteCmosSensor(0x92, 0x32);
-  HI253WriteCmosSensor(0x93, 0xea);
+  HI253WriteCmosSensor(0x93, 0xea);*/
   HI253WriteCmosSensor(0x01, 0xf8); // Sleep OFF
   spin_lock(&hi253_drv_lock);
   HI253Status.AECTL1 |= 0x80;
   spin_unlock(&hi253_drv_lock);
   HI253WriteCmosSensor(0x10,HI253Status.AECTL1);// AE ON BIT 7
   HI253WriteCmosSensor(0x18, 0x30); // AE Reset OFF
-  HI253SetMirror(IMAGE_HV_MIRROR);
-
-  
   return TRUE;
 }
 

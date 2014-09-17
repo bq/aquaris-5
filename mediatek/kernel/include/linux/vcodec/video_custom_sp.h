@@ -1,66 +1,21 @@
-/*****************************************************************************
-*  Copyright Statement:
-*  --------------------
-*  This software is protected by Copyright and the information contained
-*  herein is confidential. The software may not be copied and the information
-*  contained herein may not be used or disclosed except with the written
-*  permission of MediaTek Inc. (C) 2005
-*
-*  BY OPENING THIS FILE, BUYER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
-*  THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
-*  RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO BUYER ON
-*  AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
-*  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
-*  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
-*  NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
-*  SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
-*  SUPPLIED WITH THE MEDIATEK SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH
-*  THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO
-*  NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S
-*  SPECIFICATION OR TO CONFORM TO A PARTICULAR STANDARD OR OPEN FORUM.
-*
-*  BUYER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND CUMULATIVE
-*  LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
-*  AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
-*  OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY BUYER TO
-*  MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
-*
-*  THE TRANSACTION CONTEMPLATED HEREUNDER SHALL BE CONSTRUED IN ACCORDANCE
-*  WITH THE LAWS OF THE STATE OF CALIFORNIA, USA, EXCLUDING ITS CONFLICT OF
-*  LAWS PRINCIPLES.  ANY DISPUTES, CONTROVERSIES OR CLAIMS ARISING THEREOF AND
-*  RELATED THERETO SHALL BE SETTLED BY ARBITRATION IN SAN FRANCISCO, CA, UNDER
-*  THE RULES OF THE INTERNATIONAL CHAMBER OF COMMERCE (ICC).
-*
-*****************************************************************************/
-
-/*****************************************************************************
- *
- * Filename:
- * ---------
+/**
+ * @file
  *   video_custom_sp.h
  *
- * Project:
- * --------
- *  ALPS
+ * @par Project:
+ *   Video
  *
- * Description:
- * ------------
- *   This file declared the customerized interface for smart phone
+ * @par Description:
+ *   Video Codec Driver & Codec Liabrary Interface
  *
- * Author:
- * -------
- *   Steve Su (mtk01898)
+ * @par Author:
+ *   Jackal Chen (mtk02532)
  *
- *============================================================================
- *             HISTORY
- * Below this line, this part is controlled by PVCS VM. DO NOT MODIFY!!
- *------------------------------------------------------------------------------
- * $Log$
+ * @par $Revision: #1 $
+ * @par $Modtime:$
+ * @par $Log:$
  *
- *------------------------------------------------------------------------------
- * Upper this line, this part is controlled by PVCS VM. DO NOT MODIFY!!
- *============================================================================
- ****************************************************************************/
+ */
 
 #ifndef VIDEO_CUSTOM_SP_H
 #define VIDEO_CUSTOM_SP_H
@@ -72,7 +27,7 @@
     do {                                                        \
         if (!(expr))                                            \
             AssertionFailed(__FUNCTION__,__FILE__, __LINE__);   \
-    } while (0)
+    } while (0)     ///< ASSERT definition
 
 /******************************************************************************
  *
@@ -82,19 +37,45 @@
  *
 ******************************************************************************/
 
-typedef enum
+
+/**
+ * @par Enumeration
+ *   VIDEO_DECODER_T
+ * @par Description
+ *   This is the item for video decoder format
+ */
+typedef enum _VIDEO_DECODER_T
 {
-    CODEC_DEC_NONE      = 0,
-    CODEC_DEC_H263      = (0x1<<0),
-    CODEC_DEC_MPEG4     = (0x1<<1),
-    CODEC_DEC_H264      = (0x1<<2),
-    CODEC_DEC_RV        = (0x1<<3),
-    CODEC_DEC_VC1       = (0x1<<4),
-    CODEC_DEC_VP8       = (0x1<<5),
-    CODEC_DEC_MAX       = (0x1<<6)
+    CODEC_DEC_NONE      = 0,            ///< NONE
+    CODEC_DEC_H263      = (0x1<<0),     ///< H263
+    CODEC_DEC_MPEG4     = (0x1<<1),     ///< MPEG4
+    CODEC_DEC_H264      = (0x1<<2),     ///< H264
+    CODEC_DEC_RV        = (0x1<<3),     ///< RV
+    CODEC_DEC_VC1       = (0x1<<4),     ///< VC1
+    CODEC_DEC_VP8       = (0x1<<5),     ///< VP8
+    CODEC_DEC_VP9       = (0x1<<6),  	///< VP9
+    CODEC_DEC_HEVC      = (0x1<<7),     ///< HEVC
+    CODEC_DEC_MAX       = (0x1<<8)      ///< MAX
 } VIDEO_DECODER_T;
 
-//VIDEO_DEC_API_T  *GetDecoderAPI(VIDEO_DECODER_T, HANDLE); // HANDLE : wrapper's handle
+/**
+ * @par Function       
+ *   GetDecoderAPI
+ * @par Description
+ *   The function used to get decoder API for codec library  
+ * @param              
+ *   eDecType           [IN] decoder type
+ * @param              
+ *   hWrapper           [IN] wrapper
+ * @param              
+ *   ppDrvModule        [IN/OUT] driver module
+ * @param              
+ *   bUseMultiCoreCodec [IN] multi core codec flag
+ * @par Returns        
+ *   VIDEO_DEC_API_T,   the decoder API
+ */
+VIDEO_DEC_API_T  *GetDecoderAPI(VIDEO_DECODER_T eDecType, HANDLE hWrapper, void **ppDrvModule, unsigned int bUseMultiCoreCodec);
+VIDEO_DEC_API_T  *GetDecoderAPI_SingleCore(VIDEO_DECODER_T, HANDLE); // HANDLE : wrapper's handle
 //VCODEC_DEC_API_T *GetMPEG4DecoderAPI(void);
 //VCODEC_DEC_API_T *GetH264DecoderAPI(void);
 //VCODEC_DEC_API_T *GetRVDecoderAPI(void);
@@ -110,18 +91,44 @@ typedef enum
 *
 ******************************************************************************/
 
-typedef enum
+
+/**
+ * @par Enumeration
+ *   VIDEO_ENCODER_T
+ * @par Description
+ *   This is the item for video decoder format
+ */
+typedef enum _VIDEO_ENCODER_T
 {
-    CODEC_ENC_NONE      = 0,
-    CODEC_ENC_H263      = (0x1<<0),
-    CODEC_ENC_MPEG4     = (0x1<<1),
-    CODEC_ENC_H264      = (0x1<<2),
-    CODEC_ENC_VP8       = (0x1<<5),
-    CODEC_ENC_MAX       = (0x1<<6)
+    CODEC_ENC_NONE      = 0,            ///< NONE
+    CODEC_ENC_H263      = (0x1<<0),     ///< H263
+    CODEC_ENC_MPEG4     = (0x1<<1),     ///< MPEG4
+    CODEC_ENC_H264      = (0x1<<2),     ///< H264
+    CODEC_ENC_HEVC      = (0x1<<3),     ///< HEVC
+    CODEC_ENC_VP8       = (0x1<<5),     ///< VP8
+    CODEC_ENC_VP9       = (0x1<<6),     ///< VP9
+    CODEC_ENC_MAX       = (0x1<<7)      ///< MAX
 } VIDEO_ENCODER_T;
 
+/**
+ * @par Function       
+ *   GetEncoderAPI
+ * @par Description
+ *   The function used to get encoder API for codec library  
+ * @param              
+ *   eEncType           [IN] encoder type
+ * @param              
+ *   hWrapper           [IN] wrapper
+ * @param              
+ *   ppDrvModule        [IN/OUT] driver module
+ * @param              
+ *   bUseMultiCoreCodec [IN] multi core codec flag
+ * @par Returns        
+ *   VIDEO_DEC_API_T,   the encoder API
+ */
 VIDEO_ENC_API_T *GetEncoderAPI(VIDEO_ENCODER_T eEncType, HANDLE hWrapper, void **ppDrvModule, unsigned int bUseMultiCoreCodec);
-VCODEC_ENC_API_T *GetMPEG4EncoderAPI(void);
+VIDEO_ENC_API_T *GetEncoderAPI_SingleCore(VIDEO_ENCODER_T, HANDLE); // HANDLE : wrapper's handle
+//VCODEC_ENC_API_T *GetMPEG4EncoderAPI(void);
 //VCODEC_ENC_API_T* GetH264EncoderAPI(void);
 //VIDEO_ENCODER_API_T *GetVP8EncoderAPI(void);
 

@@ -112,7 +112,8 @@ class AudioPlatformDevice
         status_t FadeOutDownlink(uint16_t sample_rate);
         status_t FadeInDownlink(uint16_t sample_rate);
 
-
+        status_t AnalogOpenForAddSPK(AudioAnalogType::DEVICE_TYPE DeviceType);
+        status_t AnalogCloseForSubSPK(AudioAnalogType::DEVICE_TYPE DeviceType);
     private:
 
         /**

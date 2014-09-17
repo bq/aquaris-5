@@ -78,14 +78,14 @@ const NVRAM_LENS_PARA_STRUCT FM50AF_LENS_PARA_DEFAULT_VALUE =
     // AF NVRAM
     {
         // -------- AF ------------
-        {200, // i4Offset
-          10, // i4NormalNum
-          15, // i4MacroNum
+        {150, // i4Offset
+          16, // i4NormalNum
+          16, // i4MacroNum
            0, // i4InfIdxOffset
            0, //i4MacroIdxOffset          
     	{
-                 0,  25,  55,  90, 130, 175, 225, 280, 335, 390,
-               455, 520, 585, 650, 715,   0,   0,   0,   0,   0,
+                 0,  15,  30,  45, 60, 75, 90, 105, 120, 140,
+               160, 190, 230, 280, 330, 390,  0,   0,   0,   0,
              0,   0,   0,   0,   0,   0,   0,   0,   0,   0
             },
           15, // i4THRES_MAIN;
@@ -116,14 +116,14 @@ const NVRAM_LENS_PARA_STRUCT FM50AF_LENS_PARA_DEFAULT_VALUE =
          },
          
          // -------- ZSD AF ------------
-         {200, // i4Offset
-           10, // i4NormalNum
-           15, // i4MacroNum
+         {150, // i4Offset
+          16, // i4NormalNum
+          16, // i4MacroNum
             0, // i4InfIdxOffset
             0, //i4MacroIdxOffset           
            {
-               0,  25,  55,  90, 130, 175, 225, 280, 335, 390,
-             455, 520, 585, 650, 715,   0,   0,   0,   0,   0,
+                 0,  15,  30,  45, 60, 75, 90, 105, 120, 140,
+               160, 190, 230, 280, 330, 390,  0,   0,   0,   0,
                0,   0,   0,   0,   0,   0,   0,   0,   0,   0              
            },
            15, // i4THRES_MAIN;
@@ -154,14 +154,14 @@ const NVRAM_LENS_PARA_STRUCT FM50AF_LENS_PARA_DEFAULT_VALUE =
            }, 
            
            // -------- VAFC ------------
-         {200, // i4Offset
-           20, // i4NormalNum
-           20, // i4MacroNum
+         {150, // i4Offset
+          16, // i4NormalNum
+          16, // i4MacroNum
             0, // i4InfIdxOffset
             0, //i4MacroIdxOffset           
              {
-                  0,  20,  40,  60,  80, 100, 120, 140, 160, 180,
-                200, 220, 240, 260, 280, 300, 320, 340, 360, 390,
+                 0,  15,  30,  45, 60, 75, 90, 105, 120, 140,
+               160, 190, 230, 280, 330, 390,  0,   0,   0,   0,
                   0,   0,   0,   0,   0,   0,   0,   0,   0,   0              
              },
            15, // i4THRES_MAIN;

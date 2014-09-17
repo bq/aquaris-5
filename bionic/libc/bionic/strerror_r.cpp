@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "private/ErrnoRestorer.h"
+
 struct Pair {
   int code;
   const char* msg;
@@ -42,21 +44,20 @@ extern "C" __LIBC_HIDDEN__ const char* __strsignal_lookup(int signal_number) {
 }
 
 int strerror_r(int error_number, char* buf, size_t buf_len) {
-  int saved_errno = errno;
+  ErrnoRestorer errno_restorer;
   size_t length;
 
   const char* error_name = __strerror_lookup(error_number);
   if (error_name != NULL) {
     length = snprintf(buf, buf_len, "%s", error_name);
   } else {
-    length = snprintf(buf, buf_len, "Unknown error %u", error_number);
+    length = snprintf(buf, buf_len, "Unknown error %d", error_number);
   }
   if (length >= buf_len) {
-    errno = ERANGE;
+    errno_restorer.override(ERANGE);
     return -1;
   }
 
-  errno = saved_errno;
   return 0;
 }
 

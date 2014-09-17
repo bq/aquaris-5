@@ -10,12 +10,17 @@ DEFINES += PERIPH_BLK_BLSP=1
 DEFINES += WITH_CPU_EARLY_INIT=0 WITH_CPU_WARM_BOOT=0 \
 	   MMC_SLOT=$(MMC_SLOT)
 
-INCLUDES += -I$(LOCAL_DIR)/include \
-	    -Icustom/$(FULL_PROJECT)/lk/lcm/inc \
-	    -Icustom/$(FULL_PROJECT)/lk/inc \
-	    -Icustom/$(FULL_PROJECT)/common \
-	    -Icustom/$(FULL_PROJECT)/kernel/dct/ \
+ifeq ($(MTK_SECURITY_SW_SUPPORT), yes)
+	DEFINES += MTK_SECURITY_SW_SUPPORT
+endif	   
 
+$(info libshowlogo new path ------- $(LOCAL_DIR)/../../../../bootable/bootloader/lk/lib/libshowlogo)
+INCLUDES += -I$(LOCAL_DIR)/include \
+            -I$(LOCAL_DIR)/../../../../bootable/bootloader/lk/lib/libshowlogo \
+	    -Iout/lk/lcm/inc \
+	    -Iout/lk/inc \
+	    -Iout/common \
+	    -Iout/kernel/dct/ 
 OBJS += \
 	$(LOCAL_DIR)/bitops.o \
 	$(LOCAL_DIR)/platform.o \
@@ -90,7 +95,12 @@ else
            OBJS += $(LOCAL_DIR)/bq24158.o
            OBJS += $(LOCAL_DIR)/mt_bat_bq24158.o
       else
+		ifeq ($(MTK_BQ24156_SUPPORT),yes)
+          OBJS += $(LOCAL_DIR)/bq24156.o
+          OBJS += $(LOCAL_DIR)/mt_bat_bq24156.o
+		else
 	   OBJS += $(LOCAL_DIR)/mt_battery.o
+		endif
       endif
     endif
   endif
@@ -106,6 +116,9 @@ ifeq ($(MTK_MT8193_SUPPORT),yes)
 OBJS +=$(LOCAL_DIR)/mt8193_init.o
 OBJS +=$(LOCAL_DIR)/mt8193_ckgen.o
 OBJS +=$(LOCAL_DIR)/mt8193_i2c.o
+ifneq ($(MTK_TB_WIFI_3G_MODE),WIFI_ONLY)
+CFLAGS += -DMT8193_DISABLE_EXT_CLK_BUF
+endif
 endif
 
 ifeq ($(MTK_KERNEL_POWER_OFF_CHARGING),yes)

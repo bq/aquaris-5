@@ -9,6 +9,7 @@
 
 //#include <common.h>
 //#include <platform/mt.h>
+#include <string.h>
 #include <platform/mt_reg_base.h>
 #include <platform/mt_typedefs.h>
 
@@ -30,6 +31,7 @@ extern void mt_pwm_disable(U32 pwm_no, BOOL pmic_pad);
 /****************************************************************************
  * DEBUG MACROS
  ***************************************************************************/
+/*
 int debug_enable = 0;
 #define LEDS_DEBUG(format, args...) do{ \
 		if(debug_enable) \
@@ -38,11 +40,17 @@ int debug_enable = 0;
 		}\
 	}while(0)
 #define LEDS_INFO LEDS_DEBUG 	
+*/
 /****************************************************************************
  * structures
  ***************************************************************************/
 static int g_lastlevel[MT65XX_LED_TYPE_TOTAL] = {-1, -1, -1, -1, -1, -1, -1};
 int backlight_PWM_div = CLK_DIV1;
+
+// Use Old Mode of PWM to suppoort 256 backlight level
+#define BACKLIGHT_LEVEL_PWM_256_SUPPORT 256
+extern unsigned int Cust_GetBacklightLevelSupport_byPWM(void);
+
 /****************************************************************************
  * function prototypes
  ***************************************************************************/
@@ -67,67 +75,133 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level);
 /****************************************************************************
  * internal functions
  ***************************************************************************/
+static int brightness_mapto64(int level)
+{
+        if (level < 30)
+                return (level >> 1) + 7;
+        else if (level <= 120)
+                return (level >> 2) + 14;
+        else if (level <= 160)
+                return level / 5 + 20;
+        else
+                return (level >> 3) + 33;
+}
+unsigned int brightness_mapping(unsigned int level)
+{
+	unsigned int mapped_level;
+		
+	mapped_level = level;
+		   
+	return mapped_level;
+}
 
 static int brightness_set_pwm(int pwm_num, enum led_brightness level,struct PWM_config *config_data)
 {
 struct pwm_spec_config pwm_setting;
-	
+	unsigned int BacklightLevelSupport = Cust_GetBacklightLevelSupport_byPWM();
 	pwm_setting.pwm_no = pwm_num;
-	pwm_setting.mode = PWM_MODE_FIFO; //new mode fifo and periodical mode
-//	pwm_setting.clk_div = CLK_DIV1;
-//	pwm_setting.clk_src = PWM_CLK_NEW_MODE_BLOCK_DIV_BY_1625;
+	
+	if (BacklightLevelSupport == BACKLIGHT_LEVEL_PWM_256_SUPPORT)
+		pwm_setting.mode = PWM_MODE_OLD;
+	else
+		pwm_setting.mode = PWM_MODE_FIFO; //new mode fifo and periodical mode
+
 	pwm_setting.pmic_pad = config_data->pmic_pad;
 	if(config_data->div)
 	{
 		pwm_setting.clk_div = config_data->div;
 		backlight_PWM_div = config_data->div;
 	}
-   else
-     pwm_setting.clk_div = CLK_DIV1;
-	if(config_data->clock_source)
-		pwm_setting.clk_src = PWM_CLK_NEW_MODE_BLOCK;
-	else
-		pwm_setting.clk_src = PWM_CLK_NEW_MODE_BLOCK_DIV_BY_1625;
+    else
+        pwm_setting.clk_div = CLK_DIV1;
+   
+	if(BacklightLevelSupport== BACKLIGHT_LEVEL_PWM_256_SUPPORT)
+	{
+		if(config_data->clock_source)
+		{
+			pwm_setting.clk_src = PWM_CLK_OLD_MODE_BLOCK;
+		}
+		else
+		{
+			pwm_setting.clk_src = PWM_CLK_OLD_MODE_32K; // actually. it's block/1625 = 26M/1625 = 16KHz 
+		}
 
-	if(config_data->High_duration && config_data->low_duration)
+		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.IDLE_VALUE = 0;
+		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.GUARD_VALUE = 0;
+		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.GDURATION = 0;
+		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.WAVE_NUM = 0;
+		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.DATA_WIDTH = 255; // 256 level
+		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.THRESH = level;
+
+		printf("[LEDS][%d] LK: backlight_set_pwm:duty is %d/%d\n", BacklightLevelSupport, level, pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.DATA_WIDTH);
+		printf("[LEDS][%d] LK: backlight_set_pwm:clk_src/div is %d%d\n", BacklightLevelSupport, pwm_setting.clk_src, pwm_setting.clk_div);
+		if(level >0 && level < 256)
+		{
+			pwm_set_spec_config(&pwm_setting);
+			printf("[LEDS][%d] LK: backlight_set_pwm: old mode: thres/data_width is %d/%d\n", BacklightLevelSupport, pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.THRESH, pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.DATA_WIDTH);
+		}
+		else
+		{
+			printf("[LEDS][%d] LK: Error level in backlight\n", BacklightLevelSupport);
+			mt_pwm_disable(pwm_setting.pwm_no, config_data->pmic_pad);
+		}
+		return 0;
+
+	}
+	else
+	{
+		if(config_data->clock_source)
+		{
+			pwm_setting.clk_src = PWM_CLK_NEW_MODE_BLOCK;
+		}
+		else
+		{
+			pwm_setting.clk_src = PWM_CLK_NEW_MODE_BLOCK_DIV_BY_1625;
+		}
+
+		if(config_data->High_duration && config_data->low_duration)
 		{
 			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.HDURATION = config_data->High_duration;
 			//pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.LDURATION = config_data->low_duration;
 			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.LDURATION = pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.HDURATION;
 		}
-	else
+		else
 		{
 			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.HDURATION = 4;
 			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.LDURATION = 4;
 		}
 	
-	pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.IDLE_VALUE = 0;
-	pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GUARD_VALUE = 0;
-	pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.STOP_BITPOS_VALUE = 31;
-//	pwm_setting.PWM_MODE_FIFO_REGS.HDURATION = 4;
-//	pwm_setting.PWM_MODE_FIFO_REGS.LDURATION = 4;
-	pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GDURATION = (pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.HDURATION+1)*32 - 1;
-	//pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GDURATION = 0;
-	pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.WAVE_NUM = 0;
+		pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.IDLE_VALUE = 0;
+		pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GUARD_VALUE = 0;
+		pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.STOP_BITPOS_VALUE = 31;
+	//	pwm_setting.PWM_MODE_FIFO_REGS.HDURATION = 4;
+	//	pwm_setting.PWM_MODE_FIFO_REGS.LDURATION = 4;
+		pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GDURATION = (pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.HDURATION+1)*32 - 1;
+		//pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GDURATION = 0;
+		pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.WAVE_NUM = 0;
 	
-	printf("[LEDS]LK: backlight_set_pwm:duty is %d\n", level);
+		printf("[LEDS]LK: backlight_set_pwm:duty is %d\n", level);
+		printf("[LEDS] LK: backlight_set_pwm:clk_src/div/high/low is %d%d%d%d\n", pwm_setting.clk_src, pwm_setting.clk_div, pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.HDURATION, pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.LDURATION);
   
-	if(level > 0)
-	{
-        pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.SEND_DATA0 = ((1 << 30) - 1);
-	    //pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.SEND_DATA1 = 0 ;
-		pwm_set_spec_config(&pwm_setting);
-        }
-        else
- 	{
- 	    //mt_set_pwm_disable(pwm_setting.pwm_no);
-	    //mt_power_off (pwm_setting.pwm_no);
-	    mt_pwm_disable(pwm_setting.pwm_no, config_data->pmic_pad);
-    }
-	
-	
-	return 0;
-	
+		if(level > 0 && level <= 32)
+		{
+			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GUARD_VALUE = 0;
+			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.SEND_DATA0 = (1 << level) - 1;
+			pwm_set_spec_config(&pwm_setting);
+		}else if(level > 32 && level <= 64)
+		{
+			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.GUARD_VALUE = 1;
+			level -= 32;
+			pwm_setting.pwm_mode.PWM_MODE_FIFO_REGS.SEND_DATA0 = (1 << level) - 1 ;
+			pwm_set_spec_config(&pwm_setting);
+		}else
+		{
+			printf("[LEDS] LK: Error level in backlight\n");
+			mt_pwm_disable(pwm_setting.pwm_no, config_data->pmic_pad);
+		}
+
+		return 0;
+	}
 }
 
 static int led_set_pwm(int pwm_num, enum led_brightness level)
@@ -135,21 +209,18 @@ static int led_set_pwm(int pwm_num, enum led_brightness level)
 	struct pwm_spec_config pwm_setting;
 	pwm_setting.pwm_no = pwm_num;
 	pwm_setting.clk_div = CLK_DIV1; 		
-	//pwm_setting.duration = 10;
-	pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.DATA_WIDTH = 10;
+
+	pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.DATA_WIDTH = 50;
     
-    if(pwm_num != PWM3 && pwm_num != PWM4 && pwm_num != PWM5)
-		pwm_setting.clk_src = PWM_CLK_OLD_MODE_32K;
-	else
-		pwm_setting.clk_src = PWM_CLK_NEW_MODE_BLOCK_DIV_BY_1625;
+	// we won't choose 32K to be the clock src of old mode because of system performance.
+	// The setting here will be clock src = 26MHz, CLKSEL = 26M/1625 (i.e. 16K)
+	pwm_setting.clk_src = PWM_CLK_OLD_MODE_32K;
     
 	if(level)
 	{
-		//pwm_setting.duty = 30;
-		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.THRESH = 30;
+		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.THRESH = 15;
 	}else
 	{
-		//pwm_setting.duty = 0;
 		pwm_setting.pwm_mode.PWM_MODE_OLD_REGS.THRESH = 0;
 	}
 	printf("[LEDS]LK: brightness_set_pwm: level=%d, clk=%d \n\r", level, pwm_setting.clk_src);
@@ -158,8 +229,6 @@ static int led_set_pwm(int pwm_num, enum led_brightness level)
 	return 0;
 	
 }
-
-
 
 static int brightness_set_pmic(enum mt65xx_led_pmic pmic_type, enum led_brightness level)
 {
@@ -388,6 +457,7 @@ static int brightness_set_gpio(int gpio_num, enum led_brightness level)
 
 static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 {
+	unsigned int BacklightLevelSupport = Cust_GetBacklightLevelSupport_byPWM();
 	if (level > LED_FULL)
 		level = LED_FULL;
 	else if (level < 0)
@@ -396,8 +466,18 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 	switch (cust->mode) {
 		
 		case MT65XX_LED_MODE_PWM:
+			if(level == 0)
+			{
+				//printf("[LEDS]LK: mt65xx_leds_set_cust: enter mt_pwm_disable()\n");
+				mt_pwm_disable(cust->data, cust->config_data.pmic_pad);
+				return 1;
+			}
 			if(strcmp(cust->name,"lcd-backlight") == 0)
 			{
+				if (BacklightLevelSupport == BACKLIGHT_LEVEL_PWM_256_SUPPORT)
+					level = brightness_mapping(level);
+				else
+					level = brightness_mapto64(level);			
 			return brightness_set_pwm(cust->data, level,&cust->config_data);
 			}
 			else
@@ -417,6 +497,8 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 		default:
 			break;
 	}
+
+
 	return -1;
 }
 
@@ -432,10 +514,8 @@ int mt65xx_leds_brightness_set(enum mt65xx_led_type type, enum led_brightness le
 
 	if (level > LED_FULL)
 		level = LED_FULL;
-	else if (level < 0)
-		level = 0;
 
-	if (g_lastlevel[type] != level) {
+	if (g_lastlevel[type] != (int)level) {
 		g_lastlevel[type] = level;
 		printf("[LEDS]LK: %s level is %d \n\r", cust_led_list[type].name, level);
 		return mt65xx_led_set_cust(&cust_led_list[type], level);

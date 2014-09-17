@@ -542,51 +542,39 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #endif
 #include "dlmalloc_debug.h"
 #if DEBUG
-#define LOG_TAG "mtk_dlmalloc_debug"
-#include <dlfcn.h>
-#ifdef IN_MSPACE
-struct ErrorReport mspaceErrReportEntry[8];
-int mspaceErrorNum = 0;
-#define ErrorNum mspaceErrorNum
-#define ErrReportEntry mspaceErrReportEntry
-#define ANDROID_LOG_ERROR 6
-#define error_log(format, ...)  \
-__android_log_print(ANDROID_LOG_ERROR, LOG_TAG,(format),##__VA_ARGS__ );
-#elif IN_DEBUG
-struct ErrorReport debug15ErrReportEntry[8];
-int debug15ErrorNum = 0;
-#define ErrorNum debug15ErrorNum
-#define ErrReportEntry debug15ErrReportEntry
+   #define LOG_TAG "mtk_dlmalloc_debug"
+   #include <dlfcn.h>
+   #ifdef IN_MSPACE
+     struct ErrorReport mspaceErrReportEntry[8];
+     int mspaceErrorNum = 0;
+     #define ErrorNum mspaceErrorNum
+     #define ErrReportEntry mspaceErrReportEntry
+     #define error_log(format, ...)  \
+     __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,(format),##__VA_ARGS__ );
+   #elif IN_DEBUG
+     struct ErrorReport debug15ErrReportEntry[8];
+     int debug15ErrorNum = 0;
+     #define ErrorNum debug15ErrorNum
+     #define ErrReportEntry debug15ErrReportEntry
+   #else
+     #include "../private/libc_logging.h"
+     struct ErrorReport nativeErrReportEntry[8];
+     int nativeErrorNum = 0;
+     #define ErrorNum nativeErrorNum
+     #define ErrReportEntry nativeErrReportEntry
+     #define error_log(format, ...)    \
+       __libc_format_log(ANDROID_LOG_ERROR, LOG_TAG, (format), ##__VA_ARGS__ )
+   #endif
 #else
-struct ErrorReport nativeErrReportEntry[8];
-int nativeErrorNum = 0;
-#define ErrorNum nativeErrorNum
-#define ErrReportEntry nativeErrReportEntry
-#ifndef _ANDROID_LOG_H
-#include "../private/logd.h"
-#define error_log(format, ...)  \
-    __libc_android_log_print(ANDROID_LOG_ERROR, LOG_TAG, (format), ##__VA_ARGS__ )
-#else
-#define error_log(format, ...)  \
-    __libc_android_log_print(ANDROID_LOG_ERROR, LOG_TAG, (format), ##__VA_ARGS__ )
-#endif
-#endif
-#else
-#define LOG_TAG "mtk_dlmalloc_debug"
-#ifdef IN_MSPACE
-#define ANDROID_LOG_INFO 4
-#define error_log(format, ...)  \
-__android_log_print(ANDROID_LOG_INFO, LOG_TAG,(format),##__VA_ARGS__ )
-#else
-#ifndef _ANDROID_LOG_H
-#include "../private/logd.h"
-#define error_log(format, ...)  \
-__libc_android_log_print(ANDROID_LOG_INFO, LOG_TAG, (format), ##__VA_ARGS__ )
-#else
-#define error_log(format, ...)  \
-    __libc_android_log_print(ANDROID_LOG_ERROR, LOG_TAG, (format), ##__VA_ARGS__ )
-#endif
-#endif
+    #define LOG_TAG "mtk_dlmalloc_debug"
+    #ifdef IN_MSPACE
+      #define error_log(format, ...)  \
+      __android_log_print(ANDROID_LOG_INFO, LOG_TAG,(format),##__VA_ARGS__ )
+    #else
+ 
+      #define error_log(format, ...)  
+ 
+    #endif
 #endif
 #ifdef ANDROID //wschen 2011-05-30
 #define USE_BUILTIN_FFS 1
@@ -3017,7 +3005,7 @@ static int    do_check_smallbin(mstate m, bindex_t i, chunk_DebugPtr chunkState)
 void   do_check_malloc_state(mstate m);
 void   do_scan_mstate(mstate m);
 static int    bin_find(mstate m, mchunkptr x);
-size_t traverse_and_check(mstate m,chunk_DebugPtr chunkState); 
+static size_t traverse_and_check(mstate m,chunk_DebugPtr chunkState); 
 
 #endif /* DEBUG */
 
@@ -3298,16 +3286,10 @@ size_t traverse_and_check(mstate m,chunk_DebugPtr chunkState);
 
 /* ---------------------------- setting mparams -------------------------- */
 
-#if LOCK_AT_FORK 
-#if !ONLY_MSPACES
+#if LOCK_AT_FORK
 static void pre_fork(void)         { ACQUIRE_LOCK(&(gm)->mutex); }
 static void post_fork_parent(void) { RELEASE_LOCK(&(gm)->mutex); }
 static void post_fork_child(void)  { INITIAL_LOCK(&(gm)->mutex); }
-#else
-static void pre_fork(void)         {}
-static void post_fork_parent(void) {}
-static void post_fork_child(void)  {}
-#endif
 #endif /* LOCK_AT_FORK */
 
 /* Initialize mparams */
@@ -4682,7 +4664,7 @@ static struct mallinfo internal_mallinfo(mstate m) {
   struct mallinfo nm = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   ensure_initialization();
   if (!PREACTION(m)) {
-    //check_malloc_state(m);
+    check_malloc_state(m);
     if (is_initialized(m)) {
       size_t nfree = SIZE_T_ONE; /* top always free */
       size_t mfree = m->topsize + TOP_FOOT_SIZE;
@@ -4725,7 +4707,7 @@ static void internal_malloc_stats(mstate m) {
     size_t maxfp = 0;
     size_t fp = 0;
     size_t used = 0;
-    //check_malloc_state(m);
+    check_malloc_state(m);
     if (is_initialized(m)) {
       msegmentptr s = &m->seg;
       maxfp = m->max_footprint;
@@ -5064,6 +5046,7 @@ static void internal_malloc_stats(mstate m) {
 static void* mmap_alloc(mstate m, size_t nb) {
   size_t mmsize = mmap_align(nb + SIX_SIZE_T_SIZES + CHUNK_ALIGN_MASK);
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   if (m->footprint_limit != 0) {
     size_t fp = m->footprint + mmsize;
     if (fp <= m->footprint || fp > m->footprint_limit)
@@ -5101,6 +5084,7 @@ static void* mmap_alloc(mstate m, size_t nb) {
 static mchunkptr mmap_resize(mstate m, mchunkptr oldp, size_t nb, int flags) {
   size_t oldsize = chunksize(oldp);
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mmap_resize; //add by casper
   (void)flags; /* placate people compiling -Wunused */
   if (is_small(nb)) /* Can't shrink mmap regions below small size */
@@ -5190,6 +5174,7 @@ static void* prepend_alloc(mstate m, char* newbase, char* oldbase,
   mchunkptr q = chunk_plus_offset(p, nb);
   size_t qsize = psize - nb;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   set_size_and_pinuse_of_inuse_chunk(m, p, nb);
   chunk_Debug.record_function = action_prepend_alloc; //add by casper
   CHUNK_ERROR_DETECTION((char*)oldfirst > (char*)q,m,&chunk_Debug,q,chunk_free,chunk_member_head_size);//FIXME//assert((char*)oldfirst > (char*)q);
@@ -5242,6 +5227,7 @@ static void add_segment(mstate m, char* tbase, size_t tsize, flag_t mmapped) {
   mchunkptr p = tnext;
   int nfences = 0;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_add_segment; //add by casper
   /* reset top to new space */
   init_top(m, (mchunkptr)tbase, tsize - TOP_FOOT_SIZE);
@@ -5288,6 +5274,7 @@ static void* sys_alloc(mstate m, size_t nb) {
   flag_t mmap_flag = 0;
   size_t asize; /* allocation size */
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_sys_alloc; //add by casper
 
   ensure_initialization();
@@ -5509,6 +5496,7 @@ static size_t release_unused_segments(mstate m) {
   msegmentptr pred = &m->seg;
   msegmentptr sp = pred->next;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_release_unused_segment; //add by casper
   while (sp != 0) {
     char* base = sp->base;
@@ -5555,6 +5543,7 @@ static size_t release_unused_segments(mstate m) {
 static int sys_trim(mstate m, size_t pad) {
   size_t released = 0;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_sys_trim; //add by casper
   ensure_initialization();
   if (pad < MAX_REQUEST && is_initialized(m)) {
@@ -5702,6 +5691,7 @@ static void* tmalloc_large(mstate m, size_t nb) {
   bindex_t idx;
   compute_tree_index(nb, idx);
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_tmalloc_large; //add by casper
 
   if ((t = *treebin_at(m, idx)) != 0) {
@@ -5777,6 +5767,7 @@ static void* tmalloc_small(mstate m, size_t nb) {
   bindex_t i;
   binmap_t leastbit = least_bit(m->treemap);
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_tmalloc_small; //add by casper 
   compute_bit2idx(leastbit, i);
   v = t = *treebin_at(m, i);
@@ -5974,7 +5965,7 @@ void dlfree(void* mem) {
     mstate fm = get_mstate_for(p);
     if (!ok_magic_checkM(fm,gm)) {
        CHUNK_ERROR_DETECTION(ok_magic_checkM(fm,gm),gm,&chunk_Debug,p,chunk_Inuse,mstate_magic);//USAGE_ERROR_ACTION(fm, p);
-       USAGE_ERROR_ACTION(fm, p);
+      USAGE_ERROR_ACTION(fm, p);
       return;
     }
 #else /* FOOTERS */
@@ -6446,6 +6437,7 @@ static void internal_inspect_all(mstate m,
     mchunkptr top = m->top;
     msegmentptr s;
     struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
     chunk_Debug.record_function = action_internal_inspect_all; //add by casper
 
     for (s = &m->seg; s != 0; s = s->next) {
@@ -6516,7 +6508,7 @@ void* dlrealloc(void* oldmem, size_t bytes) {
     if (!PREACTION(m)) {
       mchunkptr newp = try_realloc_chunk(m, oldp, nb, 1);
       if (newp != 0) {
-	 check_inuse_chunk(m, newp,&chunk_Debug); //add by casperli
+	check_inuse_chunk(m, newp,&chunk_Debug); //add by casperli
       }
       POSTACTION(m);
       if (newp != 0) {
@@ -6718,6 +6710,7 @@ size_t dlmalloc_usable_size(const void* mem) {
 static mstate init_user_mstate(char* tbase, size_t tsize) {
   size_t msize = pad_request(sizeof(struct malloc_state));
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_init_user_mstate;  
   mchunkptr mn;
   mchunkptr msp = align_as_chunk(tbase);
@@ -6794,6 +6787,7 @@ size_t destroy_mspace(mspace msp) {
   size_t freed = 0;
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_destroy_mspace;
   if (ok_magic(ms)) {
     msegmentptr sp = &ms->seg;
@@ -6811,8 +6805,8 @@ size_t destroy_mspace(mspace msp) {
   }
   else {
      CHUNK_ERROR_DETECTION(ok_magic(ms),ms,&chunk_Debug,ms,structure_mstate,mstate_magic);//USAGE_ERROR_ACTION(ms,ms);
-     USAGE_ERROR_ACTION(ms,ms);
- }
+    USAGE_ERROR_ACTION(ms,ms);
+  }
   return freed;
 }
 
@@ -6820,13 +6814,14 @@ size_t destroy_mspace(mspace msp) {
 /*
   BEGIN mtk-added: mtk_mspace_malloc/free used by debug 15 internaly
 */
-#ifdef HAVE_MALLOC_DEBUG_FEATURE
+
 /*
   mtk_mspace_malloc/free is nearly a clone version of mspace_malloc/free
 */
 void* mtk_mspace_malloc(mspace msp, size_t bytes) {
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspaceMalloc; //add by casper
 
   if (!ok_magic(ms)) {
@@ -6950,6 +6945,7 @@ void* mtk_mspace_malloc(mspace msp, size_t bytes) {
 
 void mtk_mspace_free(mspace msp, void* mem) {
 struct ChunkDebug_Info chunk_Debug;
+(void)chunk_Debug;//avoid stupid warning
   	chunk_Debug.record_function = action_mspaceFree; //add by casper
   if (mem != 0) {
     mchunkptr p  = mem2chunk(mem);
@@ -6989,7 +6985,7 @@ struct ChunkDebug_Info chunk_Debug;
             p = prev;
             if (RTCHECK(ok_address(fm, prev))) { /* consolidate backward */
               if (p != fm->dv) {
-                unlink_chunk(fm, p, prevsize,&chunk_Debug);
+               unlink_chunk(fm, p, prevsize,&chunk_Debug);
               }
               else if ((next->head & INUSE_BITS) == INUSE_BITS) {
                 fm->dvsize = psize;
@@ -7063,22 +7059,24 @@ struct ChunkDebug_Info chunk_Debug;
     }
   }
 }
-#endif //#ifdef HAVE_MALLOC_DEBUG_HEATURE
 /*
   END mtk-added
 */
 
+
 /*
   BEGIN mtk-added: back trace recording function for debug 16
 */
-#ifdef HAVE_MSPACE_DEBUG_FEATURE	
-// TODO: keep following code only in eng load
-extern void (*mspace_malloc_stat) (void *, size_t);
-extern void (*mspace_free_stat) (void *);
-#endif //#ifdef HAVE_MSPACE_DEBUG_FEATURE	
+
+#ifdef DLMALLOC_DEBUG
+extern void (*mspace_malloc_stat) (void *, size_t)  __attribute__((weak));
+extern void (*mspace_free_stat) (void *)  __attribute__((weak));
+#endif
+
 /*
   END mtk-added
 */
+
 
 /*
   mspace versions of routines are near-clones of the global
@@ -7088,6 +7086,7 @@ extern void (*mspace_free_stat) (void *);
 void* mspace_malloc(mspace msp, size_t bytes) {
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspaceMalloc; //add by casper
   if (!ok_magic(ms)) {
     CHUNK_ERROR_DETECTION(ok_magic(ms),ms,&chunk_Debug,ms,structure_mstate,mstate_magic);//USAGE_ERROR_ACTION(ms,ms);
@@ -7206,15 +7205,15 @@ void* mspace_malloc(mspace msp, size_t bytes) {
 /*
   BEGIN mtk-added: back trace recording function for debug 16
 */
-#ifdef HAVE_MSPACE_DEBUG_FEATURE	
-// TODO: keep following code only on eng load
-    if((*mspace_malloc_stat) != NULL) {
+#ifdef DLMALLOC_DEBUG	
+    if(&mspace_malloc_stat != NULL && *mspace_malloc_stat != NULL) {
         (*mspace_malloc_stat)(mem, bytes);
     } 
+#endif
 /*
   END mtk-added
 */
-#endif
+
 
     return mem;
   }
@@ -7224,13 +7223,13 @@ void* mspace_malloc(mspace msp, size_t bytes) {
 
 void mspace_free(mspace msp, void* mem) {
  struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspaceFree; //add by casper
 /*
   BEGIN mtk-added: back trace recording function for debug 16
 */
-#ifdef HAVE_MSPACE_DEBUG_FEATURE	
-// TODO: keep following code only on eng load
-    if((*mspace_free_stat) != NULL) {
+#ifdef DLMALLOC_DEBUG
+    if(&mspace_free_stat != NULL && *mspace_free_stat != NULL) {
         (*mspace_free_stat)(mem);
     }
 #endif
@@ -7361,6 +7360,7 @@ void* mspace_calloc(mspace msp, size_t n_elements, size_t elem_size) {
   size_t req = 0;
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspaceCalloc; //add by casper
   if (!ok_magic(ms)) {
     CHUNK_ERROR_DETECTION(ok_magic(ms),ms,&chunk_Debug,ms,chunk_Inuse,mstate_magic);//USAGE_ERROR_ACTION(ms,ms);
@@ -7381,6 +7381,7 @@ void* mspace_calloc(mspace msp, size_t n_elements, size_t elem_size) {
 
 void* mspace_realloc(mspace msp, void* oldmem, size_t bytes) {
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspaceRealloc; //add by casper
   void* mem = 0;
   if (oldmem == 0) {
@@ -7437,6 +7438,7 @@ void* mspace_realloc(mspace msp, void* oldmem, size_t bytes) {
 void* mspace_realloc_in_place(mspace msp, void* oldmem, size_t bytes) {
   void* mem = 0;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspace_realloc_in_place; //add by casper
 
   if (oldmem != 0) {
@@ -7480,6 +7482,7 @@ void* mspace_realloc_in_place(mspace msp, void* oldmem, size_t bytes) {
 void* mspace_memalign(mspace msp, size_t alignment, size_t bytes) {
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspace_memalign; //add by casper 
   if (!ok_magic(ms)) {
     CHUNK_ERROR_DETECTION(ok_magic(ms),ms,&chunk_Debug,ms,structure_mstate,mstate_magic);//USAGE_ERROR_ACTION(ms,ms);
@@ -7530,6 +7533,7 @@ void mspace_inspect_all(mspace msp,
                                        void* callback_arg),
                         void* arg) {
  struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
         chunk_Debug.record_function = action_mspace_independent_comalloc; //add by casper
   mstate ms = (mstate)msp;
   if (ok_magic(ms)) {
@@ -7549,6 +7553,7 @@ int mspace_trim(mspace msp, size_t pad) {
   int result = 0;
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspace_trim; //add by casper 
   if (ok_magic(ms)) {
     if (!PREACTION(ms)) {
@@ -7567,6 +7572,7 @@ int mspace_trim(mspace msp, size_t pad) {
 void mspace_malloc_stats(mspace msp) {
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspace_malloc_stats; //add by casper   
   if (ok_magic(ms)) {
     internal_malloc_stats(ms);
@@ -7581,6 +7587,7 @@ void mspace_malloc_stats(mspace msp) {
 size_t mspace_footprint(mspace msp) {
   size_t result = 0;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspace_footprint; //add by casper  
   mstate ms = (mstate)msp;
   if (ok_magic(ms)) {
@@ -7596,6 +7603,7 @@ size_t mspace_footprint(mspace msp) {
 size_t mspace_max_footprint(mspace msp) {
   size_t result = 0;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspace_max_footprint; //add by casper 
   mstate ms = (mstate)msp;
   if (ok_magic(ms)) {
@@ -7611,6 +7619,7 @@ size_t mspace_max_footprint(mspace msp) {
 size_t mspace_footprint_limit(mspace msp) {
   size_t result = 0;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function = action_mspace_footprint_limit; //add by casper
   mstate ms = (mstate)msp;
   if (ok_magic(ms)) {
@@ -7628,6 +7637,7 @@ size_t mspace_set_footprint_limit(mspace msp, size_t bytes) {
   size_t result = 0;
   mstate ms = (mstate)msp;
   struct ChunkDebug_Info chunk_Debug;
+  (void)chunk_Debug; //avoid stupid warning
   chunk_Debug.record_function =  action_mspace_set_footprint_limit; //add by casper
   if (ok_magic(ms)) {
     if (bytes == 0)

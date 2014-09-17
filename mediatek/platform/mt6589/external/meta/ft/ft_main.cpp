@@ -113,6 +113,7 @@
 #include "FT_Public.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <DfoDefines.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -125,6 +126,105 @@ extern "C" {
 int g_fdUsbComPort = -1;
 
 void FTMuxPrimitiveData(META_RX_DATA *pMuxBuf);
+
+int FT_GetModemType(int * active_modem_id, int * modem_type)
+{
+	int modem_number =0;	
+	bool isactive = false;
+	if(active_modem_id == NULL)
+	{
+		META_LOG("Invalid parameter active_modem_id");
+		return -1;
+	}
+
+	if(modem_type == NULL)
+	{
+		META_LOG("Invalid parameter modem_type");
+		return -1;	
+	}
+
+	*active_modem_id = 0;
+	*modem_type = 0;
+
+	if(MTK_ENABLE_MD1)
+	{
+		*modem_type |= 0x01;	
+		modem_number++;
+		if(!isactive)
+		{
+			*active_modem_id = 1;
+			isactive = true;
+		}
+		META_LOG("MTK_ENABLE_MD1 is true");
+	}
+
+	if(MTK_ENABLE_MD2)
+	{
+		*modem_type |= 0x02;
+		modem_number++;
+		if(!isactive)
+		{
+			*active_modem_id = 2;
+			isactive = true;
+		}
+		META_LOG("MTK_ENABLE_MD2 is true");
+	}
+
+	if(MTK_ENABLE_MD5)
+	{
+		*modem_type |= 0x10;	
+		modem_number++;
+		if(!isactive)
+		{
+			*active_modem_id = 5;
+			isactive = true;
+		}
+		META_LOG("MTK_ENABLE_MD5 is true");
+	}
+
+	META_LOG("modem_type: %d", *modem_type);
+	META_LOG("modem_number: %d", modem_number);
+	META_LOG("active_modem_id: %d", *active_modem_id);
+	
+	return modem_number;		
+}
+
+int FT_GetModemCapability(MODEM_CAPABILITY_LIST * modem_capa)
+{
+
+	int modem_type = 0;
+	int active_modem_id = 0;
+	int mode_mnumber = 0;
+	
+	mode_mnumber = FT_GetModemType(&active_modem_id,&modem_type);
+
+	if((modem_type & 0x01) == 0x01)
+	{
+		modem_capa->modem_cap[0].md_service = FT_MODEM_SRV_TST;
+		modem_capa->modem_cap[0].ch_type = FT_MODEM_CH_NATIVE_TST;	
+	}
+
+
+	if((modem_type & 0x02) == 0x02)
+	{
+		modem_capa->modem_cap[1].md_service = FT_MODEM_SRV_TST;
+		modem_capa->modem_cap[1].ch_type = FT_MODEM_CH_NATIVE_TST;	
+	}
+
+	if((modem_type & 0x10) == 0x10)
+	{
+	#ifdef MTK_LTE_SUPPORT
+	    modem_capa->modem_cap[4].md_service = FT_MODEM_SRV_DHL;
+	    modem_capa->modem_cap[4].ch_type = FT_MODEM_CH_TUNNELING;
+	#else
+		modem_capa->modem_cap[4].md_service = FT_MODEM_SRV_TST;
+		modem_capa->modem_cap[4].ch_type = FT_MODEM_CH_NATIVE_TST;
+	#endif
+	META_LOG("modem_cap[4]%d,%d",modem_capa->modem_cap[4].md_service,modem_capa->modem_cap[4].ch_type);
+	}
+
+	return 1;
+}
 
 /********************************************************************************
 //FUNCTION:
@@ -148,7 +248,6 @@ void FTMuxPrimitiveData(META_RX_DATA *pMuxBuf);
 
 int FTT_Init(int dwContext)
 {
-    FT_Module_Init();
     g_fdUsbComPort = dwContext;
     FT_LOG("[FTT_Drv:] FT Init... ");
     return 1;
@@ -376,6 +475,9 @@ void FT_DispatchMessage(void *pLocalBuf, void *pPeerBuf, int local_len, int peer
 
 		case FT_SIM_NUM_REQ_ID:
 			FT_SIM_NUM_OP((FT_GET_SIM_REQ *)pLocalBuf,(char *)pft_PeerBuf, ft_peer_len);
+			break;
+        case FT_ADC_REQ_ID:
+			FT_ADC_OP((ADC_REQ *)pLocalBuf, (char *)pft_PeerBuf, ft_peer_len);
 			break;
         default:
             //printf((TEXT("[FTT_Drv:] FTMainThread Error:!!! ID: %hu "), ft_header->id));

@@ -42,15 +42,15 @@
 #define DEBUG 0
 
 #if DEBUG
-#  include <logd.h>
+#  include "libc_logging.h"
 #  include <unistd.h>  /* for gettid() */
-#  define D(...)  __libc_android_log_print(ANDROID_LOG_DEBUG,"libc", __VA_ARGS__)
+#  define D(...) __libc_format_log(ANDROID_LOG_DEBUG,"libc", __VA_ARGS__)
 #else
 #  define D(...)  do{}while(0)
 #endif
 
 static pthread_key_t   _res_key;
-static pthread_once_t  _res_once;
+static pthread_once_t  _res_once = PTHREAD_ONCE_INIT;
 
 typedef struct {
     int                  _h_errno;
@@ -71,7 +71,7 @@ _res_thread_alloc(void)
         rt->_serial = 0;
         rt->_pi = (struct prop_info*) __system_property_find("net.change");
         if (rt->_pi) {
-            rt->_serial = rt->_pi->serial;
+            rt->_serial = __system_property_serial(rt->_pi);
         }
         memset(rt->_rstatic, 0, sizeof rt->_rstatic);
     }
@@ -135,14 +135,14 @@ _res_thread_get(void)
                 return rt;
             }
         }
-        if (rt->_serial == rt->_pi->serial) {
+        if (rt->_serial == __system_property_serial(rt->_pi)) {
             /* Nothing changed, so return the current state */
             D("%s: tid=%d rt=%p nothing changed, returning",
               __FUNCTION__, gettid(), rt);
             return rt;
         }
         /* Update the recorded serial number, and go reset the state */
-        rt->_serial = rt->_pi->serial;
+        rt->_serial = __system_property_serial(rt->_pi);
         goto RESET_STATE;
     }
 

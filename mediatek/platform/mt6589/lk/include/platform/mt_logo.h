@@ -60,6 +60,7 @@ void mt_disp_show_battery_full(void);
 void mt_disp_show_battery_capacity(UINT32 capacity);
 void mt_disp_show_boot_logo(void);
 void mt_disp_show_low_battery(void);
+void mt_disp_show_charger_ov_logo(void);
 
 
 #ifdef __cplusplus

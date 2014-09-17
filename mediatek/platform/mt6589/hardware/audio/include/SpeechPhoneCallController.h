@@ -11,7 +11,8 @@
 #include "SpeechDriverFactory.h"
 
 
-enum tty_mode_t {
+enum tty_mode_t
+{
     AUD_TTY_OFF  =  0,
     AUD_TTY_FULL =  1,
     AUD_TTY_VCO  =  2,
@@ -38,6 +39,7 @@ class SpeechPhoneCallController
 
 
         virtual bool            CheckTtyNeedOn() const;
+        virtual bool            CheckSideToneFilterNeedOn(const audio_devices_t output_device) const;
 
         virtual tty_mode_t      GetTtyCtmMode() const { return mTty_Ctm; }
         virtual status_t        SetTtyCtmMode(const tty_mode_t tty_mode, const audio_mode_t audio_mode);
@@ -47,6 +49,7 @@ class SpeechPhoneCallController
 
         virtual void            SetVtNeedOn(const bool vt_on);
         virtual void            SetMicMute(const bool mute_on);
+        virtual void            SetBTMode(const int mode);
 
     protected:
         SpeechPhoneCallController();
@@ -86,6 +89,7 @@ class SpeechPhoneCallController
         bool mVtNeedOn;
 
         bool mMicMute;
+        uint32_t mBTMode;
 };
 
 } // end namespace android

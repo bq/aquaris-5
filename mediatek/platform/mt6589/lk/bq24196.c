@@ -4,6 +4,10 @@
 #include <platform/bq24196.h>
 #include <printf.h>
 
+#ifdef MTK_BATTERY_I2C_CUST
+#include <target/cust_battery_i2c.h>
+#endif
+
 int g_bq24196_log_en=0;
 
 /**********************************************************
@@ -22,6 +26,10 @@ int g_bq24196_log_en=0;
 #define bq24196_REG_NUM 11
 kal_uint8 bq24196_reg[bq24196_REG_NUM] = {0};
 
+#ifndef BQ24196_BUSNUM
+#define BQ24196_BUSNUM I2C4
+#endif
+
 /**********************************************************
   *
   *   [I2C Function For Read/Write bq24196] 
@@ -31,11 +39,11 @@ U32 bq24196_i2c_read (U8 chip, U8 *cmdBuffer, int cmdBufferLen, U8 *dataBuffer, 
 {
     U32 ret_code = I2C_OK;
     	
-    ret_code = mt_i2c_write(I2C4, chip, cmdBuffer, cmdBufferLen, 1);	 // set register command
+    ret_code = mt_i2c_write(BQ24196_BUSNUM, chip, cmdBuffer, cmdBufferLen, 1);	 // set register command
     if (ret_code != I2C_OK)
     return ret_code;
     
-    ret_code = mt_i2c_read(I2C4, chip, dataBuffer, dataBufferLen, 1);
+    ret_code = mt_i2c_read(BQ24196_BUSNUM, chip, dataBuffer, dataBufferLen, 1);
     	
     //printf("[fan5405_i2c_read] Done\n");
     	
@@ -78,7 +86,7 @@ U32 bq24196_i2c_write (U8 chip, U8 *cmdBuffer, int cmdBufferLen, U8 *dataBuffer,
         //printf("[bq24196_i2c_write] write_data[%d]=%x\n", i, write_data[i]);
     }
     	
-    ret_code = mt_i2c_write(I2C4, chip, write_data, transfer_len, 1);
+    ret_code = mt_i2c_write(BQ24196_BUSNUM, chip, write_data, transfer_len, 1);
     	
     //printf("[bq24196_i2c_write] Done\n");
 	
@@ -275,6 +283,19 @@ void bq24196_set_ichg(kal_uint32 val)
                                     );
     if(g_bq24196_log_en>1)        
         printf("%d\n", ret);		
+}
+
+void bq24196_set_force_20pct(kal_uint32 val)
+{
+    kal_uint32 ret=0;    
+
+    ret=bq24196_config_interface(   (kal_uint8)(bq24196_CON2), 
+                                    (kal_uint8)(val),
+                                    (kal_uint8)(CON2_FORCE_20PCT_MASK),
+                                    (kal_uint8)(CON2_FORCE_20PCT_SHIFT)
+                                    );
+    if(g_bq24196_log_en>1)        
+        printf("%d\n", ret);
 }
 
 //CON3----------------------------------------------------

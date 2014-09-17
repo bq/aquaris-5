@@ -1692,7 +1692,7 @@ nicCmdEventBuildDateCode (
 
 /*----------------------------------------------------------------------------*/
 /*!
-* @brief This function is called when event for query FW bss info
+* @brief This function is called when event for query STA link status
 *        has been retrieved
 *
 * @param prAdapter          Pointer to the Adapter structure.
@@ -1703,47 +1703,53 @@ nicCmdEventBuildDateCode (
 *
 */
 /*----------------------------------------------------------------------------*/
-
 VOID
-nicCmdEventGetBSSInfo (
+nicCmdEventQueryStaStatistics (
     IN P_ADAPTER_T  prAdapter,
     IN P_CMD_INFO_T prCmdInfo,
     IN PUINT_8      pucEventBuf
     )
 {
     UINT_32 u4QueryInfoLen;
-    P_EVENT_AIS_BSS_INFO_T prEvent;
+    P_EVENT_STA_STATISTICS_T prEvent;
     P_GLUE_INFO_T prGlueInfo;
-    P_BSS_INFO_T prAisBssInfo;
+    P_PARAM_GET_STA_STATISTICS prStaStatistics;
 
     ASSERT(prAdapter);
-
     ASSERT(prCmdInfo);
     ASSERT(pucEventBuf);
+    ASSERT(prCmdInfo->pvInformationBuffer);
 
-    //4 <2> Update information of OID
     if (prCmdInfo->fgIsOid) {
         prGlueInfo = prAdapter->prGlueInfo;
-        prEvent = (P_EVENT_AIS_BSS_INFO_T)pucEventBuf;
+        prEvent = (P_EVENT_STA_STATISTICS_T)pucEventBuf;
+        prStaStatistics = (P_PARAM_GET_STA_STATISTICS)prCmdInfo->pvInformationBuffer;
 
-        u4QueryInfoLen = sizeof(EVENT_AIS_BSS_INFO_T);
-        kalMemCopy(prCmdInfo->pvInformationBuffer, prEvent, sizeof(EVENT_AIS_BSS_INFO_T));
-        prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
+        u4QueryInfoLen = sizeof(PARAM_GET_STA_STA_STATISTICS);
 
-    if(prEvent->eCurrentOPMode == OP_MODE_INFRASTRUCTURE){
-        if (prEvent->eConnectionState != prAisBssInfo->eConnectionState) {
-            DBGLOG(INIT, ERROR, ("driver[%d] & FW[%d] status didn't sync !!!\n",
-                    prAisBssInfo->eConnectionState, prEvent->eCurrentOPMode));
-            aisFsmStateAbort(prAdapter, DISCONNECT_REASON_CODE_RADIO_LOST, FALSE);
+        /* Statistics from FW is valid */
+        if(prEvent->u4Flags & BIT(0)) {
+            prStaStatistics->ucPer = prEvent->ucPer;
+            prStaStatistics->ucRcpi = prEvent->ucRcpi;
+            prStaStatistics->u4PhyMode = prEvent->u4PhyMode;
+            prStaStatistics->u2LinkSpeed = prEvent->u2LinkSpeed;
+            
+            prStaStatistics->u4TxFailCount = prEvent->u4TxFailCount;
+            prStaStatistics->u4TxLifeTimeoutCount = prEvent->u4TxLifeTimeoutCount;
+
+            if(prEvent->u4TxCount) {
+                UINT_32 u4TxDoneAirTimeMs = USEC_TO_MSEC(prEvent->u4TxDoneAirTime * 32);
+                
+                prStaStatistics->u4TxAverageAirTime = (u4TxDoneAirTimeMs / prEvent->u4TxCount);
+            }
+            else {
+                prStaStatistics->u4TxAverageAirTime = 0;
+            }            
         }
-    }
-
+        
         kalOidComplete(prGlueInfo, prCmdInfo->fgSetQuery, u4QueryInfoLen, WLAN_STATUS_SUCCESS);
     }
-
-    return;
+    
 }
-
-
 
 

@@ -130,10 +130,13 @@ const NVRAM_LENS_PARA_STRUCT OV8825AF_LENS_PARA_DEFAULT_VALUE =
            10, // i4THRES_SUB;            
            1,  // i4INIT_WAIT;
            {500, 500, 500, 500, 500}, // i4FRAME_WAIT
-           0,  // i4DONE_WAIT;                    
+           0,  // i4DONE_WAIT;
+                     
            0,  // i4FAIL_POS;
+
            66,  // i4FRAME_TIME                                  
-           5,  // i4FIRST_FV_WAIT;                     
+           5,  // i4FIRST_FV_WAIT;
+                     
            45,  // i4FV_CHANGE_THRES;
            10000,  // i4FV_CHANGE_OFFSET;        
            12,  // i4FV_CHANGE_CNT;

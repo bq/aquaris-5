@@ -34,6 +34,8 @@
 
 #include "tpd_custom_gt9xx.h"
 
+#include <linux/device.h>
+#include <linux/proc_fs.h>  /*proc*/
 
 #pragma pack(1)
 typedef struct
@@ -78,6 +80,22 @@ static s32(*tool_i2c_write)(u8 *, u16);
 
 s32 DATA_LENGTH = 0;
 s8 IC_TYPE[16] = {0};
+static ssize_t goodix_tool_upper_read(struct file *file, char __user *buffer,
+			  size_t count, loff_t *ppos)
+{
+  return goodix_tool_read(buffer, NULL,0, count, NULL, ppos);	
+}			  
+			  
+static ssize_t  goodix_tool_upper_write(struct file *file, const char __user *buffer,
+			   size_t count, loff_t *ppos)  
+{
+  return goodix_tool_write(file, buffer, count, ppos);
+}
+
+static const struct file_operations gt_tool_fops = { 
+    .write = goodix_tool_upper_read,
+    .read = goodix_tool_upper_write
+};
 
 static s32 tool_i2c_read_no_extra(u8 *buf, u16 len)
 {
@@ -155,6 +173,8 @@ static void unregister_i2c_func(void)
 s32 init_wr_node(struct i2c_client *client)
 {
     s32 i;
+    const s8 entry_prefix[] = "GMNode_";
+    s8 gtp_tool_entry[30];
 
     gt_client = i2c_client_point;
     GTP_INFO("client %d.%d", (int)gt_client, (int)client);
@@ -192,7 +212,14 @@ s32 init_wr_node(struct i2c_client *client)
 
     register_i2c_func();
 
-    goodix_proc_entry = create_proc_entry(GOODIX_ENTRY_NAME, 0666, NULL);
+ //   goodix_proc_entry = create_proc_entry(GOODIX_ENTRY_NAME, 0664, NULL);
+ 
+    memset(gtp_tool_entry, 0, sizeof(gtp_tool_entry));
+    i = sizeof(entry_prefix)/sizeof(s8);
+    memcpy(gtp_tool_entry, entry_prefix, i-1);
+    memcpy(&gtp_tool_entry[i-1], __DATE__, sizeof(__DATE__)/sizeof(s8));
+#if 0 // fix 3.10
+    goodix_proc_entry = create_proc_entry(gtp_tool_entry, 0664, NULL);
 
     if (goodix_proc_entry == NULL)
     {
@@ -205,7 +232,13 @@ s32 init_wr_node(struct i2c_client *client)
         goodix_proc_entry->write_proc = goodix_tool_write;
         goodix_proc_entry->read_proc = goodix_tool_read;
     }
-
+#else
+    if(proc_create(GOODIX_ENTRY_NAME, 0660, NULL, &gt_tool_fops)== NULL)
+	{
+        GTP_ERROR("create_proc_entry %s failed", gtp_tool_entry);
+		return -1;
+    }	
+#endif
     return SUCCESS;
 }
 

@@ -10,7 +10,8 @@ namespace android
 {
 
 // for loopback
-enum loopback_t {
+enum loopback_t
+{
     NO_LOOPBACK                                 = 0,
 
     // AFE Loopback
@@ -30,7 +31,8 @@ enum loopback_t {
     MD_BT_LOOPBACK                              = 31,
 };
 
-enum loopback_output_device_t {
+enum loopback_output_device_t
+{
     LOOPBACK_OUTPUT_RECEIVER = 1,
     LOOPBACK_OUTPUT_EARPHONE = 2,
     LOOPBACK_OUTPUT_SPEAKER  = 3,
@@ -66,6 +68,8 @@ class LoopbackManager
         sph_enh_mask_struct_t mMaskCopy;
 
         modem_index_t mWorkingModemIndex;
+
+        bool mBtHeadsetNrecOnCopy;
 
     private:
         static LoopbackManager *mLoopbackManager; // singleton

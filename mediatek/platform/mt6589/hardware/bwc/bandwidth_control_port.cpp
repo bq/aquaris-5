@@ -23,6 +23,77 @@
 /*=============================================================================
     SMI Bandwidth Control
   =============================================================================*/
+BWC_MONITOR::BWC_MONITOR(){
+    this->smi_fd = -1;
+    this->start();
+}
+
+BWC_MONITOR::~BWC_MONITOR(){
+    this->stop();
+}
+
+int BWC_MONITOR::start(){
+    if(this->smi_fd == -1){
+        //BWC_INFO("Start BWC_NONITOR");
+        this->smi_fd = open("/dev/MTK_SMI", O_RDONLY);
+        
+        if( this->smi_fd == -1 ){
+            BWC_ERROR("Open SMI(/dev/MTK_SMI) driver file failed.:%s\n", strerror(errno));
+            return -1;
+        }else{
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int BWC_MONITOR::stop(){
+    if(this->smi_fd != -1){
+        close(smi_fd);
+    }
+    //BWC_INFO("Stop BWC_NONITOR");
+    this->smi_fd = -1;
+    return 0;
+}
+
+unsigned int BWC_MONITOR::get_smi_bw_state(){
+    // The parameter passing to driver
+    MTK_SMI_BWC_STATE bwc_state;
+    // To save the query result
+    unsigned int hwc_max_pixel_read = 0;
+    // Init the return address
+    bwc_state.hwc_max_pixel = &hwc_max_pixel_read;
+    
+
+    if( this->smi_fd == -1 )
+    {
+        // Open device again
+        this->smi_fd = open("/dev/MTK_SMI", O_RDWR);
+        // FD leak may happen 
+        if( this->smi_fd == -1 ){
+            BWC_ERROR("get_smi_bw_state: Open SMI(/dev/MTK_SMI) failed.:%s\n", strerror(errno));
+            return -1;
+        }
+    }
+    
+    if( ioctl( this->smi_fd, MTK_IOC_SMI_BWC_STATE , &bwc_state ) < 0 )
+    {
+        BWC_ERROR("MTK_IOC_SMI_BWC_STATE failed.:%s\n" , strerror(errno) );
+        close(this->smi_fd);
+        this->smi_fd = -1;
+        BWC_INFO("smi_bw_state: max HWC pixel unavailable");
+        return -1; 
+    }
+
+    if(bwc_state.hwc_max_pixel == NULL){
+        BWC_ERROR("smi_bw_state: max HWC pixel unavailable");
+        return -1;
+    }else{
+        //BWC_INFO("smi_bw_state: max HWC pixel = %d", *(bwc_state.hwc_max_pixel) );
+        return *(bwc_state.hwc_max_pixel);    
+    }
+    
+}
 
 int BWC::smi_bw_ctrl_set( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYPE codec_type , bool bOn )
 {
@@ -38,9 +109,11 @@ int BWC::smi_bw_ctrl_set( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYPE codec_
         return -1;
     }
 
-
-    if( bOn )
-    {
+    cfg.b_on_off = ((0 < bOn) ? 1 : 0);
+    
+    // Let SMI driver to handle the on/ off events 
+    //if( bOn )
+    //{
         switch( profile_type )
         {
         case BWCPT_NONE:
@@ -52,7 +125,7 @@ int BWC::smi_bw_ctrl_set( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYPE codec_
         case BWCPT_VIDEO_NORMAL:
             cfg.scenario = SMI_BWC_SCEN_NORMAL;
             cfg.b_reduce_command_buffer = 0;
-            cfg.b_gpu_od = 1;
+            cfg.b_gpu_od = 0;
             break;
             
         case BWCPT_CAMERA_PREVIEW:
@@ -71,7 +144,7 @@ int BWC::smi_bw_ctrl_set( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYPE codec_
         case BWCPT_VIDEO_PLAYBACK:
             cfg.scenario = SMI_BWC_SCEN_VP1066;         /*SMI special setting*/
             cfg.b_reduce_command_buffer = 0;
-            cfg.b_gpu_od = 1;
+            cfg.b_gpu_od = 0;
             break;
 
         case BWCPT_VIDEO_TELEPHONY:
@@ -83,7 +156,7 @@ int BWC::smi_bw_ctrl_set( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYPE codec_
         case BWCPT_VIDEO_RECORD:
             cfg.scenario = SMI_BWC_SCEN_VR1066;         /*SMI special setting*/
             cfg.b_reduce_command_buffer = 1;
-            cfg.b_gpu_od = 1;
+            cfg.b_gpu_od = 0;
             break;
             
         case BWCPT_VIDEO_RECORD_CAMERA:
@@ -105,13 +178,13 @@ int BWC::smi_bw_ctrl_set( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYPE codec_
             break;
             
         }
-    }
-    else
-    {
-        cfg.scenario = SMI_BWC_SCEN_NORMAL;
-        cfg.b_reduce_command_buffer = 0;
-        cfg.b_gpu_od = 1;
-    }
+    //}
+    //else
+    //{
+    //    cfg.scenario = SMI_BWC_SCEN_NORMAL;
+    //    cfg.b_reduce_command_buffer = 0;
+    //    cfg.b_gpu_od = 1;
+    //}
 
 
     
@@ -123,8 +196,8 @@ int BWC::smi_bw_ctrl_set( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYPE codec_
         return -1; 
     }
 
-    BWC_INFO("smi_bw_ctrl_set: scen %d, reduce cmd %d\n", cfg.scenario, cfg.b_reduce_command_buffer );
-
+    BWC_INFO("smi_bw_ctrl_set: scen %d, reduce cmd %d, turn %s\n", cfg.scenario, cfg.b_reduce_command_buffer, (cfg.b_on_off ? "on" : "off"));
+    
     close(smi_fd);
     
     return 0;
@@ -139,10 +212,13 @@ static int emi_ctrl_str_generate( BWC_PROFILE_TYPE profile_type , BWC_VCODEC_TYP
     char *p_cmdstr_profile = NULL;
     char *p_cmdstr_switch  = NULL;
     
-    
+    // Doesn't support BWCPT_VIDEO_WIFI_DISPLAY and BWCPT_VIDEO_LIVE_PHOTO in 89
+    // So they are mapped to normal profile.
     switch( profile_type )
     {
     case BWCPT_VIDEO_NORMAL:
+    case BWCPT_VIDEO_WIFI_DISPLAY:
+    case BWCPT_VIDEO_LIVE_PHOTO:
         p_cmdstr_profile = (char*)"CON_SCE_NORMAL";
         break;
 
