@@ -11,12 +11,23 @@ clone the project:
 
 	$ git clone git@github.com:bq/aquaris-5.git
 
-After it, choose the version you would like to build:
+After it, choose the version you would like to build
 
-	$ cd aquaris-5/
-	$ git checkout 1.4.1-20140328-1139
+Jelly Bean: 1.x
+
+KitKat: 2.x
+
+    $ cd aquaris-5/
+
+    $ git checkout 2.0.0-20140910-1000
 
 
 Finally, build the kernel:
 
+Jelly Bean:
+
 	$ ./makeMtk -t eastaeon89_wet_jb2 n k
+
+KitKat:
+
+	$ ./makeMtk -t eastaeon89_wet_kk n k
