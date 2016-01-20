@@ -130,7 +130,7 @@ UMTS_RF_MODULE = CUSTOM_MT6167_SKY_128
   #   Non-switchable
 
 # ------------------------------ Verno information
-VERNO = MOLY.WR8.W1248.MD.WG.MP.V45.P4
+VERNO = MOLY.WR8.W1248.MD.WG.MP.V45.P5
 BUILD = BUILD_NO
 BRANCH = WR8.W1248.MD.WG.MP
 # ------------------------------ System configurations
